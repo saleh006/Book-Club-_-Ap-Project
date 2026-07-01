@@ -103,3 +103,25 @@ bool DatabaseManager::createTableForDiscounts()
     }
     return true;
 }
+
+bool DatabaseManager::createTableForReviews()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS reviews (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id   INTEGER NOT NULL,
+            book_id   INTEGER NOT NULL,
+            comment   TEXT,
+            rating    INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+            date      DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create reviews table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}

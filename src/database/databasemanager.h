@@ -41,6 +41,15 @@ struct Discount {
     QDateTime endDate;
 };
 
+struct Review {
+    int id = -1;
+    QString comment;
+    int rating = 0;
+    QDateTime date;
+    int userId = -1;
+    int bookId = -1;
+};
+
 class DatabaseManager
 {
 public:
@@ -77,11 +86,17 @@ public:
     bool addDiscount(const Discount &discount, QString &errorMsg);
     bool fetchActiveDiscount(int bookId, Discount &outDiscount, QString &errorMsg);
 
+    //reviews
+    bool addReview(const Review &review, QString &errorMsg);
+    bool fetchReviewsForBook(int bookId, QVector<Review> &outReviews, QString &errorMsg);
+    bool recalculateAverageRating(int bookId, QString &errorMsg);
+
 private:
     DatabaseManager() = default;
     bool createTableForUser();
     bool createTableForBooks();
     bool createTableForDiscounts();
+    bool createTableForReviews();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
 

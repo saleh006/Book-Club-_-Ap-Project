@@ -68,3 +68,57 @@ bool DatabaseManager::fetchActiveDiscount(int bookId,
     return true;
 }
 
+bool DatabaseManager::addReview(const Review &review, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare(R"(
+        INSERT INTO reviews (user_id, book_id, comment, rating)
+        VALUES (:uid, :bid, :comment, :rating)
+    )");
+    query.bindValue(":uid", review.userId);
+    query.bindValue(":bid", review.bookId);
+    query.bindValue(":comment", review.comment);
+    query.bindValue(":rating", review.rating);
+    if (!query.exec()) {
+        errorMsg = "Failed to add review: " + query.lastError().text();
+        return false;
+    }
+    return recalculateAverageRating(review.bookId, errorMsg);
+}
+
+bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReviews, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare("SELECT id, user_id, comment, rating, date FROM reviews WHERE book_id = :bid ORDER BY date DESC");
+    query.bindValue(":bid", bookId);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching reviews.";
+        return false;
+    }
+    outReviews.clear();
+    while (query.next()) {
+        Review r;
+        r.id = query.value("id").toInt();
+        r.userId = query.value("user_id").toInt();
+        r.bookId = bookId;
+        r.comment = query.value("comment").toString();
+        r.rating = query.value("rating").toInt();
+        r.date = query.value("date").toDateTime();
+        outReviews.push_back(r);
+    }
+    return true;
+}
+
+bool DatabaseManager::recalculateAverageRating(int bookId, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare("UPDATE books SET average_rating = (SELECT AVG(rating) FROM reviews WHERE book_id = :bid) WHERE id = :bid2");
+    query.bindValue(":bid", bookId);
+    query.bindValue(":bid2", bookId);
+    if (!query.exec()) {
+        errorMsg = "Failed to update average rating: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
