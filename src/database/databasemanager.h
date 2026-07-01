@@ -17,11 +17,25 @@ struct User
     QString recoveryAnswer;
 };
 
+struct Book {
+    int id = -1;
+    int publisherId = -1; // we should add this in uml
+    QString title;
+    QString author;
+    QString genre;
+    QString description;
+    double price = 0.0;
+    QString coverImagePath;
+    QString pdfPath;
+    bool isActive = true;
+    double averageRating = 0.0;
+    int totalSales = 0;
+};
+
 class DatabaseManager
 {
 public:
     static DatabaseManager &instance();
-
     bool initialize(const QString &dbPath);
 
     bool registerUser(const QString &username,
@@ -41,9 +55,22 @@ public:
 
     bool setUserBlocked(const QString &username, bool blocked, QString &errorMsg);
 
+    bool addBook(const Book &book, int &newBookId, QString &errorMsg);
+
+    bool updateBook(const Book &book, QString &errorMsg);
+
+    bool deleteBook(int bookId, QString &errorMsg);
+
+    bool fetchBook(int bookId, Book &outBook, QString &errorMsg);
+
+    bool fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, bool activeOnly = true);
+
+    bool fetchBooksByGenre(const QString &genre, QVector<Book> &outBooks, QString &errorMsg);
+
 private:
     DatabaseManager() = default;
     bool createTableForUser();
+    bool createTableForBooks();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
 
