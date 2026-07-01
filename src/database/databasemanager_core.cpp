@@ -82,3 +82,24 @@ bool DatabaseManager::createTableForBooks()
     }
     return true;
 }
+
+bool DatabaseManager::createTableForDiscounts()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+    CREATE TABLE IF NOT EXISTS discounts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id     INTEGER NOT NULL,
+        type        TEXT NOT NULL,
+        value       REAL NOT NULL,
+        start_date  DATETIME,
+        end_date    DATETIME,
+        FOREIGN KEY (book_id) REFERENCES books(id)
+    )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create discounts table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}

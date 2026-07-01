@@ -32,6 +32,14 @@ struct Book {
     int totalSales = 0;
 };
 
+struct Discount {
+    int id = -1;
+    int bookId = -1;
+    QString type;
+    double value = 0.0;
+    QDateTime startDate;
+    QDateTime endDate;
+};
 
 class DatabaseManager
 {
@@ -64,10 +72,16 @@ public:
     bool fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, bool activeOnly = true);
     bool fetchBooksByGenre(const QString &genre, QVector<Book> &outBooks, QString &errorMsg);
 
+    //discounts
+
+    bool addDiscount(const Discount &discount, QString &errorMsg);
+    bool fetchActiveDiscount(int bookId, Discount &outDiscount, QString &errorMsg);
+
 private:
     DatabaseManager() = default;
     bool createTableForUser();
     bool createTableForBooks();
+    bool createTableForDiscounts();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
 
