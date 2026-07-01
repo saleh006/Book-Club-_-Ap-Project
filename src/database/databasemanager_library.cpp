@@ -139,3 +139,55 @@ bool DatabaseManager::fetchOwnedBooks(int userId, QVector<Book> &outBooks, QStri
     }
     return true;
 } //purchased books feeds the NormalUser library
+
+bool DatabaseManager::addToWishlist(int userId, int bookId, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare("INSERT OR IGNORE INTO wishlist (user_id, book_id) VALUES (:uid, :bid)");
+    query.bindValue(":uid", userId);
+    query.bindValue(":bid", bookId);
+    if (!query.exec()) {
+        errorMsg = "Failed to add to wishlist: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::removeFromWishlist(int userId, int bookId, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare("DELETE FROM wishlist WHERE user_id = :uid AND book_id = :bid");
+    query.bindValue(":uid", userId);
+    query.bindValue(":bid", bookId);
+    if (!query.exec()) {
+        errorMsg = "Failed to remove from wishlist: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::fetchWishlist(int userId, QVector<Book> &outBooks, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare(R"(
+        SELECT b.* FROM books b
+        JOIN wishlist w ON w.book_id = b.id
+        WHERE w.user_id = :uid
+    )");
+    query.bindValue(":uid", userId);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching wishlist.";
+        return false;
+    }
+    outBooks.clear();
+    while (query.next()) {
+        Book b;
+        b.id = query.value("id").toInt();
+        b.title = query.value("title").toString();
+        b.author = query.value("author").toString();
+        b.price = query.value("price").toDouble();
+        b.coverImagePath = query.value("cover_image_path").toString();
+        outBooks.push_back(b);
+    }
+    return true;
+}

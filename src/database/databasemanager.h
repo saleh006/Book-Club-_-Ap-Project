@@ -126,6 +126,11 @@ public:
     bool fetchReadingProgress(int userId, int bookId, ReadingProgress &outProgress, QString &errorMsg);
     bool fetchOwnedBooks(int userId, QVector<Book> &outBooks, QString &errorMsg);
 
+    // wishlist
+    bool addToWishlist(int userId, int bookId, QString &errorMsg);
+    bool removeFromWishlist(int userId, int bookId, QString &errorMsg);
+    bool fetchWishlist(int userId, QVector<Book> &outBooks, QString &erroirMsg);
+
 
 
 private:
@@ -137,6 +142,7 @@ private:
     bool createTableForNotifications();
     bool createTableForShelves();
     bool createTableForReadingProgress();
+    bool createTableForWishlist();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
 
