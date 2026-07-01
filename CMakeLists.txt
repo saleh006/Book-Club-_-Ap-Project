@@ -22,6 +22,7 @@ qt_add_executable(Book-Club-_-Ap-Project
     src/database/databasemanager_social.cpp
     src/database/databasemanager_library.cpp
     src/database/databasemanager_cart.cpp
+    src/database/databasemanager_publisher.cpp
 )
 
 target_include_directories(Book-Club-_-Ap-Project PRIVATE
