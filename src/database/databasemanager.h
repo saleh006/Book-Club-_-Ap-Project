@@ -71,6 +71,20 @@ struct ReadingProgress {
     int lastPage = 0;
 };
 
+struct Purchase {
+    int id = -1;
+    int userId = -1;
+    double totalPrice = 0.0;
+    QDateTime purchaseDate;
+    QVector<int> bookIds;
+};
+
+struct CartItem {
+    int bookId = -1;
+    int quantity = 1;
+    double price = 0.0;
+};
+
 class DatabaseManager
 {
 public:
@@ -131,6 +145,15 @@ public:
     bool removeFromWishlist(int userId, int bookId, QString &errorMsg);
     bool fetchWishlist(int userId, QVector<Book> &outBooks, QString &erroirMsg);
 
+    // Shopping cart
+    bool addToCart(int userId, int bookId, int quantity, QString &errorMsg);
+    bool removeFromCart(int userId, int bookId, QString &errorMsg);
+    bool clearCart(int userId, QString &errorMsg);
+    bool fetchCart(int userId, QVector<CartItem> &outItems, double &totalPrice, QString &errorMsg);
+
+    // Purchases
+    bool checkoutCart(int userId, QString &errorMsg, int &purchaseId);
+    bool fetchPurchaseHistory(int userId, QVector<Purchase> &outPurchases, QString &errorMsg);
 
 
 private:
@@ -143,6 +166,8 @@ private:
     bool createTableForShelves();
     bool createTableForReadingProgress();
     bool createTableForWishlist();
+    bool createTableForCart();
+    bool createTableForPurchases();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
 

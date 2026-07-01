@@ -199,3 +199,58 @@ bool DatabaseManager::createTableForNotifications()
     return true;
 }
 
+bool DatabaseManager::createTableForCart()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS cart_items (
+            user_id    INTEGER NOT NULL,
+            book_id    INTEGER NOT NULL,
+            quantity   INTEGER NOT NULL DEFAULT 1,
+            added_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, book_id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create cart_items table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createTableForPurchases()
+{
+    QSqlQuery query(m_db);
+    const QString sql1 = R"(
+        CREATE TABLE IF NOT EXISTS purchases (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id        INTEGER NOT NULL,
+            total_price    REAL NOT NULL DEFAULT 0,
+            purchase_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    )";
+    if (!query.exec(sql1)) {
+        qWarning() << "Failed to create purchases table:" << query.lastError().text();
+        return false;
+    }
+    const QString sql2 = R"(
+        CREATE TABLE IF NOT EXISTS purchase_items (
+            purchase_id  INTEGER NOT NULL,
+            book_id      INTEGER NOT NULL,
+            quantity     INTEGER NOT NULL DEFAULT 1,
+            price_paid   REAL NOT NULL DEFAULT 0,
+            PRIMARY KEY (purchase_id, book_id),
+            FOREIGN KEY (purchase_id) REFERENCES purchases(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql2)) {
+        qWarning() << "Failed to create purchase_items table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
