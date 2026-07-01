@@ -104,6 +104,58 @@ bool DatabaseManager::createTableForDiscounts()
     return true;
 }
 
+bool DatabaseManager::createTableForShelves()
+{
+    QSqlQuery query(m_db);
+    const QString sql1 = R"(
+        CREATE TABLE IF NOT EXISTS shelves (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id  INTEGER NOT NULL,
+            title    TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    )";
+    if (!query.exec(sql1)) {
+        qWarning() << "Failed to create shelves table:" << query.lastError().text();
+        return false;
+    }
+    const QString sql2 = R"(
+        CREATE TABLE IF NOT EXISTS shelf_books (
+            shelf_id  INTEGER NOT NULL,
+            book_id   INTEGER NOT NULL,
+            PRIMARY KEY (shelf_id, book_id),
+            FOREIGN KEY (shelf_id) REFERENCES shelves(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql2)) {
+        qWarning() << "Failed to create shelf_books table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createTableForReadingProgress()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS reading_progress (
+            user_id    INTEGER NOT NULL,
+            book_id    INTEGER NOT NULL,
+            last_page  INTEGER NOT NULL DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, book_id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create reading_progress table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 bool DatabaseManager::createTableForReviews()
 {
     QSqlQuery query(m_db);
@@ -146,3 +198,4 @@ bool DatabaseManager::createTableForNotifications()
     }
     return true;
 }
+

@@ -59,6 +59,18 @@ struct Notification {
     bool isRead = false;
 };
 
+struct Shelf {
+    int id = -1;
+    int libraryUserId = -1;
+    QString title;
+};
+
+struct ReadingProgress {
+    int bookId = -1;
+    int userId = -1;
+    int lastPage = 0;
+};
+
 class DatabaseManager
 {
 public:
@@ -105,6 +117,15 @@ public:
     bool fetchNotifications(int userId, QVector<Notification> &outNotifications, QString &errorMsg);
     bool markNotificationRead(int notificationId, QString &errorMsg);
 
+    // Library / shelves / reading progress
+    bool createShelf(int userId, const QString &title, int &newShelfId, QString &errorMsg);
+    bool addBookToShelf(int shelfId, int bookId, QString &errorMsg);
+    bool fetchShelves(int userId, QVector<Shelf> &outShelves, QString &errorMsg);
+    bool fetchShelfBooks(int shelfId, QVector<Book> &outBooks, QString &errorMsg);
+    bool updateReadingProgress(int userId, int bookId, int lastPage, QString &errorMsg);
+    bool fetchReadingProgress(int userId, int bookId, ReadingProgress &outProgress, QString &errorMsg);
+    bool fetchOwnedBooks(int userId, QVector<Book> &outBooks, QString &errorMsg);
+
 
 
 private:
@@ -114,6 +135,8 @@ private:
     bool createTableForDiscounts();
     bool createTableForReviews();
     bool createTableForNotifications();
+    bool createTableForShelves();
+    bool createTableForReadingProgress();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
 
