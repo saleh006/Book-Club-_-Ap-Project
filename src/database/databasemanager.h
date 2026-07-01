@@ -32,11 +32,14 @@ struct Book {
     int totalSales = 0;
 };
 
+
 class DatabaseManager
 {
 public:
     static DatabaseManager &instance();
     bool initialize(const QString &dbPath);
+
+    //user
 
     bool registerUser(const QString &username,
                       const QString &password,
@@ -45,26 +48,20 @@ public:
                       const QString &recoveryAnswer,
                       QString &errorMsg,
                       const QString &role = "user");
-
     bool authenticateUser(const QString &username,
                           const QString &password,
                           QString &errorMsg,
                           User *outUser = nullptr);
-
     bool fetchUser(const QString &username, User &outUser, QString &errorMsg);
-
     bool setUserBlocked(const QString &username, bool blocked, QString &errorMsg);
 
+    //book
+
     bool addBook(const Book &book, int &newBookId, QString &errorMsg);
-
     bool updateBook(const Book &book, QString &errorMsg);
-
     bool deleteBook(int bookId, QString &errorMsg);
-
     bool fetchBook(int bookId, Book &outBook, QString &errorMsg);
-
     bool fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, bool activeOnly = true);
-
     bool fetchBooksByGenre(const QString &genre, QVector<Book> &outBooks, QString &errorMsg);
 
 private:
