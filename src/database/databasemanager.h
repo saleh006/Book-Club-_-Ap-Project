@@ -50,6 +50,15 @@ struct Review {
     int bookId = -1;
 };
 
+struct Notification {
+    int id = -1;
+    int userId = -1;
+    QString title;
+    QString message;
+    QDateTime date;
+    bool isRead = false;
+};
+
 class DatabaseManager
 {
 public:
@@ -91,12 +100,20 @@ public:
     bool fetchReviewsForBook(int bookId, QVector<Review> &outReviews, QString &errorMsg);
     bool recalculateAverageRating(int bookId, QString &errorMsg);
 
+    // Notifications
+    bool addNotification(int userId, const QString &title, const QString &message, QString &errorMsg);
+    bool fetchNotifications(int userId, QVector<Notification> &outNotifications, QString &errorMsg);
+    bool markNotificationRead(int notificationId, QString &errorMsg);
+
+
+
 private:
     DatabaseManager() = default;
     bool createTableForUser();
     bool createTableForBooks();
     bool createTableForDiscounts();
     bool createTableForReviews();
+    bool createTableForNotifications();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
 

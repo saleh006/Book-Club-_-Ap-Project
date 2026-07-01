@@ -125,3 +125,24 @@ bool DatabaseManager::createTableForReviews()
     }
     return true;
 }
+
+bool DatabaseManager::createTableForNotifications()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS notifications (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id  INTEGER NOT NULL,
+            title    TEXT NOT NULL,
+            message  TEXT,
+            date     DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_read  INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create notifications table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}

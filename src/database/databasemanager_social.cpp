@@ -122,3 +122,54 @@ bool DatabaseManager::recalculateAverageRating(int bookId, QString &errorMsg)
     return true;
 }
 
+bool DatabaseManager::addNotification(int userId, const QString &title, const QString &message, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare("INSERT INTO notifications (user_id, title, message) VALUES (:uid, :title, :msg)");
+    query.bindValue(":uid", userId);
+    query.bindValue(":title", title);
+    query.bindValue(":msg", message);
+    if (!query.exec()) {
+        errorMsg = "Failed to create notification: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::fetchNotifications(int userId, QVector<Notification> &outNotifications, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare("SELECT id, title, message, date, is_read FROM notifications WHERE user_id = :uid ORDER BY date DESC");
+    query.bindValue(":uid", userId);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching notifications.";
+        return false;
+    }
+    outNotifications.clear();
+    while (query.next()) {
+        Notification n;
+        n.id = query.value("id").toInt();
+        n.userId = userId;
+        n.title = query.value("title").toString();
+        n.message = query.value("message").toString();
+        n.date = query.value("date").toDateTime();
+        n.isRead = query.value("is_read").toBool();
+        outNotifications.push_back(n);
+    }
+    return true;
+}
+
+bool DatabaseManager::markNotificationRead(int notificationId, QString &errorMsg)
+{
+    QSqlQuery query(m_db);
+    query.prepare("UPDATE notifications SET is_read = 1 WHERE id = :id");
+    query.bindValue(":id", notificationId);
+    if (!query.exec()) {
+        errorMsg = "Failed to mark notification read: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+
+
