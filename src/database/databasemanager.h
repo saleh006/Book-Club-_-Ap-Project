@@ -168,6 +168,7 @@ private:
     bool createTableForWishlist();
     bool createTableForCart();
     bool createTableForPurchases();
+    bool createAllTables();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
 

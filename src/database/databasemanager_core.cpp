@@ -25,8 +25,7 @@ bool DatabaseManager::initialize(const QString &dbPath)
         qWarning() << "Failed to open database:" << m_db.lastError().text();
         return false;
     }
-    return createTableForUser();
-    // we should add all createTables in here !
+    return createAllTables();
 }
 
 bool DatabaseManager::createTableForUser()
@@ -252,5 +251,19 @@ bool DatabaseManager::createTableForPurchases()
         return false;
     }
     return true;
+}
+
+bool DatabaseManager::createAllTables()
+{
+    return createTableForUser()
+    && createTableForBooks()
+        && createTableForWishlist()
+        && createTableForCart()
+        && createTableForPurchases()
+        && createTableForShelves()
+        && createTableForReadingProgress()
+        && createTableForReviews()
+        && createTableForDiscounts()
+        && createTableForNotifications();
 }
 
