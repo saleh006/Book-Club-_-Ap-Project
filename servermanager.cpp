@@ -402,6 +402,94 @@ void ClientHandler::onReadyRead()
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "purchase_fetch_history") {
+        int userId = requestObj["userId"].toInt();
+        QVector<Purchase> purchases;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchPurchaseHistory(userId, purchases, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray purchaseArray;
+            for (const Purchase &p : purchases) {
+                QJsonObject pObj;
+                pObj["id"] = p.id;
+                pObj["totalPrice"] = p.totalPrice;
+                pObj["date"] = p.purchaseDate.toString(Qt::ISODate);
+                purchaseArray.append(pObj);
+            }
+            responseObj["purchases"] = purchaseArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "progress_fetch") {
+        int userId = requestObj["userId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        ReadingProgress p;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchReadingProgress(userId, bookId, p, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["lastPage"] = p.lastPage;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "publisher_fetch_books") {
+        int publisherId = requestObj["publisherId"].toInt();
+        bool activeOnly = requestObj["activeOnly"].toBool(false);
+        QVector<Book> books;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchPublishedBooks(publisherId, books, errorMsg, activeOnly)) {
+            responseObj["status"] = "success";
+            QJsonArray bookArray;
+            for (const Book &b : books) {
+                QJsonObject bObj;
+                bObj["id"] = b.id;
+                bObj["title"] = b.title;
+                bObj["totalSales"] = b.totalSales;
+                bookArray.append(bObj);
+            }
+            responseObj["books"] = bookArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "progress_update") {
+        int userId = requestObj["userId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        int lastPage = requestObj["lastPage"].toInt();
+
+        QString errorMsg;
+        if (DatabaseManager::instance().updateReadingProgress(userId, bookId, lastPage, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "پیشرفت مطالعه با موفقیت بروزرسانی شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "purchase_fetch_details") {
+        int purchaseId = requestObj["purchaseId"].toInt();
+        QVector<CartItem> details;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchPurchaseDetails(purchaseId, details, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray detailsArray;
+            for (const CartItem &item : details) {
+                QJsonObject itemObj;
+                itemObj["bookId"] = item.bookId;
+                itemObj["quantity"] = item.quantity;
+                itemObj["price"] = item.price;
+                detailsArray.append(itemObj);
+            }
+            responseObj["details"] = detailsArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
     else {
         responseObj["status"] = "error";
         responseObj["message"] = "عملیات نامعتبر است.";
