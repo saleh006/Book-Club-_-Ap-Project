@@ -1,3 +1,7 @@
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
+#include "databasemanager.h"
 #include "servermanager.h"
 
 ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
@@ -34,11 +38,64 @@ void ClientHandler::run()
 
 void ClientHandler::onReadyRead()
 {
-    QByteArray data = m_socket->readAll();
-    QString message = QString::fromUtf8(data);
-    qDebug() << "پیام دریافت شده از کلاینت:" << message;
+    QByteArray rawData = m_socket->readAll();
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(rawData);
 
-    m_socket->write("Hello from Multi-threaded Server!\n");
+    if (jsonDoc.isNull() || !jsonDoc.isObject()) {
+        m_socket->write("Error: Invalid JSON format\n");
+        m_socket->flush();
+        return;
+    }
+
+    QJsonObject requestObj = jsonDoc.object();
+    QString action = requestObj["action"].toString();
+    QJsonObject responseObj;
+
+    if (action == "login") {
+        QString username = requestObj["username"].toString();
+        QString password = requestObj["password"].toString();
+
+        QString errorMsg;
+        User loggedInUser;
+        bool isSuccess = DatabaseManager::instance().authenticateUser(username, password, errorMsg, &loggedInUser);
+
+        if (isSuccess) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "ورود موفقیت‌آمیز بود.";
+            responseObj["role"] = loggedInUser.role;
+            responseObj["fullName"] = loggedInUser.fullName;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "register") {
+        QString username = requestObj["username"].toString();
+        QString password = requestObj["password"].toString();
+        QString fullName = requestObj["fullName"].toString();
+        QString email = requestObj["email"].toString();
+        QString recoveryAnswer = requestObj["recoveryAnswer"].toString();
+        QString role = requestObj["role"].toString();
+        QString errorMsg;
+
+        bool isSuccess = DatabaseManager::instance().registerUser(
+            username, password, fullName, email, recoveryAnswer, errorMsg, role
+            );
+        if (isSuccess) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "ثبت‌نام با موفقیت انجام شد. اکنون می‌توانید وارد شوید.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else {
+        responseObj["status"] = "error";
+        responseObj["message"] = "عملیات نامعتبر است.";
+    }
+
+    QJsonDocument responseDoc(responseObj);
+    m_socket->write(responseDoc.toJson(QJsonDocument::Compact));
     m_socket->flush();
 }
 

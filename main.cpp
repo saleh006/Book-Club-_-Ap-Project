@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 
     ServerManager *server = new ServerManager();
     if (!server->startServer(1234)) {
-        qCritical() << "cant start server in port 1234 !!!!";
+        qCritical() << "سرور نتوانست روی پورت 1234 روشن شود. احتمالا پورت اشغال است!";
     }
 
     return a.exec();
