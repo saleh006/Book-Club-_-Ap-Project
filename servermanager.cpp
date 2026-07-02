@@ -559,6 +559,129 @@ void ClientHandler::onReadyRead()
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "books_fetch_owned") {
+        int userId = requestObj["userId"].toInt();
+        QVector<Book> books;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchOwnedBooks(userId, books, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray bookArray;
+            for (const Book &b : books) {
+                QJsonObject bObj;
+                bObj["id"] = b.id;
+                bObj["title"] = b.title;
+                bObj["author"] = b.author;
+                bObj["pdfPath"] = b.pdfPath;
+                bookArray.append(bObj);
+            }
+            responseObj["books"] = bookArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "shelves_fetch") {
+        int userId = requestObj["userId"].toInt();
+        QVector<Shelf> shelves;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchShelves(userId, shelves, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray shelfArray;
+            for (const Shelf &s : shelves) {
+                QJsonObject sObj;
+                sObj["id"] = s.id;
+                sObj["title"] = s.title;
+                shelfArray.append(sObj);
+            }
+            responseObj["shelves"] = shelfArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "shelf_fetch_books") {
+        int shelfId = requestObj["shelfId"].toInt();
+        QVector<Book> books;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchShelfBooks(shelfId, books, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray bookArray;
+            for (const Book &b : books) {
+                QJsonObject bObj;
+                bObj["id"] = b.id;
+                bObj["title"] = b.title;
+                bObj["author"] = b.author;
+                bookArray.append(bObj);
+            }
+            responseObj["books"] = bookArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "notification_mark_read") {
+        int notificationId = requestObj["notificationId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().markNotificationRead(notificationId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "اعلان به عنوان خوانده شده علامت‌گذاری شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "notification_add") {
+        int userId = requestObj["userId"].toInt();
+        QString title = requestObj["title"].toString();
+        QString message = requestObj["message"].toString();
+        QString errorMsg;
+        if (DatabaseManager::instance().addNotification(userId, title, message, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "اعلان با موفقیت ارسال شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "discount_add") {
+        Discount d;
+        d.bookId = requestObj["bookId"].toInt();
+        d.type = requestObj["type"].toString();
+        d.value = requestObj["value"].toDouble();
+        QString errorMsg;
+        if (DatabaseManager::instance().addDiscount(d, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "تخفیف جدید با موفقیت ثبت شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "publisher_fetch_book_income") {
+        int publisherId = requestObj["publisherId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        double income = 0.0;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchPublisherIncomeForBook(publisherId, bookId, income, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["income"] = income;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "book_set_ownership") {
+        int bookId = requestObj["bookId"].toInt();
+        int publisherId = requestObj["publisherId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().setBookOwnership(bookId, publisherId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "مالکیت کتاب با موفقیت تغییر کرد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
     else {
         responseObj["status"] = "error";
         responseObj["message"] = "عملیات نامعتبر است.";
