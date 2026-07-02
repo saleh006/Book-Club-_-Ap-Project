@@ -490,6 +490,75 @@ void ClientHandler::onReadyRead()
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "remove_from_cart") {
+        int userId = requestObj["userId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().removeFromCart(userId, bookId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "کتاب از سبد خرید حذف شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "cart_clear") {
+        int userId = requestObj["userId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().clearCart(userId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "سبد خرید کاملاً خالی شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "wishlist_fetch") {
+        int userId = requestObj["userId"].toInt();
+        QVector<Book> books;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchWishlist(userId, books, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray bookArray;
+            for (const Book &b : books) {
+                QJsonObject bObj;
+                bObj["id"] = b.id;
+                bObj["title"] = b.title;
+                bObj["author"] = b.author;
+                bookArray.append(bObj);
+            }
+            responseObj["books"] = bookArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "wishlist_remove") {
+        int userId = requestObj["userId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().removeFromWishlist(userId, bookId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "از لیست علاقه‌مندی‌ها حذف شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "user_fetch") {
+        QString username = requestObj["username"].toString();
+        User u;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchUser(username, u, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["fullName"] = u.fullName;
+            responseObj["email"] = u.email;
+            responseObj["role"] = u.role;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
     else {
         responseObj["status"] = "error";
         responseObj["message"] = "عملیات نامعتبر است.";
