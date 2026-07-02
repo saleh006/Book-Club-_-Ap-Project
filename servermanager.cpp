@@ -256,6 +256,152 @@ void ClientHandler::onReadyRead()
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "books_delete") {
+        int bookId = requestObj["bookId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().deleteBook(bookId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "کتاب با موفقیت حذف شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "shelf_create") {
+        int userId = requestObj["userId"].toInt();
+        QString title = requestObj["title"].toString();
+        int newShelfId = -1;
+        QString errorMsg;
+        if (DatabaseManager::instance().createShelf(userId, title, newShelfId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "قفسه جدید ساخته شد.";
+            responseObj["shelfId"] = newShelfId;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "shelf_add_book") {
+        int shelfId = requestObj["shelfId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().addBookToShelf(shelfId, bookId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "کتاب به قفسه اضافه شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "wishlist_add") {
+        int userId = requestObj["userId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().addToWishlist(userId, bookId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "به لیست علاقه‌مندی‌ها اضافه شد.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "notifications_fetch") {
+        int userId = requestObj["userId"].toInt();
+        QVector<Notification> notifications;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchNotifications(userId, notifications, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray notifArray;
+            for (const Notification &n : notifications) {
+                QJsonObject notifObj;
+                notifObj["id"] = n.id;
+                notifObj["title"] = n.title;
+                notifObj["message"] = n.message;
+                notifObj["isRead"] = n.isRead;
+                notifArray.append(notifObj);
+            }
+            responseObj["notifications"] = notifArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "book_fetch") {
+        int bookId = requestObj["bookId"].toInt();
+        Book b;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchBook(bookId, b, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["title"] = b.title;
+            responseObj["author"] = b.author;
+            responseObj["genre"] = b.genre;
+            responseObj["description"] = b.description;
+            responseObj["price"] = b.price;
+            responseObj["coverImagePath"] = b.coverImagePath;
+            responseObj["pdfPath"] = b.pdfPath;
+            responseObj["averageRating"] = b.averageRating;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "books_fetch_by_genre") {
+        QString genre = requestObj["genre"].toString();
+        QVector<Book> books;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchBooksByGenre(genre, books, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray bookArray;
+            for (const Book &b : books) {
+                QJsonObject bookObj;
+                bookObj["id"] = b.id;
+                bookObj["title"] = b.title;
+                bookObj["author"] = b.author;
+                bookObj["price"] = b.price;
+                bookObj["averageRating"] = b.averageRating;
+                bookArray.append(bookObj);
+            }
+            responseObj["books"] = bookArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "discount_fetch_active") {
+        int bookId = requestObj["bookId"].toInt();
+        Discount d;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchActiveDiscount(bookId, d, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["type"] = d.type;
+            responseObj["value"] = d.value;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "cart_fetch") {
+        int userId = requestObj["userId"].toInt();
+        QVector<CartItem> items;
+        double totalPrice = 0.0;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchCart(userId, items, totalPrice, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["totalPrice"] = totalPrice;
+            QJsonArray cartArray;
+            for (const CartItem &item : items) {
+                QJsonObject itemObj;
+                itemObj["bookId"] = item.bookId;
+                itemObj["quantity"] = item.quantity;
+                itemObj["price"] = item.price; // قیمت در لحظه اضافه شدن به سبد
+                cartArray.append(itemObj);
+            }
+            responseObj["items"] = cartArray;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
     else {
         responseObj["status"] = "error";
         responseObj["message"] = "عملیات نامعتبر است.";
