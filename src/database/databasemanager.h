@@ -160,7 +160,7 @@ public:
     bool fetchPublisherIncome(int publisherId, double &outTotalIncome, QString &errorMsg);
     bool fetchPublisherIncomeForBook(int publisherId, int bookId, double &outIncome, QString &errorMsg);
     bool fetchPublisherStats(int publisherId, int &outBookCount, int &outTotalSales, double &outAverageRating, QString &errorMsg);
-    bool setBookOwnership(int bookId, int publisherId, QString &errorMsg); // reassign/transfer if ever needed
+    bool setBookOwnership(int bookId, int publisherId, QString &errorMsg); // reassign/transfer
 
 
 private:

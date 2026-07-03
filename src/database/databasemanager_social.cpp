@@ -173,3 +173,4 @@ bool DatabaseManager::markNotificationRead(int notificationId, QString &errorMsg
 
 
 
+
