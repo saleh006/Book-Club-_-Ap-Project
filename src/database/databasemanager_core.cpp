@@ -254,6 +254,26 @@ bool DatabaseManager::createTableForPurchases()
     return true;
 }
 
+bool DatabaseManager::createTableForWishlist()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS wishlist (
+            user_id    INTEGER NOT NULL,
+            book_id    INTEGER NOT NULL,
+            added_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, book_id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create wishlist table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 bool DatabaseManager::createAllTables()
 {
     return createTableForUser()
