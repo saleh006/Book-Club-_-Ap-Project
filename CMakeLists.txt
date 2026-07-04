@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.19)
 project(ap-project LANGUAGES CXX)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network)
 
 qt_standard_project_setup()
 
@@ -10,9 +10,9 @@ qt_add_executable(Book-Club-_-Ap-Project
     WIN32 MACOSX_BUNDLE
 
     main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    mainwindow.ui
+
+
+
 
     src/database/databasemanager.h
     src/database/databasemanager.cpp
@@ -23,10 +23,13 @@ qt_add_executable(Book-Club-_-Ap-Project
     src/database/databasemanager_library.cpp
     src/database/databasemanager_cart.cpp
     src/database/databasemanager_publisher.cpp
+    src/server/servermanager.h
+    src/server/servermanager.cpp
 )
 
 target_include_directories(Book-Club-_-Ap-Project PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/server
 )
 
 target_link_libraries(Book-Club-_-Ap-Project
@@ -34,6 +37,7 @@ target_link_libraries(Book-Club-_-Ap-Project
         Qt::Core
         Qt::Widgets
         Qt::Sql
+        Qt::Network
 )
 
 install(TARGETS Book-Club-_-Ap-Project
