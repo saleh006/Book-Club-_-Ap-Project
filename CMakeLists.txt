@@ -19,11 +19,13 @@ qt_add_executable(Book-Club-_-Ap-Project
     src/database/databasemanager_core.cpp
     src/database/databasemanager_user.cpp
     src/database/databasemanager_book.cpp
-    servermanager.h servermanager.cpp
+    src/server/servermanager.h
+    src/server/servermanager.cpp
 )
 
 target_include_directories(Book-Club-_-Ap-Project PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/server
 )
 
 target_link_libraries(Book-Club-_-Ap-Project

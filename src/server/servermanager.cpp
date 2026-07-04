@@ -20,12 +20,12 @@ ClientHandler::~ClientHandler()
 
 void ClientHandler::run()
 {
-    qDebug() << "ترد جدید برای کلاینت ساخته شد. آی‌دی ترد:" << QThread::currentThreadId();
+    qDebug() << "New thread created for client. Thread ID:" << QThread::currentThreadId();
 
     m_socket = new QTcpSocket();
 
     if (!m_socket->setSocketDescriptor(m_socketDescriptor)) {
-        qWarning() << "خطا در تنظیم شناسه سوکت کلاینت!";
+        qWarning() << "Error setting client socket descriptor!";
         delete m_socket;
         m_socket = nullptr;
         return;
@@ -69,7 +69,7 @@ void ClientHandler::onReadyRead()
 
             if (DatabaseManager::instance().registerUser(username, password, fullName, email, recoveryAnswer, errorMsg, role)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "ثبت‌نام با موفقیت انجام شد. اکنون می‌توانید وارد شوید.";
+                responseObj["message"] = "Registration successful. You can now log in.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -83,7 +83,7 @@ void ClientHandler::onReadyRead()
 
             if (DatabaseManager::instance().authenticateUser(username, password, errorMsg, &loggedInUser)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "ورود موفقیت‌آمیز بود.";
+                responseObj["message"] = "Login successful.";
                 responseObj["role"] = loggedInUser.role;
                 responseObj["fullName"] = loggedInUser.fullName;
             } else {
@@ -111,7 +111,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().setUserBlocked(username, blocked, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = blocked ? "کاربر با موفقیت بلاک شد." : "کاربر با موفقیت آنبلاک شد.";
+                responseObj["message"] = blocked ? "User successfully blocked." : "User successfully unblocked.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -134,13 +134,13 @@ void ClientHandler::onReadyRead()
 
             if (b.price < 0) {
                 responseObj["status"] = "error";
-                responseObj["message"] = "قیمت کتاب نمی‌تواند منفی باشد.";
+                responseObj["message"] = "Book price cannot be negative.";
             } else {
                 int newBookId = -1;
                 QString errorMsg;
                 if (DatabaseManager::instance().addBook(b, newBookId, errorMsg)) {
                     responseObj["status"] = "success";
-                    responseObj["message"] = "کتاب با موفقیت ثبت شد.";
+                    responseObj["message"] = "Book added successfully.";
                     responseObj["bookId"] = newBookId;
                 } else {
                     responseObj["status"] = "error";
@@ -162,7 +162,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().updateBook(b, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "اطلاعات کتاب با موفقیت بروزرسانی شد.";
+                responseObj["message"] = "Book information updated successfully.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -173,7 +173,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().deleteBook(bookId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "کتاب با موفقیت حذف شد.";
+                responseObj["message"] = "Book deleted successfully.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -255,7 +255,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().addDiscount(d, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "تخفیف جدید با موفقیت ثبت شد.";
+                responseObj["message"] = "New discount added successfully.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -288,12 +288,12 @@ void ClientHandler::onReadyRead()
 
             if (r.rating < 1 || r.rating > 5) {
                 responseObj["status"] = "error";
-                responseObj["message"] = "امتیاز باید بین ۱ تا ۵ باشد.";
+                responseObj["message"] = "Rating must be between 1 and 5.";
             } else {
                 QString errorMsg;
                 if (DatabaseManager::instance().addReview(r, errorMsg)) {
                     responseObj["status"] = "success";
-                    responseObj["message"] = "نظر و امتیاز شما با موفقیت ثبت شد.";
+                    responseObj["message"] = "Review and rating submitted successfully.";
                     DatabaseManager::instance().recalculateAverageRating(r.bookId, errorMsg);
                 } else {
                     responseObj["status"] = "error";
@@ -334,7 +334,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().addNotification(userId, title, message, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "اعلان با موفقیت ارسال شد.";
+                responseObj["message"] = "Notification sent successfully.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -366,7 +366,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().markNotificationRead(notificationId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "اعلان به عنوان خوانده شده علامت‌گذاری شد.";
+                responseObj["message"] = "Notification marked as read.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -383,7 +383,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().createShelf(userId, title, newShelfId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "قفسه جدید ساخته شد.";
+                responseObj["message"] = "New shelf created successfully.";
                 responseObj["shelfId"] = newShelfId;
             } else {
                 responseObj["status"] = "error";
@@ -396,7 +396,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().addBookToShelf(shelfId, bookId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "کتاب به قفسه اضافه شد.";
+                responseObj["message"] = "Book added to shelf.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -448,7 +448,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().updateReadingProgress(userId, bookId, lastPage, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "پیشرفت مطالعه با موفقیت بروزرسانی شد.";
+                responseObj["message"] = "Reading progress updated successfully.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -498,7 +498,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().addToWishlist(userId, bookId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "به لیست علاقه‌مندی‌ها اضافه شد.";
+                responseObj["message"] = "Added to wishlist.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -510,7 +510,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().removeFromWishlist(userId, bookId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "از لیست علاقه‌مندی‌ها حذف شد.";
+                responseObj["message"] = "Removed from wishlist.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -547,12 +547,12 @@ void ClientHandler::onReadyRead()
 
             if (quantity < 1) {
                 responseObj["status"] = "error";
-                responseObj["message"] = "تعداد باید حداقل ۱ باشد.";
+                responseObj["message"] = "Quantity must be at least 1.";
             } else {
                 QString errorMsg;
                 if (DatabaseManager::instance().addToCart(userId, bookId, quantity, errorMsg)) {
                     responseObj["status"] = "success";
-                    responseObj["message"] = "کتاب با موفقیت به سبد خرید اضافه شد.";
+                    responseObj["message"] = "Book successfully added to cart.";
                 } else {
                     responseObj["status"] = "error";
                     responseObj["message"] = errorMsg;
@@ -565,7 +565,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().removeFromCart(userId, bookId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "کتاب از سبد خرید حذف شد.";
+                responseObj["message"] = "Book removed from cart.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -576,7 +576,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().clearCart(userId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "سبد خرید کاملاً خالی شد.";
+                responseObj["message"] = "Cart cleared successfully.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -614,7 +614,7 @@ void ClientHandler::onReadyRead()
             int purchaseId = -1;
             if (DatabaseManager::instance().checkoutCart(userId, errorMsg, purchaseId)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "خرید شما با موفقیت انجام شد و سبد خرید خالی گردید.";
+                responseObj["message"] = "Purchase completed successfully and cart cleared.";
                 responseObj["purchaseId"] = purchaseId;
             } else {
                 responseObj["status"] = "error";
@@ -717,7 +717,7 @@ void ClientHandler::onReadyRead()
                 responseObj["totalIncome"] = totalIncome;
             } else {
                 responseObj["status"] = "error";
-                responseObj["message"] = errorMsg.isEmpty() ? "خطا در دریافت آمار ناشر" : errorMsg;
+                responseObj["message"] = errorMsg.isEmpty() ? "Error fetching publisher stats." : errorMsg;
             }
         }
         else if (action == "book_set_ownership") {
@@ -726,7 +726,7 @@ void ClientHandler::onReadyRead()
             QString errorMsg;
             if (DatabaseManager::instance().setBookOwnership(bookId, publisherId, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "مالکیت کتاب با موفقیت تغییر کرد.";
+                responseObj["message"] = "Book ownership changed successfully.";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -734,7 +734,7 @@ void ClientHandler::onReadyRead()
         }
         else {
             responseObj["status"] = "error";
-            responseObj["message"] = "عملیات نامعتبر است.";
+            responseObj["message"] = "Invalid action.";
         }
 
         QJsonDocument responseDoc(responseObj);
@@ -744,7 +744,7 @@ void ClientHandler::onReadyRead()
 }
 
 void ClientHandler::onDisconnected(){
-    qDebug() << "کلاینت ارتباطش را قطع کرد. پاکسازی حافظه...";
+    qDebug() << "Client disconnected. Cleaning up memory...";
     if(m_socket){
         m_socket->close();
         m_socket->deleteLater();
@@ -761,17 +761,17 @@ bool ServerManager::startServer(int port)
 {
     QSqlQuery walQuery;
     if (!walQuery.exec("PRAGMA journal_mode=WAL;")) {
-        qWarning() << "خطا در فعالسازی حالت WAL دیتابیس:" << walQuery.lastError().text();
+        qWarning() << "Error enabling database WAL mode:" << walQuery.lastError().text();
     } else {
-        qDebug() << "دیتابیس دگرگون شد: حالت WAL برای مدیریت هم‌زمانی تردها فعال است.";
+        qDebug() << "Database optimized: WAL mode enabled for thread concurrency management.";
     }
 
     if (!this->listen(QHostAddress::Any, port)) {
-        qWarning() << "سرور روی پورت" << port << "روشن نشد:" << this->errorString();
+        qWarning() << "Server failed to start on port" << port << ": " << this->errorString();
         return false;
     }
 
-    qDebug() << "سرور باشگاه کتاب با موفقیت روی پورت" << port << "شروع به کار کرد...";
+    qDebug() << "BookClub server successfully started on port" << port << "...";
     return true;
 }
 
