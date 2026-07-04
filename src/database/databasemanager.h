@@ -183,6 +183,7 @@ private:
     QSqlDatabase database() const;
     QSqlDatabase m_db;
     QString m_dbPath;
+    bool seedAdminAccount();
 };
 
 #endif // DATABASEMANAGER_H

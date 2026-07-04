@@ -26,7 +26,10 @@ bool DatabaseManager::initialize(const QString &dbPath)
         qWarning() << "Failed to open database:" << m_db.lastError().text();
         return false;
     }
-    return createAllTables();
+    if (!createAllTables()) {
+        return false;
+    }
+    return seedAdminAccount();
 }
 
 bool DatabaseManager::createTableForUser()
@@ -254,6 +257,26 @@ bool DatabaseManager::createTableForPurchases()
     return true;
 }
 
+bool DatabaseManager::createTableForWishlist()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS wishlist (
+            user_id    INTEGER NOT NULL,
+            book_id    INTEGER NOT NULL,
+            added_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, book_id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create wishlist table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 bool DatabaseManager::createAllTables()
 {
     return createTableForUser()
@@ -302,4 +325,25 @@ QSqlDatabase DatabaseManager::database() const
         pragmaQuery.exec("PRAGMA synchronous=NORMAL;");
     }
     return db;
+}
+
+bool DatabaseManager::seedAdminAccount()
+{
+    QSqlQuery check(database());
+    check.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+    if (!check.exec()) {
+        qWarning() << "Failed to check for admin account:" << check.lastError().text();
+    }
+    if (check.next()) {
+        return true; // admin already exist !
+    }
+    QString errorMsg;
+    bool ok = registerUser("admin", "admin123", "Administrator", "admin@bookclub.local",
+                           "", errorMsg, "admin");
+    if (!ok) {
+        qWarning() << "Failed to seed admin account:" << errorMsg;
+    } else {
+        qDebug() << "Default admin account created (username: admin / password: admin123)";
+    }
+    return ok;
 }
