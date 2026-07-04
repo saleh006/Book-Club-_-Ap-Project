@@ -6,14 +6,13 @@
 #include <QRandomGenerator>
 #include <QDebug>
 
-
 bool DatabaseManager::addBook(const Book &book, int &newBookId, QString &errorMsg)
 {
     if (book.publisherId <= 0) {
         errorMsg = "A book must belong to a publisher.";
         return false;
     }
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         INSERT INTO books
             (publisher_id, title, author, genre, description, price,
@@ -31,6 +30,7 @@ bool DatabaseManager::addBook(const Book &book, int &newBookId, QString &errorMs
     query.bindValue(":cover", book.coverImagePath);
     query.bindValue(":pdf", book.pdfPath);
     query.bindValue(":isActive", book.isActive ? 1 : 0);
+
     if (!query.exec()) {
         errorMsg = "Failed to add book: " + query.lastError().text();
         return false;
@@ -50,7 +50,7 @@ bool DatabaseManager::updateBook(const Book &book, QString &errorMsg)
         return false;
     }
 
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         UPDATE books SET
             title = :title, author = :author, genre = :genre,
@@ -83,9 +83,10 @@ bool DatabaseManager::updateBook(const Book &book, QString &errorMsg)
 
 bool DatabaseManager::deleteBook(int bookId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("UPDATE books SET is_active = 0 WHERE id = :id");
     query.bindValue(":id", bookId);
+
     if (!query.exec()) {
         errorMsg = "Failed to remove book: " + query.lastError().text();
         return false;
@@ -95,17 +96,19 @@ bool DatabaseManager::deleteBook(int bookId, QString &errorMsg)
 
 bool DatabaseManager::fetchBook(int bookId, Book &outBook, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("SELECT * FROM books WHERE id = :id");
     query.bindValue(":id", bookId);
+
     if (!query.exec()) {
-        errorMsg = "Database error while fetching book.";
+        errorMsg = "Database error while fetching book: " + query.lastError().text();
         return false;
     }
     if (!query.next()) {
         errorMsg = "Book not found.";
         return false;
     }
+
     outBook.id = query.value("id").toInt();
     outBook.publisherId = query.value("publisher_id").toInt();
     outBook.title = query.value("title").toString();
@@ -123,13 +126,15 @@ bool DatabaseManager::fetchBook(int bookId, Book &outBook, QString &errorMsg)
 
 bool DatabaseManager::fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, bool activeOnly)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(activeOnly ? "SELECT * FROM books WHERE is_active = 1"
                              : "SELECT * FROM books");
+
     if (!query.exec()) {
-        errorMsg = "Database error while fetching books.";
+        errorMsg = "Database error while fetching books: " + query.lastError().text();
         return false;
     }
+
     outBooks.clear();
     while (query.next()) {
         Book b;
@@ -152,13 +157,15 @@ bool DatabaseManager::fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, 
 
 bool DatabaseManager::fetchBooksByGenre(const QString &genre, QVector<Book> &outBooks, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("SELECT * FROM books WHERE genre = :genre AND is_active = 1");
     query.bindValue(":genre", genre);
+
     if (!query.exec()) {
-        errorMsg = "Database error while fetching books by genre.";
+        errorMsg = "Database error while fetching books by genre: " + query.lastError().text();
         return false;
     }
+
     outBooks.clear();
     while (query.next()) {
         Book b;

@@ -6,10 +6,11 @@
 #include <QRandomGenerator>
 #include <QDebug>
 #include <QtGlobal>
+#include <QDateTime>
 
 bool DatabaseManager::addToCart(int userId, int bookId, int quantity, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         INSERT INTO cart_items (user_id, book_id, quantity)
         VALUES (:uid, :bid, :qty)
@@ -28,7 +29,7 @@ bool DatabaseManager::addToCart(int userId, int bookId, int quantity, QString &e
 
 bool DatabaseManager::removeFromCart(int userId, int bookId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("DELETE FROM cart_items WHERE user_id = :uid AND book_id = :bid");
     query.bindValue(":uid", userId);
     query.bindValue(":bid", bookId);
@@ -41,7 +42,7 @@ bool DatabaseManager::removeFromCart(int userId, int bookId, QString &errorMsg)
 
 bool DatabaseManager::clearCart(int userId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("DELETE FROM cart_items WHERE user_id = :uid");
     query.bindValue(":uid", userId);
     if (!query.exec()) {
@@ -53,7 +54,7 @@ bool DatabaseManager::clearCart(int userId, QString &errorMsg)
 
 bool DatabaseManager::fetchCart(int userId, QVector<CartItem> &outItems, double &totalPrice, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT c.book_id, c.quantity, b.price FROM cart_items c
         JOIN books b ON b.id = c.book_id
@@ -61,7 +62,7 @@ bool DatabaseManager::fetchCart(int userId, QVector<CartItem> &outItems, double 
     )");
     query.bindValue(":uid", userId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching cart.";
+        errorMsg = "Database error while fetching cart: " + query.lastError().text();
         return false;
     }
     outItems.clear();
@@ -99,13 +100,14 @@ bool DatabaseManager::checkoutCart(int userId, QString &errorMsg, int &purchaseI
         errorMsg = "Your cart is empty.";
         return false;
     }
+    QSqlDatabase db = database();
 
-    if (!m_db.transaction()) {
-        errorMsg = "Failed to start transaction.";
+    if (!db.transaction()) {
+        errorMsg = "Failed to start transaction: " + db.lastError().text();
         return false;
     }
 
-    QSqlQuery insertPurchase(m_db);
+    QSqlQuery insertPurchase(db);
     insertPurchase.prepare(R"(
         INSERT INTO purchases (user_id, total_price, purchase_date)
         VALUES (:uid, :total, :date)
@@ -115,13 +117,13 @@ bool DatabaseManager::checkoutCart(int userId, QString &errorMsg, int &purchaseI
     insertPurchase.bindValue(":date", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
     if (!insertPurchase.exec()) {
         errorMsg = "Failed to record purchase: " + insertPurchase.lastError().text();
-        m_db.rollback();
+        db.rollback();
         return false;
     }
     purchaseId = insertPurchase.lastInsertId().toInt();
 
     for (const CartItem &item : std::as_const(items)) {
-        QSqlQuery insertItem(m_db);
+        QSqlQuery insertItem(db);
         insertItem.prepare(R"(
             INSERT INTO purchase_items (purchase_id, book_id, quantity, price_paid)
             VALUES (:pid, :bid, :qty, :price)
@@ -129,36 +131,36 @@ bool DatabaseManager::checkoutCart(int userId, QString &errorMsg, int &purchaseI
         insertItem.bindValue(":pid", purchaseId);
         insertItem.bindValue(":bid", item.bookId);
         insertItem.bindValue(":qty", item.quantity);
-        insertItem.bindValue(":price", item.price);   // effective (discounted) price, not base price
+        insertItem.bindValue(":price", item.price);
         if (!insertItem.exec()) {
             errorMsg = "Failed to record purchased item: " + insertItem.lastError().text();
-            m_db.rollback();
+            db.rollback();
             return false;
         }
 
-        QSqlQuery bumpSales(m_db);
+        QSqlQuery bumpSales(db);
         bumpSales.prepare("UPDATE books SET total_sales = total_sales + :qty WHERE id = :bid");
         bumpSales.bindValue(":qty", item.quantity);
         bumpSales.bindValue(":bid", item.bookId);
         if (!bumpSales.exec()) {
             errorMsg = "Failed to update book sales: " + bumpSales.lastError().text();
-            m_db.rollback();
+            db.rollback();
             return false;
         }
     }
 
-    QSqlQuery clearCartQuery(m_db);
+    QSqlQuery clearCartQuery(db);
     clearCartQuery.prepare("DELETE FROM cart_items WHERE user_id = :uid");
     clearCartQuery.bindValue(":uid", userId);
     if (!clearCartQuery.exec()) {
         errorMsg = "Failed to clear cart: " + clearCartQuery.lastError().text();
-        m_db.rollback();
+        db.rollback();
         return false;
     }
 
-    if (!m_db.commit()) {
-        errorMsg = "Failed to finalize purchase.";
-        m_db.rollback();
+    if (!db.commit()) {
+        errorMsg = "Failed to finalize purchase: " + db.lastError().text();
+        db.rollback();
         return false;
     }
     return true;
@@ -166,11 +168,11 @@ bool DatabaseManager::checkoutCart(int userId, QString &errorMsg, int &purchaseI
 
 bool DatabaseManager::fetchPurchaseHistory(int userId, QVector<Purchase> &outPurchases, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("SELECT id, total_price, purchase_date FROM purchases WHERE user_id = :uid ORDER BY purchase_date DESC");
     query.bindValue(":uid", userId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching purchase history.";
+        errorMsg = "Database error while fetching purchase history: " + query.lastError().text();
         return false;
     }
     outPurchases.clear();
@@ -182,9 +184,9 @@ bool DatabaseManager::fetchPurchaseHistory(int userId, QVector<Purchase> &outPur
 
         QDateTime date = QDateTime::fromString(query.value("purchase_date").toString(), Qt::ISODate);
         date.toUTC();
-        p.purchaseDate = date;   // caller does .toLocalTime() when displaying
+        p.purchaseDate = date;
 
-        QSqlQuery itemsQuery(m_db);
+        QSqlQuery itemsQuery(database());
         itemsQuery.prepare("SELECT book_id, quantity, price_paid FROM purchase_items WHERE purchase_id = :pid");
         itemsQuery.bindValue(":pid", p.id);
         if (itemsQuery.exec()) {

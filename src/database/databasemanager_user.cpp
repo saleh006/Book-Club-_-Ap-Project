@@ -5,7 +5,7 @@
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <QDebug>
-
+#include <QDate>
 
 bool DatabaseManager::registerUser(const QString &username,
                                    const QString &password,
@@ -22,17 +22,18 @@ bool DatabaseManager::registerUser(const QString &username,
         errorMsg = "Password must be at least 6 characters.";
         return false;
     }
-    QSqlQuery check(m_db);
+    QSqlQuery check(database());
     check.prepare("SELECT id FROM users WHERE username = :username");
     check.bindValue(":username", username);
     if (!check.exec()) {
-        errorMsg = "Database error while checking username.";
+        errorMsg = "Database error while checking username: " + check.lastError().text();
         return false;
     }
     if (check.next()) {
         errorMsg = "That username is already taken.";
         return false;
     }
+
     const QString salt = generateSalt();
     const QString hashedPass = hashPassword(password , salt);
     QString recoveryHash;
@@ -41,7 +42,8 @@ bool DatabaseManager::registerUser(const QString &username,
         recoverySalt = generateSalt();
         recoveryHash = hashPassword(recoveryAnswer.trimmed().toLower(), recoverySalt);
     } // recovery answer saved hashed
-    QSqlQuery insert(m_db);
+
+    QSqlQuery insert(database());
     insert.prepare(R"(
         INSERT INTO users
             (username, password_hash, salt, full_name, email,
@@ -71,7 +73,7 @@ bool DatabaseManager::authenticateUser(const QString &username,
                                        QString &errorMsg,
                                        User *outUser)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT id, username, password_hash, salt, full_name, email,
                is_blocked, register_date, role
@@ -79,7 +81,7 @@ bool DatabaseManager::authenticateUser(const QString &username,
     )");
     query.bindValue(":username", username);
     if (!query.exec()) {
-        errorMsg = "Database error while logging in.";
+        errorMsg = "Database error while logging in: " + query.lastError().text();
         return false;
     }
     if (!query.next()) {
@@ -112,7 +114,7 @@ bool DatabaseManager::authenticateUser(const QString &username,
 
 bool DatabaseManager::setUserBlocked(const QString &username, bool blocked, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("UPDATE users SET is_blocked = :blocked WHERE username = :username");
     query.bindValue(":blocked", blocked ? 1 : 0);
     query.bindValue(":username", username);
@@ -126,8 +128,6 @@ bool DatabaseManager::setUserBlocked(const QString &username, bool blocked, QStr
     }
     return true;
 }
-// this function is for admin pannel
-
 
 QString DatabaseManager::generateSalt() const
 {
@@ -142,12 +142,11 @@ QString DatabaseManager::hashPassword(const QString &password, const QString &sa
     const QByteArray combined = (password + salt).toUtf8();
     return QString::fromLatin1(
         QCryptographicHash::hash(combined, QCryptographicHash::Sha256).toHex());
-
 }
 
 bool DatabaseManager::fetchUser(const QString &username, User &outUser, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT id, username, password_hash, full_name, email,
                is_blocked, register_date, role
@@ -156,7 +155,7 @@ bool DatabaseManager::fetchUser(const QString &username, User &outUser, QString 
     query.bindValue(":username", username);
 
     if (!query.exec()) {
-        errorMsg = "Database error while fetching user.";
+        errorMsg = "Database error while fetching user: " + query.lastError().text();
         return false;
     }
     if (!query.next()) {
@@ -173,4 +172,4 @@ bool DatabaseManager::fetchUser(const QString &username, User &outUser, QString 
     outUser.role = query.value("role").toString();
 
     return true;
-} // this for admin panel
+}

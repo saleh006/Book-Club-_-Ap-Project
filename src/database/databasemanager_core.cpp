@@ -15,6 +15,7 @@ DatabaseManager &DatabaseManager::instance()
 
 bool DatabaseManager::initialize(const QString &dbPath)
 {
+    m_dbPath = dbPath;
     if (QSqlDatabase::contains("qt_sql_default_connection")) {
         m_db = QSqlDatabase::database("qt_sql_default_connection");
     } else {
@@ -267,3 +268,38 @@ bool DatabaseManager::createAllTables()
         && createTableForNotifications();
 }
 
+// QSqlDatabase DatabaseManager::database() const
+// {
+//     QString connectionName = QString("db_conn_%1").arg(qintptr(QThread::currentThreadId()));
+
+//     if (QSqlDatabase::contains(connectionName)) {
+//         return QSqlDatabase::database(connectionName);
+//     }
+//     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+//     db.setDatabaseName(m_dbPath);
+//     if (!db.open()) {
+//         qWarning() << "Failed to open database for thread:" << connectionName << db.lastError().text();
+//     }
+//     return db;
+// }
+
+QSqlDatabase DatabaseManager::database() const
+{
+    QString connectionName = QString("db_conn_0x%1")
+    .arg(QString::number(reinterpret_cast<quintptr>(QThread::currentThreadId()), 16));
+
+    if (QSqlDatabase::contains(connectionName)) {
+        return QSqlDatabase::database(connectionName, false);
+    }
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+    db.setDatabaseName(m_dbPath);
+
+    if (!db.open()) {
+        qWarning() << "Failed to open database for thread:" << connectionName << db.lastError().text();
+    } else {
+        QSqlQuery pragmaQuery(db);
+        pragmaQuery.exec("PRAGMA journal_mode=WAL;");
+        pragmaQuery.exec("PRAGMA synchronous=NORMAL;");
+    }
+    return db;
+}

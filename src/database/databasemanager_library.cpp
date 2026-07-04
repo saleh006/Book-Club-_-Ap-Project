@@ -7,7 +7,7 @@
 #include <QDebug>
 
 bool DatabaseManager::createShelf(int userId, const QString &title, int &newShelfId, QString &errorMsg) {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("INSERT INTO shelves (user_id, title) VALUES (:uid, :title)");
     query.bindValue(":uid", userId);
     query.bindValue(":title", title);
@@ -21,7 +21,7 @@ bool DatabaseManager::createShelf(int userId, const QString &title, int &newShel
 
 bool DatabaseManager::addBookToShelf(int shelfId, int bookId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("INSERT OR IGNORE INTO shelf_books (shelf_id, book_id) VALUES (:sid, :bid)");
     query.bindValue(":sid", shelfId);
     query.bindValue(":bid", bookId);
@@ -34,11 +34,11 @@ bool DatabaseManager::addBookToShelf(int shelfId, int bookId, QString &errorMsg)
 
 bool DatabaseManager::fetchShelves(int userId, QVector<Shelf> &outShelves, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("SELECT id, title FROM shelves WHERE user_id = :uid");
     query.bindValue(":uid", userId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching shelves.";
+        errorMsg = "Database error while fetching shelves: " + query.lastError().text();
         return false;
     }
     outShelves.clear();
@@ -54,7 +54,7 @@ bool DatabaseManager::fetchShelves(int userId, QVector<Shelf> &outShelves, QStri
 
 bool DatabaseManager::fetchShelfBooks(int shelfId, QVector<Book> &outBooks, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT b.* FROM books b
         JOIN shelf_books sb ON sb.book_id = b.id
@@ -62,7 +62,7 @@ bool DatabaseManager::fetchShelfBooks(int shelfId, QVector<Book> &outBooks, QStr
     )");
     query.bindValue(":sid", shelfId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching shelf books.";
+        errorMsg = "Database error while fetching shelf books: " + query.lastError().text();
         return false;
     }
     outBooks.clear();
@@ -79,7 +79,7 @@ bool DatabaseManager::fetchShelfBooks(int shelfId, QVector<Book> &outBooks, QStr
 
 bool DatabaseManager::updateReadingProgress(int userId, int bookId, int lastPage, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         INSERT INTO reading_progress (user_id, book_id, last_page, updated_at)
         VALUES (:uid, :bid, :page, CURRENT_TIMESTAMP)
@@ -99,23 +99,23 @@ bool DatabaseManager::updateReadingProgress(int userId, int bookId, int lastPage
 
 bool DatabaseManager::fetchReadingProgress(int userId, int bookId, ReadingProgress &outProgress, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("SELECT last_page FROM reading_progress WHERE user_id = :uid AND book_id = :bid");
     query.bindValue(":uid", userId);
     query.bindValue(":bid", bookId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching reading progress.";
+        errorMsg = "Database error while fetching reading progress: " + query.lastError().text();
         return false;
     }
     outProgress.userId = userId;
     outProgress.bookId = bookId;
     outProgress.lastPage = query.next() ? query.value("last_page").toInt() : 0;
     return true;
-} // returns lastPage 0 if no progress recorded
+}
 
 bool DatabaseManager::fetchOwnedBooks(int userId, QVector<Book> &outBooks, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT DISTINCT b.* FROM books b
         JOIN purchase_items pi ON pi.book_id = b.id
@@ -124,7 +124,7 @@ bool DatabaseManager::fetchOwnedBooks(int userId, QVector<Book> &outBooks, QStri
     )");
     query.bindValue(":uid", userId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching owned books.";
+        errorMsg = "Database error while fetching owned books: " + query.lastError().text();
         return false;
     }
     outBooks.clear();
@@ -138,11 +138,11 @@ bool DatabaseManager::fetchOwnedBooks(int userId, QVector<Book> &outBooks, QStri
         outBooks.push_back(b);
     }
     return true;
-} //purchased books feeds the NormalUser library
+}
 
 bool DatabaseManager::addToWishlist(int userId, int bookId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("INSERT OR IGNORE INTO wishlist (user_id, book_id) VALUES (:uid, :bid)");
     query.bindValue(":uid", userId);
     query.bindValue(":bid", bookId);
@@ -155,7 +155,7 @@ bool DatabaseManager::addToWishlist(int userId, int bookId, QString &errorMsg)
 
 bool DatabaseManager::removeFromWishlist(int userId, int bookId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("DELETE FROM wishlist WHERE user_id = :uid AND book_id = :bid");
     query.bindValue(":uid", userId);
     query.bindValue(":bid", bookId);
@@ -168,7 +168,7 @@ bool DatabaseManager::removeFromWishlist(int userId, int bookId, QString &errorM
 
 bool DatabaseManager::fetchWishlist(int userId, QVector<Book> &outBooks, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT b.* FROM books b
         JOIN wishlist w ON w.book_id = b.id
@@ -176,7 +176,7 @@ bool DatabaseManager::fetchWishlist(int userId, QVector<Book> &outBooks, QString
     )");
     query.bindValue(":uid", userId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching wishlist.";
+        errorMsg = "Database error while fetching wishlist: " + query.lastError().text();
         return false;
     }
     outBooks.clear();

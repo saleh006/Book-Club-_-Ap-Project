@@ -5,6 +5,7 @@
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <QDebug>
+#include <QDateTime>
 
 bool DatabaseManager::addDiscount(const Discount &discount, QString &errorMsg)
 {
@@ -12,7 +13,7 @@ bool DatabaseManager::addDiscount(const Discount &discount, QString &errorMsg)
         errorMsg = "Discount start time must be before end time.";
         return false;
     }
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         INSERT INTO discounts (book_id, type, value, start_date, end_date)
         VALUES (:bid, :type, :value, :start, :end)
@@ -33,7 +34,7 @@ bool DatabaseManager::fetchActiveDiscount(int bookId,
                                           Discount &outDiscount,
                                           QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT id, type, value, start_date, end_date
         FROM discounts
@@ -43,7 +44,7 @@ bool DatabaseManager::fetchActiveDiscount(int bookId,
     )");
     query.bindValue(":bid", bookId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching discount.";
+        errorMsg = "Database error while fetching discount: " + query.lastError().text();
         return false;
     }
     if (!query.next()) {
@@ -70,7 +71,7 @@ bool DatabaseManager::fetchActiveDiscount(int bookId,
 
 bool DatabaseManager::addReview(const Review &review, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         INSERT INTO reviews (user_id, book_id, comment, rating)
         VALUES (:uid, :bid, :comment, :rating)
@@ -88,11 +89,11 @@ bool DatabaseManager::addReview(const Review &review, QString &errorMsg)
 
 bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReviews, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("SELECT id, user_id, comment, rating, date FROM reviews WHERE book_id = :bid ORDER BY date DESC");
     query.bindValue(":bid", bookId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching reviews.";
+        errorMsg = "Database error while fetching reviews: " + query.lastError().text();
         return false;
     }
     outReviews.clear();
@@ -111,7 +112,7 @@ bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReview
 
 bool DatabaseManager::recalculateAverageRating(int bookId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("UPDATE books SET average_rating = (SELECT AVG(rating) FROM reviews WHERE book_id = :bid) WHERE id = :bid2");
     query.bindValue(":bid", bookId);
     query.bindValue(":bid2", bookId);
@@ -124,7 +125,7 @@ bool DatabaseManager::recalculateAverageRating(int bookId, QString &errorMsg)
 
 bool DatabaseManager::addNotification(int userId, const QString &title, const QString &message, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("INSERT INTO notifications (user_id, title, message) VALUES (:uid, :title, :msg)");
     query.bindValue(":uid", userId);
     query.bindValue(":title", title);
@@ -138,11 +139,11 @@ bool DatabaseManager::addNotification(int userId, const QString &title, const QS
 
 bool DatabaseManager::fetchNotifications(int userId, QVector<Notification> &outNotifications, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("SELECT id, title, message, date, is_read FROM notifications WHERE user_id = :uid ORDER BY date DESC");
     query.bindValue(":uid", userId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching notifications.";
+        errorMsg = "Database error while fetching notifications: " + query.lastError().text();
         return false;
     }
     outNotifications.clear();
@@ -161,7 +162,7 @@ bool DatabaseManager::fetchNotifications(int userId, QVector<Notification> &outN
 
 bool DatabaseManager::markNotificationRead(int notificationId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("UPDATE notifications SET is_read = 1 WHERE id = :id");
     query.bindValue(":id", notificationId);
     if (!query.exec()) {
@@ -170,7 +171,3 @@ bool DatabaseManager::markNotificationRead(int notificationId, QString &errorMsg
     }
     return true;
 }
-
-
-
-

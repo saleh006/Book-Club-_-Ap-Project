@@ -3,6 +3,8 @@
 #include <QSqlDatabase>
 #include <QString>
 #include <QDate>
+#include <QThread>
+#include <QMutex>
 
 struct User
 {
@@ -178,8 +180,9 @@ private:
     bool createAllTables();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
-
+    QSqlDatabase database() const;
     QSqlDatabase m_db;
+    QString m_dbPath;
 };
 
 #endif // DATABASEMANAGER_H

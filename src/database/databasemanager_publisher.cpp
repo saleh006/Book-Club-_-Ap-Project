@@ -8,13 +8,13 @@
 
 bool DatabaseManager::fetchPublishedBooks(int publisherId, QVector<Book> &outBooks, QString &errorMsg, bool activeOnly)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(activeOnly
                       ? "SELECT * FROM books WHERE publisher_id = :pid AND is_active = 1"
                       : "SELECT * FROM books WHERE publisher_id = :pid");
     query.bindValue(":pid", publisherId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching published books.";
+        errorMsg = "Database error while fetching published books: " + query.lastError().text();
         return false;
     }
     outBooks.clear();
@@ -39,7 +39,7 @@ bool DatabaseManager::fetchPublishedBooks(int publisherId, QVector<Book> &outBoo
 
 bool DatabaseManager::fetchPublisherIncome(int publisherId, double &outTotalIncome, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT COALESCE(SUM(pi.price_paid), 0) AS income
         FROM purchase_items pi
@@ -48,16 +48,16 @@ bool DatabaseManager::fetchPublisherIncome(int publisherId, double &outTotalInco
     )");
     query.bindValue(":pid", publisherId);
     if (!query.exec()) {
-        errorMsg = "Database error while calculating publisher income.";
+        errorMsg = "Database error while calculating publisher income: " + query.lastError().text();
         return false;
     }
     outTotalIncome = query.next() ? query.value("income").toDouble() : 0.0;
     return true;
-} // i should check this !
+}
 
 bool DatabaseManager::fetchPublisherIncomeForBook(int publisherId, int bookId, double &outIncome, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT COALESCE(SUM(pi.price_paid), 0) AS income
         FROM purchase_items pi
@@ -67,7 +67,7 @@ bool DatabaseManager::fetchPublisherIncomeForBook(int publisherId, int bookId, d
     query.bindValue(":pid", publisherId);
     query.bindValue(":bid", bookId);
     if (!query.exec()) {
-        errorMsg = "Database error while calculating book income.";
+        errorMsg = "Database error while calculating book income: " + query.lastError().text();
         return false;
     }
     outIncome = query.next() ? query.value("income").toDouble() : 0.0;
@@ -77,7 +77,7 @@ bool DatabaseManager::fetchPublisherIncomeForBook(int publisherId, int bookId, d
 bool DatabaseManager::fetchPublisherStats(int publisherId, int &outBookCount, int &outTotalSales,
                                           double &outAverageRating, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare(R"(
         SELECT COUNT(*) AS bookCount,
                COALESCE(SUM(total_sales), 0) AS totalSales,
@@ -87,7 +87,7 @@ bool DatabaseManager::fetchPublisherStats(int publisherId, int &outBookCount, in
     )");
     query.bindValue(":pid", publisherId);
     if (!query.exec()) {
-        errorMsg = "Database error while fetching publisher stats.";
+        errorMsg = "Database error while fetching publisher stats: " + query.lastError().text();
         return false;
     }
     if (!query.next()) {
@@ -100,11 +100,11 @@ bool DatabaseManager::fetchPublisherStats(int publisherId, int &outBookCount, in
     outTotalSales = query.value("totalSales").toInt();
     outAverageRating = query.value("avgRating").toDouble();
     return true;
-} // one-shot summary for a publisher dashboard
+}
 
 bool DatabaseManager::setBookOwnership(int bookId, int publisherId, QString &errorMsg)
 {
-    QSqlQuery query(m_db);
+    QSqlQuery query(database());
     query.prepare("UPDATE books SET publisher_id = :pid WHERE id = :bid");
     query.bindValue(":pid", publisherId);
     query.bindValue(":bid", bookId);
