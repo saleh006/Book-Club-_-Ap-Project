@@ -19,6 +19,10 @@ qt_add_executable(Book-Club-_-Ap-Project
     src/database/databasemanager_core.cpp
     src/database/databasemanager_user.cpp
     src/database/databasemanager_book.cpp
+    src/database/databasemanager_social.cpp
+    src/database/databasemanager_library.cpp
+    src/database/databasemanager_cart.cpp
+    src/database/databasemanager_publisher.cpp
     src/server/servermanager.h
     src/server/servermanager.cpp
 )

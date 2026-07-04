@@ -15,6 +15,7 @@ DatabaseManager &DatabaseManager::instance()
 
 bool DatabaseManager::initialize(const QString &dbPath)
 {
+    m_dbPath = dbPath;
     if (QSqlDatabase::contains("qt_sql_default_connection")) {
         m_db = QSqlDatabase::database("qt_sql_default_connection");
     } else {
@@ -25,8 +26,7 @@ bool DatabaseManager::initialize(const QString &dbPath)
         qWarning() << "Failed to open database:" << m_db.lastError().text();
         return false;
     }
-    return createTableForUser();
-    // we should add all createTables in here !
+    return createAllTables();
 }
 
 bool DatabaseManager::createTableForUser()
@@ -81,4 +81,225 @@ bool DatabaseManager::createTableForBooks()
         return false;
     }
     return true;
+}
+
+bool DatabaseManager::createTableForDiscounts()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+    CREATE TABLE IF NOT EXISTS discounts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id     INTEGER NOT NULL,
+        type        TEXT NOT NULL,
+        value       REAL NOT NULL,
+        start_date  DATETIME,
+        end_date    DATETIME,
+        FOREIGN KEY (book_id) REFERENCES books(id)
+    )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create discounts table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createTableForShelves()
+{
+    QSqlQuery query(m_db);
+    const QString sql1 = R"(
+        CREATE TABLE IF NOT EXISTS shelves (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id  INTEGER NOT NULL,
+            title    TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    )";
+    if (!query.exec(sql1)) {
+        qWarning() << "Failed to create shelves table:" << query.lastError().text();
+        return false;
+    }
+    const QString sql2 = R"(
+        CREATE TABLE IF NOT EXISTS shelf_books (
+            shelf_id  INTEGER NOT NULL,
+            book_id   INTEGER NOT NULL,
+            PRIMARY KEY (shelf_id, book_id),
+            FOREIGN KEY (shelf_id) REFERENCES shelves(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql2)) {
+        qWarning() << "Failed to create shelf_books table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createTableForReadingProgress()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS reading_progress (
+            user_id    INTEGER NOT NULL,
+            book_id    INTEGER NOT NULL,
+            last_page  INTEGER NOT NULL DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, book_id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create reading_progress table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createTableForReviews()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS reviews (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id   INTEGER NOT NULL,
+            book_id   INTEGER NOT NULL,
+            comment   TEXT,
+            rating    INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+            date      DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create reviews table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createTableForNotifications()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS notifications (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id  INTEGER NOT NULL,
+            title    TEXT NOT NULL,
+            message  TEXT,
+            date     DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_read  INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create notifications table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createTableForCart()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS cart_items (
+            user_id    INTEGER NOT NULL,
+            book_id    INTEGER NOT NULL,
+            quantity   INTEGER NOT NULL DEFAULT 1,
+            added_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, book_id),
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create cart_items table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createTableForPurchases()
+{
+    QSqlQuery query(m_db);
+    const QString sql1 = R"(
+        CREATE TABLE IF NOT EXISTS purchases (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id        INTEGER NOT NULL,
+            total_price    REAL NOT NULL DEFAULT 0,
+            purchase_date  DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    )";
+    if (!query.exec(sql1)) {
+        qWarning() << "Failed to create purchases table:" << query.lastError().text();
+        return false;
+    }
+    const QString sql2 = R"(
+        CREATE TABLE IF NOT EXISTS purchase_items (
+            purchase_id  INTEGER NOT NULL,
+            book_id      INTEGER NOT NULL,
+            quantity     INTEGER NOT NULL DEFAULT 1,
+            price_paid   REAL NOT NULL DEFAULT 0,
+            PRIMARY KEY (purchase_id, book_id),
+            FOREIGN KEY (purchase_id) REFERENCES purchases(id),
+            FOREIGN KEY (book_id) REFERENCES books(id)
+        )
+    )";
+    if (!query.exec(sql2)) {
+        qWarning() << "Failed to create purchase_items table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::createAllTables()
+{
+    return createTableForUser()
+    && createTableForBooks()
+        && createTableForWishlist()
+        && createTableForCart()
+        && createTableForPurchases()
+        && createTableForShelves()
+        && createTableForReadingProgress()
+        && createTableForReviews()
+        && createTableForDiscounts()
+        && createTableForNotifications();
+}
+
+// QSqlDatabase DatabaseManager::database() const
+// {
+//     QString connectionName = QString("db_conn_%1").arg(qintptr(QThread::currentThreadId()));
+
+//     if (QSqlDatabase::contains(connectionName)) {
+//         return QSqlDatabase::database(connectionName);
+//     }
+//     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+//     db.setDatabaseName(m_dbPath);
+//     if (!db.open()) {
+//         qWarning() << "Failed to open database for thread:" << connectionName << db.lastError().text();
+//     }
+//     return db;
+// }
+
+QSqlDatabase DatabaseManager::database() const
+{
+    QString connectionName = QString("db_conn_0x%1")
+    .arg(QString::number(reinterpret_cast<quintptr>(QThread::currentThreadId()), 16));
+
+    if (QSqlDatabase::contains(connectionName)) {
+        return QSqlDatabase::database(connectionName, false);
+    }
+    QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+    db.setDatabaseName(m_dbPath);
+
+    if (!db.open()) {
+        qWarning() << "Failed to open database for thread:" << connectionName << db.lastError().text();
+    } else {
+        QSqlQuery pragmaQuery(db);
+        pragmaQuery.exec("PRAGMA journal_mode=WAL;");
+        pragmaQuery.exec("PRAGMA synchronous=NORMAL;");
+    }
+    return db;
 }
