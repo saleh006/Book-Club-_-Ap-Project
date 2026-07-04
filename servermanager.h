@@ -25,6 +25,7 @@ private slots:
 private:
     qintptr m_socketDescriptor;
     QTcpSocket *m_socket;
+    QByteArray m_buffer;
 };
 
 class ServerManager : public QTcpServer

@@ -8,9 +8,7 @@
 
 ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
     : QThread(parent), m_socketDescriptor(socketDescriptor), m_socket(nullptr)
-{
-    this->start();
-}
+{}
 
 ClientHandler::~ClientHandler()
 {
@@ -40,18 +38,22 @@ void ClientHandler::run()
 
 void ClientHandler::onReadyRead()
 {
-    QByteArray rawData = m_socket->readAll();
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(rawData);
-
-    if (jsonDoc.isNull() || !jsonDoc.isObject()) {
-        m_socket->write("Error: Invalid JSON format\n");
-        m_socket->flush();
-        return;
-    }
-
-    QJsonObject requestObj = jsonDoc.object();
-    QString action = requestObj["action"].toString();
-    QJsonObject responseObj;
+    m_buffer.append(m_socket->readAll());
+    int newlineIndex;
+    while ((newlineIndex = m_buffer.indexOf('\n')) != -1) {
+        QByteArray rawData = m_buffer.left(newlineIndex).trimmed();
+        m_buffer.remove(0, newlineIndex + 1);
+        if (rawData.isEmpty()) continue;
+        QJsonParseError parseError;
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(rawData, &parseError);
+        if (parseError.error != QJsonParseError::NoError) {
+            m_socket->write("{\"status\":\"error\",\"message\":\"Invalid JSON format\"}\n");
+            m_socket->flush();
+            continue;
+        }
+        QJsonObject requestObj = jsonDoc.object();
+        QString action = requestObj["action"].toString();
+        QJsonObject responseObj;
 
     if (action == "login") {
         QString username = requestObj["username"].toString();
@@ -470,7 +472,7 @@ void ClientHandler::onReadyRead()
             responseObj["message"] = errorMsg;
         }
     }
-    else if (action == "purchase_fetch_details") {
+    /*else if (action == "purchase_fetch_details") {
         int purchaseId = requestObj["purchaseId"].toInt();
         QVector<CartItem> details;
         QString errorMsg;
@@ -489,7 +491,7 @@ void ClientHandler::onReadyRead()
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;
         }
-    }
+    }*/
     else if (action == "remove_from_cart") {
         int userId = requestObj["userId"].toInt();
         int bookId = requestObj["bookId"].toInt();
@@ -690,15 +692,17 @@ void ClientHandler::onReadyRead()
     QJsonDocument responseDoc(responseObj);
     m_socket->write(responseDoc.toJson(QJsonDocument::Compact));
     m_socket->flush();
+    }
 }
 
-void ClientHandler::onDisconnected()
-{
+void ClientHandler::onDisconnected(){
     qDebug() << "کلاینت ارتباطش را قطع کرد. پاکسازی حافظه...";
-    m_socket->close();
-    m_socket->deleteLater();
-    this->quit();
-    this->deleteLater();
+    if(m_socket){
+        m_socket->close();
+        m_socket->deleteLater();
+        m_socket = nullptr;
+    }
+    quit();
 }
 
 ServerManager::ServerManager(QObject *parent)
@@ -725,5 +729,6 @@ bool ServerManager::startServer(int port)
 
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
-    new ClientHandler(socketDescriptor, this);
+    ClientHandler *handler = new ClientHandler(socketDescriptor);
+    handler->start();
 }
