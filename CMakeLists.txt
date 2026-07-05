@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.19)
 project(ap-project LANGUAGES CXX)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
 
 qt_standard_project_setup()
 
@@ -27,9 +27,17 @@ qt_add_executable(Book-Club-_-Ap-Project
     src/server/servermanager.cpp
 )
 
+qt_add_qml_module(Book-Club-_-Ap-Project
+    URI "BookClubAuth"
+    VERSION 1.0
+    QML_FILES
+        src/auth/firstPage.qml
+)
+
 target_include_directories(Book-Club-_-Ap-Project PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/auth
 )
 
 target_link_libraries(Book-Club-_-Ap-Project
@@ -38,6 +46,8 @@ target_link_libraries(Book-Club-_-Ap-Project
         Qt::Widgets
         Qt::Sql
         Qt::Network
+        Qt::QuickWidgets
+        Qt::Quick
 )
 
 install(TARGETS Book-Club-_-Ap-Project
