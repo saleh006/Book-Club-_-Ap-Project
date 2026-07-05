@@ -93,7 +93,7 @@ Item {
             Rectangle {
                 id: leftPanel
                 anchors.fill: parent
-                radius: 24
+                radius: 32
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: "#1A0F1B" }
                     GradientStop { position: 1.0; color: "#060508" }
@@ -101,9 +101,9 @@ Item {
                 Rectangle {
                     id: gifMaskContainer
                     anchors.centerIn: parent
-                    width: parent.width * 0.9
-                    height: parent.height * 0.9
-                    radius: 20
+                    width: parent.width * 0.85
+                    height: parent.height * 0.85
+                    radius: 24
                     color: "#060508"
                     clip: true
                     AnimatedImage {
@@ -126,6 +126,110 @@ Item {
                 z: -1
             }
         }
-        Item { id: rightSideContent }
+        Item {
+            id: rightSideContent
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            opacity: 0
+            anchors.verticalCenter: parent.verticalCenter
+            ColumnLayout {
+                anchors.centerIn: parent
+                width: 400
+                spacing: 45
+                ColumnLayout {
+                    spacing: 12
+                    Layout.alignment: Qt.AlignHCenter
+                    Text {
+                        text: "BOOK CLUB"
+                        color: "#FFEAD2"
+                        font.pixelSize: 52
+                        font.bold: true
+                        font.letterSpacing: 6
+                        font.family: "Georgia, serif"
+                        Layout.alignment: Qt.AlignHCenter
+                        layer.enabled: true
+                    }
+                    Rectangle {
+                        width: 45
+                        height: 2
+                        color: "#7C3E66"
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+                    Text {
+                        text: "Read . Sip . Enjoy"
+                        color: "#A594B3"
+                        font.pixelSize: 15
+                        font.italic: true
+                        font.letterSpacing: 3
+                        font.family: "Segoe UI, sans-serif"
+                        horizontalAlignment: Text.AlignHCenter
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 18
+                    Repeater {
+                        model: ListModel {
+                            ListElement { btnText: "Login"; isPrimary: true }
+                            ListElement { btnText: "Sign Up"; isPrimary: false }
+                            ListElement { btnText: "Exit"; isPrimary: false }
+                        }
+                        Button {
+                            id: controlBtn
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 56
+                            text: model.btnText
+                            HoverHandler {
+                                id: hoverHandler
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                            scale: controlBtn.hovered ? 1.02 : 1.0
+                            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            background: Rectangle {
+                                id: btnBackground
+                                radius: 16
+                                color: model.isPrimary
+                                    ? (controlBtn.pressed ? "#5F2E4F" : (controlBtn.hovered ? "#954B7B" : "#7C3E66"))
+                                    : (controlBtn.pressed ? "#0D1117" : (controlBtn.hovered ? "#1F1724" : "#120E14"))
+                                border.width: model.isPrimary ? 0 : 1.5
+                                border.color: model.isPrimary ? "transparent" : (controlBtn.hovered ? "#8E4A77" : "#2D2433")
+                                Behavior on color { ColorAnimation { duration: 200 } }
+                                Behavior on border.color { ColorAnimation { duration: 200 } }
+                                layer.enabled: model.isPrimary
+                                layer.effect: MultiEffect {
+                                    shadowEnabled: true
+                                    shadowVerticalOffset: 8
+                                    shadowBlur: 0.8
+                                    shadowColor: controlBtn.hovered ? "#507C3E66" : "#257C3E66"
+                                }
+                            }
+                            contentItem: Text {
+                                text: controlBtn.text
+                                font.pixelSize: 16
+                                font.bold: true
+                                font.letterSpacing: 1.5
+                                font.family: "Segoe UI, sans-serif"
+                                color: model.isPrimary ? "#FFFFFF" : (controlBtn.hovered ? "#FFFFFF" : "#B8B2BF")
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                Behavior on color { ColorAnimation { duration: 200 } }
+                            }
+                            onClicked: {
+                                if (model.btnText === "Exit") {
+                                    Qt.quit()
+                                }
+                                else if (model.btnText === "Login") {
+                                    console.log("Navigating to Login Page...")
+                                }
+                                else if (model.btnText === "Sign Up") {
+                                    console.log("Navigating to Sign Up Page...")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
