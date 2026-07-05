@@ -15,6 +15,10 @@ public:
     explicit ClientHandler(qintptr socketDescriptor, QObject *parent = nullptr);
     ~ClientHandler();
 
+signals:
+    void logProduced(const QString &message);
+    void clientDisconnectedSignal(qintptr descriptor);
+
 protected:
     void run() override;
 
@@ -35,8 +39,15 @@ public:
     explicit ServerManager(QObject *parent = nullptr);
     bool startServer(int port);
 
+signals:
+    void serverLogEvent(const QString &message);
+    void clientCountChanged(int count);
+
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
+
+private:
+    int m_activeClients = 0;
 };
 
 #endif // SERVERMANAGER_H

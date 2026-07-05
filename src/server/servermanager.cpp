@@ -54,6 +54,7 @@ void ClientHandler::onReadyRead()
         QJsonObject requestObj = jsonDoc.object();
         QString action = requestObj["action"].toString();
         QJsonObject responseObj;
+        emit logProduced(QString("[Request] Client (Thread %1) requested action: %2").arg(size_t(QThread::currentThreadId())).arg(action));
 
         // ========
         // USERS
@@ -753,11 +754,13 @@ void ClientHandler::onReadyRead()
         QJsonDocument responseDoc(responseObj);
         m_socket->write(responseDoc.toJson(QJsonDocument::Compact) + "\n");
         m_socket->flush();
+        emit logProduced(QString("[Response] Sent status back: %1").arg(responseObj["status"].toString()));
     }
 }
 
 void ClientHandler::onDisconnected(){
     qDebug() << "Client disconnected. Cleaning up memory...";
+    emit clientDisconnectedSignal(m_socketDescriptor);
     if(m_socket){
         m_socket->close();
         m_socket->deleteLater();
@@ -791,5 +794,14 @@ bool ServerManager::startServer(int port)
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
     ClientHandler *handler = new ClientHandler(socketDescriptor);
+    m_activeClients++;
+    emit clientCountChanged(m_activeClients);
+    connect(handler, &ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc){
+        if(m_activeClients > 0) m_activeClients--;
+        emit clientCountChanged(m_activeClients);
+        emit serverLogEvent(QString("Client with descriptor %1 disconnected.").arg(desc));
+    });
+    connect(handler, &ClientHandler::finished, handler, &ClientHandler::deleteLater);
     handler->start();
+    emit serverLogEvent(QString("New client connected. Descriptor: %1").arg(socketDescriptor));
 }
