@@ -85,8 +85,47 @@ Item {
         anchors.fill: parent
         anchors.margins: 40
         spacing: 50
-
-        Item { id: leftSideContainer }
+        Item {
+            id: leftSideContainer
+            Layout.preferredWidth: parent.width * 0.45
+            Layout.fillHeight: true
+            opacity: 0
+            Rectangle {
+                id: leftPanel
+                anchors.fill: parent
+                radius: 24
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "#1A0F1B" }
+                    GradientStop { position: 1.0; color: "#060508" }
+                }
+                Rectangle {
+                    id: gifMaskContainer
+                    anchors.centerIn: parent
+                    width: parent.width * 0.9
+                    height: parent.height * 0.9
+                    radius: 20
+                    color: "#060508"
+                    clip: true
+                    AnimatedImage {
+                        id: backgroundGif
+                        source: "file:///D:/Book-Club-_-Ap-Project/images/gif.gif"
+                        anchors.fill: parent
+                        fillMode: Image.PreserveAspectFit
+                        playing: true
+                        cache: false
+                    }
+                }
+            }
+            MultiEffect {
+                anchors.fill: leftPanel
+                source: leftPanel
+                shadowEnabled: true
+                shadowVerticalOffset: 15
+                shadowBlur: 1.2
+                shadowColor: "#80000000"
+                z: -1
+            }
+        }
         Item { id: rightSideContent }
     }
 }
