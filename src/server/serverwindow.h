@@ -7,7 +7,11 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include "servermanager.h" // سرور منیجر تو را این‌جا اینکلود می‌کنیم
+#include <QTimer>
+#include "servermanager.h"
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 class ServerWindow : public QMainWindow
 {
@@ -20,8 +24,10 @@ public:
 private slots:
     void onNewLogReceived(const QString &message);
     void onClientCountUpdated(int count);
+    void updateSystemUsage();
 
 private:
+    QTimer *m_sysTimer;
     ServerManager *m_serverManager;
     QTextEdit *m_logDisplay;
     QLabel *m_statusLabel;
@@ -30,6 +36,13 @@ private:
     QLabel *m_ramLabel;
 
     void setupUi();
+
+#ifdef Q_OS_WIN
+    FILETIME m_preIdleTime;
+    FILETIME m_preKernelTime;
+    FILETIME m_preUserTime;
+    double getCpuUsage();
+#endif
 };
 
 #endif // SERVERWINDOW_H

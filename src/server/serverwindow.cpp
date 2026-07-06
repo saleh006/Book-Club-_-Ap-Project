@@ -3,7 +3,7 @@
 #include <QDateTime>
 
 ServerWindow::ServerWindow(ServerManager *server, QWidget *parent )
-    : QMainWindow(parent), m_serverManager(server) // ساخت نمونه از سرور شما[cite: 2, 3]
+    : QMainWindow(parent), m_serverManager(server)
 {
     setupUi();
     connect(m_serverManager, &ServerManager::serverLogEvent, this, &ServerWindow::onNewLogReceived);
@@ -11,7 +11,38 @@ ServerWindow::ServerWindow(ServerManager *server, QWidget *parent )
     m_statusLabel->setText("🟢 Server Status: ACTIVE (Port 1234)");
     m_statusLabel->setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;");
     onNewLogReceived("System: Server successfully booted and listening...");
+#ifdef Q_OS_WIN
+    GetSystemTimes(&m_preIdleTime, &m_preKernelTime, &m_preUserTime);
+#endif
+    m_sysTimer = new QTimer(this);
+    connect(m_sysTimer, &QTimer::timeout, this, &ServerWindow::updateSystemUsage);
+    m_sysTimer->start(1000);
+    onNewLogReceived("System: GUI Dashboard connected. Resource monitoring started.");
 }
+
+#ifdef Q_OS_WIN
+double ServerWindow::getCpuUsage()
+{
+    FILETIME idleTime, kernelTime, userTime;
+    if (!GetSystemTimes(&idleTime, &kernelTime, &userTime)) return 0.0;
+
+    auto ft2u64 = [](const FILETIME &ft) {
+        return (static_cast<quint64>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+    };
+
+    quint64 idle = ft2u64(idleTime) - ft2u64(m_preIdleTime);
+    quint64 kernel = ft2u64(kernelTime) - ft2u64(m_preKernelTime);
+    quint64 user = ft2u64(userTime) - ft2u64(m_preUserTime);
+    quint64 system = kernel + user;
+
+    m_preIdleTime = idleTime;
+    m_preKernelTime = kernelTime;
+    m_preUserTime = userTime;
+
+    if (system == 0) return 0.0;
+    return static_cast<double>(system - idle) * 100.0 / system;
+}
+#endif
 
 ServerWindow::~ServerWindow()
 {}
@@ -64,4 +95,20 @@ void ServerWindow::onNewLogReceived(const QString &message)
 void ServerWindow::onClientCountUpdated(int count)
 {
     m_clientCountLabel->setText(QString("👥 Active Clients: %1").arg(count));
+}
+void ServerWindow::updateSystemUsage()
+{
+#ifdef Q_OS_WIN
+    double cpuPercent = getCpuUsage();
+    m_cpuLabel->setText(QString("💻 CPU Usage: %1 %").arg(cpuPercent, 0, 'f', 1));
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+    if (GlobalMemoryStatusEx(&memInfo)) {
+        int ramPercent = memInfo.dwMemoryLoad;
+        m_ramLabel->setText(QString("🧠 RAM Usage: %1 %").arg(ramPercent));
+    }
+#else
+    m_cpuLabel->setText("💻 CPU Usage: N/A");
+    m_ramLabel->setText("🧠 RAM Usage: N/A");
+#endif
 }
