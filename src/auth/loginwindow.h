@@ -23,6 +23,7 @@ public:
         void loginSuccessful(const QString &username);
         void switchToSignUpRequested();
         void useRecoveryAnswer();
+        void backToMainRequested();
     private slots:
         void handleLoginClicked();
         void onReadyRead();

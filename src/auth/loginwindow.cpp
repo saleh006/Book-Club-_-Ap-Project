@@ -97,6 +97,9 @@ LoginWindow::LoginWindow(QWidget *parent)
     rootLayout->addWidget(leftPanel);
     rootLayout->addWidget(rightPanel);
 
+
+    QPushButton *backBtn = new QPushButton("Back to Main", this);  //     این رو درستش کنننننننننننن
+
     //qss
     setStyleSheet(R"(
         QWidget {
@@ -182,6 +185,10 @@ LoginWindow::LoginWindow(QWidget *parent)
 
     connect(recoveryLabel, &QLabel::linkActivated, this, [this](const QString &) {
         emit useRecoveryAnswer();
+    });
+
+    connect(backBtn, &QPushButton::clicked, this, [this]() {
+        emit backToMainRequested();
     });
 }
 

@@ -8,6 +8,10 @@ Item {
     width: 800
     height: 500
 
+    signal loginRequested()
+    signal signupRequested()
+    signal exitRequested()
+
     Rectangle {
         anchors.fill: parent
         color: "#060508"
@@ -108,7 +112,7 @@ Item {
                     clip: true
                     AnimatedImage {
                         id: backgroundGif
-                        source: "file:///D:/Book-Club-_-Ap-Project/images/gif.gif"
+                        source: "qrc:/BookClubAuth/res/gif.gif"
                         anchors.fill: parent
                         fillMode: Image.PreserveAspectFit
                         playing: true
@@ -217,13 +221,13 @@ Item {
                             }
                             onClicked: {
                                 if (model.btnText === "Exit") {
-                                    Qt.quit()
+                                    root.exitRequested();
                                 }
                                 else if (model.btnText === "Login") {
-                                    console.log("Navigating to Login Page...")
+                                    root.loginRequested();
                                 }
                                 else if (model.btnText === "Sign Up") {
-                                    console.log("Navigating to Sign Up Page...")
+                                    root.signupRequested();
                                 }
                             }
                         }

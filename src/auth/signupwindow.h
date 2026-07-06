@@ -18,9 +18,10 @@ public:
     explicit SignupWindow(QWidget *parent = nullptr);
 //     void clearFields();
 
-// signals:
+signals:
 //     void signupSuccessful(const QString &username);
-//     void switchToLoginRequested();
+    void switchToLoginRequested();
+    void backToMainRequested();
 
 // private slots:
 //     void handleSignupClicked();

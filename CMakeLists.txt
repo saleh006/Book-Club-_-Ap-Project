@@ -36,7 +36,7 @@ qt_add_qml_module(Book-Club-_-Ap-Project
     VERSION 1.0
     QML_FILES
         src/auth/firstPage.qml
-        RESOURCES res/resources.qrc
+        RESOURCES res/resources.qrc res/gif.gif
         SOURCES
         SOURCES src/auth/loginwindow.h src/auth/loginwindow.cpp
         SOURCES src/auth/signupwindow.h src/auth/signupwindow.cpp

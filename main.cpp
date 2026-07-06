@@ -4,6 +4,8 @@
 #include <QVBoxLayout>
 #include <QQuickWidget>
 #include <QUrl>
+#include <QStackedWidget>
+#include <QQuickItem>
 #include "loginwindow.h"
 #include "servermanager.h"
 #include "databasemanager.h"
@@ -20,33 +22,53 @@ int main(int argc, char *argv[])
     if (!server->startServer(1234)) {
         qCritical() << "سرور نتوانست روی پورت 1234 روشن شود. احتمالا پورت اشغال است!";
     }
-    // QQuickWidget *view = new QQuickWidget;
-    // view->setSource(QUrl("qrc:/BookClubAuth/src/auth/firstPage.qml"));
-    // view->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    // view->setWindowTitle("Book Club - Welcome");
-    // view->resize(800,500);
-    // view->show();
-    // LoginWindow s;
-    // s.show();
-    // LoginWindow *loginWin = new LoginWindow();
-    // loginWin->show();
-    // QObject::connect(loginWin, &LoginWindow::loginSuccessful, [loginWin](const QString &username) {
-    //     const QString role = loginWin->loggedInRole();
-    //     qDebug() << "Logged in as" << username << "role:" << role;
-    //     if (role == "admin") {
-    //         qDebug() << "Would open AdminWindow here";
-    //     } else if (role == "publisher") {
-    //         qDebug() << "Would open PublisherWindow here";
-    //     } else {
-    //         qDebug() << "Would open UserWindow here";
-    //     }
+    QQuickWidget *firstPageWidget = new QQuickWidget;
+    firstPageWidget->setSource(QUrl("qrc:/BookClubAuth/src/auth/firstPage.qml"));
+    firstPageWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    firstPageWidget->setWindowTitle("Book Club - Welcome");
+    firstPageWidget->resize(800, 500);
+    LoginWindow *loginWin = new LoginWindow();
+    SignupWindow *signupWin = new SignupWindow();
 
-    //     loginWin->clearFields();
-    //     loginWin->close();
-    // });
-    SignupWindow *dd = new SignupWindow();
-    dd->show();
+    QQuickItem *qmlRoot = firstPageWidget->rootObject();
+    if (qmlRoot) {
+        QObject::connect(qmlRoot, SIGNAL(loginRequested()), loginWin, SLOT(show()));
+        QObject::connect(qmlRoot, SIGNAL(loginRequested()), firstPageWidget, SLOT(hide()));
 
+        QObject::connect(qmlRoot, SIGNAL(signupRequested()), signupWin, SLOT(show()));
+        QObject::connect(qmlRoot, SIGNAL(signupRequested()), firstPageWidget, SLOT(hide()));
 
+        QObject::connect(qmlRoot, SIGNAL(exitRequested()), &a, SLOT(quit()));
+    }
+
+    QObject::connect(loginWin, &LoginWindow::switchToSignUpRequested, [&]() {
+        loginWin->hide();
+        signupWin->show();
+    });
+
+    QObject::connect(signupWin, &SignupWindow::switchToLoginRequested, [&]() {
+        signupWin->hide();
+        loginWin->show();
+    });
+
+    QObject::connect(loginWin, &LoginWindow::backToMainRequested, [&]() {
+        loginWin->hide();
+        firstPageWidget->show();
+    });
+
+    QObject::connect(signupWin, &SignupWindow::backToMainRequested, [&]() {
+        signupWin->hide();
+        firstPageWidget->show();
+    });
+
+    QObject::connect(loginWin, &LoginWindow::loginSuccessful, [&](const QString &username) {
+        const QString role = loginWin->loggedInRole();
+        qDebug() << "Logged in as" << username << "role:" << role;
+        loginWin->clearFields();
+        loginWin->hide();
+        // پنجره های پنل کاربر ها رو باید اینجا باز کنیم
+    });
+
+    firstPageWidget->show();
     return a.exec();
 }

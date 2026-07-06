@@ -98,6 +98,8 @@ SignupWindow::SignupWindow(QWidget *parent)
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->addWidget(imageLabel);
 
+    QPushButton *backBtn = new QPushButton("Back to Main", this);  //     این رو درستش کنننننننننننن
+
     setStyleSheet(R"(
         QWidget {
             background-color: #060508;
@@ -168,7 +170,11 @@ SignupWindow::SignupWindow(QWidget *parent)
 
     // connect(m_signupButton, &QPushButton::clicked, this, &SignupWindow::handleSignupClicked);
 
-    // connect(loginLabel, &QLabel::linkActivated, this, [this](const QString &) {
-    //     emit switchToLoginRequested();
-    // });
+    connect(loginLabel, &QLabel::linkActivated, this, [this](const QString &) {
+        emit switchToLoginRequested();
+    });
+
+    connect(backBtn, &QPushButton::clicked, this, [this]() {
+        emit backToMainRequested();
+    });
 }

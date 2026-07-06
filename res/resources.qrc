@@ -1,7 +1,8 @@
 <RCC>
     <qresource prefix="/">
         <file>StickerView.qml</file>
-	<file>RUBSTAMP.TTF</file>
-	<file>bookclublogo.png</file>
+        <file>RUBSTAMP.TTF</file>
+        <file>bookclublogo.png</file>
+        <file>gif.gif</file>
     </qresource>
 </RCC>
