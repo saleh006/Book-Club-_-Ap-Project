@@ -39,6 +39,7 @@ qt_add_qml_module(Book-Club-_-Ap-Project
         RESOURCES res/resources.qrc
         SOURCES
         SOURCES src/auth/loginwindow.h src/auth/loginwindow.cpp
+        SOURCES src/auth/signupwindow.h src/auth/signupwindow.cpp
 )
 
 target_include_directories(Book-Club-_-Ap-Project PRIVATE

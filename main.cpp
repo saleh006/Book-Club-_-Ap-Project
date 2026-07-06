@@ -7,6 +7,7 @@
 #include "loginwindow.h"
 #include "servermanager.h"
 #include "databasemanager.h"
+#include "signupwindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -27,24 +28,25 @@ int main(int argc, char *argv[])
     // view->show();
     // LoginWindow s;
     // s.show();
-    LoginWindow *loginWin = new LoginWindow();
-    loginWin->show();
-    QObject::connect(loginWin, &LoginWindow::loginSuccessful, [loginWin](const QString &username) {
-        const QString role = loginWin->loggedInRole();
-        qDebug() << "Logged in as" << username << "role:" << role;
+    // LoginWindow *loginWin = new LoginWindow();
+    // loginWin->show();
+    // QObject::connect(loginWin, &LoginWindow::loginSuccessful, [loginWin](const QString &username) {
+    //     const QString role = loginWin->loggedInRole();
+    //     qDebug() << "Logged in as" << username << "role:" << role;
+    //     if (role == "admin") {
+    //         qDebug() << "Would open AdminWindow here";
+    //     } else if (role == "publisher") {
+    //         qDebug() << "Would open PublisherWindow here";
+    //     } else {
+    //         qDebug() << "Would open UserWindow here";
+    //     }
 
-        // TODO: open AdminWindow / PublisherWindow / UserWindow based on role
-        // once those exist. For now just confirm it works:
-        if (role == "admin") {
-            qDebug() << "Would open AdminWindow here";
-        } else if (role == "publisher") {
-            qDebug() << "Would open PublisherWindow here";
-        } else {
-            qDebug() << "Would open UserWindow here";
-        }
+    //     loginWin->clearFields();
+    //     loginWin->close();
+    // });
+    SignupWindow *dd = new SignupWindow();
+    dd->show();
 
-        loginWin->clearFields();
-        loginWin->close();
-    });
+
     return a.exec();
 }
