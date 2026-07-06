@@ -170,4 +170,91 @@ LoginWindow::LoginWindow(QWidget *parent)
             font-size: 12px;
         }
     )");
+    m_socket = new QTcpSocket(this);
+    connect(m_socket, &QTcpSocket::readyRead, this, &LoginWindow::onReadyRead);
+    connect(m_socket, &QTcpSocket::errorOccurred, this, &LoginWindow::onSocketError);
+
+    connect(m_loginButton, &QPushButton::clicked, this, &LoginWindow::handleLoginClicked);
+
+    connect(signupLabel, &QLabel::linkActivated, this, [this](const QString &) {
+        emit switchToSignUpRequested();
+    });
+
+    connect(recoveryLabel, &QLabel::linkActivated, this, [this](const QString &) {
+        emit useRecoveryAnswer();
+    });
+}
+
+void LoginWindow::clearFields()
+{
+    m_usernameEdit->clear();
+    m_passwordEdit->clear();
+    m_statusLabel->clear();
+    m_statusLabel->setVisible(false);
+}
+
+QString LoginWindow::loggedInRole() const
+{
+    return m_loggedInRole;
+}
+
+void LoginWindow::handleLoginClicked()
+{
+    const QString username = m_usernameEdit->text().trimmed();
+    const QString password = m_passwordEdit->text();
+    if (username.isEmpty() || password.isEmpty()) {
+        m_statusLabel->setText("Please enter both username and password.");
+        m_statusLabel->setVisible(true);
+        return;
+    }
+    m_statusLabel->setVisible(false);
+    m_loginButton->setEnabled(false);
+    if (m_socket->state() != QAbstractSocket::ConnectedState) {
+        m_socket->connectToHost("127.0.0.1", 1234);
+        if (!m_socket->waitForConnected(3000)) {
+            m_statusLabel->setText("Could not connect to server.");
+            m_statusLabel->setVisible(true);
+            m_loginButton->setEnabled(true);
+            return;
+        }
+    }
+    QJsonObject requestObj;
+    requestObj["action"] = "login";
+    requestObj["username"] = username;
+    requestObj["password"] = password;
+    QJsonDocument doc(requestObj);
+    m_socket->write(doc.toJson(QJsonDocument::Compact) + "\n");
+}
+
+void LoginWindow::onReadyRead()
+{
+    const QByteArray data = m_socket->readAll();
+    const QJsonDocument doc = QJsonDocument::fromJson(data);
+
+    m_loginButton->setEnabled(true);
+
+    if (!doc.isObject()) {
+        m_statusLabel->setText("Invalid server response.");
+        m_statusLabel->setVisible(true);
+        return;
+    }
+
+    const QJsonObject responseObj = doc.object();
+    const QString status = responseObj["status"].toString();
+
+    if (status == "success") {
+        m_loggedInRole = responseObj["role"].toString();
+        emit loginSuccessful(m_usernameEdit->text().trimmed());
+    } else {
+        m_statusLabel->setText(responseObj["message"].toString());
+        m_statusLabel->setVisible(true);
+    }
+}
+
+void LoginWindow::onSocketError(QAbstractSocket::SocketError error)
+{
+    Q_UNUSED(error);
+    m_loginButton->setEnabled(true);
+    m_statusLabel->setText("Connection error: " + m_socket->errorString());
+    m_statusLabel->setVisible(true);
 }

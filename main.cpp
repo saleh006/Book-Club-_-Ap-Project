@@ -25,7 +25,26 @@ int main(int argc, char *argv[])
     // view->setWindowTitle("Book Club - Welcome");
     // view->resize(800,500);
     // view->show();
-    LoginWindow s;
-    s.show();
+    // LoginWindow s;
+    // s.show();
+    LoginWindow *loginWin = new LoginWindow();
+    loginWin->show();
+    QObject::connect(loginWin, &LoginWindow::loginSuccessful, [loginWin](const QString &username) {
+        const QString role = loginWin->loggedInRole();
+        qDebug() << "Logged in as" << username << "role:" << role;
+
+        // TODO: open AdminWindow / PublisherWindow / UserWindow based on role
+        // once those exist. For now just confirm it works:
+        if (role == "admin") {
+            qDebug() << "Would open AdminWindow here";
+        } else if (role == "publisher") {
+            qDebug() << "Would open PublisherWindow here";
+        } else {
+            qDebug() << "Would open UserWindow here";
+        }
+
+        loginWin->clearFields();
+        loginWin->close();
+    });
     return a.exec();
 }
