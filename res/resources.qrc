@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>StickerView.qml</file>
+	<file>RUBSTAMP.TTF</file>
+    </qresource>
+</RCC>
