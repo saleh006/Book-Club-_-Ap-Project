@@ -4,13 +4,16 @@ project(ap-project LANGUAGES CXX)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
 
+
 qt_standard_project_setup()
+qt_add_resources(RESOURCES
+    "res/resources.qrc"
+)
 
 qt_add_executable(Book-Club-_-Ap-Project
     WIN32 MACOSX_BUNDLE
 
     main.cpp
-
 
 
 
@@ -25,6 +28,7 @@ qt_add_executable(Book-Club-_-Ap-Project
     src/database/databasemanager_publisher.cpp
     src/server/servermanager.h
     src/server/servermanager.cpp
+    ${RESOURCES}
 )
 
 qt_add_qml_module(Book-Club-_-Ap-Project
@@ -32,6 +36,9 @@ qt_add_qml_module(Book-Club-_-Ap-Project
     VERSION 1.0
     QML_FILES
         src/auth/firstPage.qml
+        RESOURCES res/resources.qrc
+        SOURCES
+        SOURCES src/auth/loginwindow.h src/auth/loginwindow.cpp
 )
 
 target_include_directories(Book-Club-_-Ap-Project PRIVATE

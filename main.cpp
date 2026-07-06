@@ -4,6 +4,7 @@
 #include <QVBoxLayout>
 #include <QQuickWidget>
 #include <QUrl>
+#include "loginwindow.h"
 #include "servermanager.h"
 #include "databasemanager.h"
 
@@ -18,11 +19,13 @@ int main(int argc, char *argv[])
     if (!server->startServer(1234)) {
         qCritical() << "سرور نتوانست روی پورت 1234 روشن شود. احتمالا پورت اشغال است!";
     }
-    QQuickWidget *view = new QQuickWidget;
-    view->setSource(QUrl("qrc:/BookClubAuth/src/auth/firstPage.qml"));
-    view->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    view->setWindowTitle("Book Club - Welcome");
-    view->resize(800,500);
-    view->show();
+    // QQuickWidget *view = new QQuickWidget;
+    // view->setSource(QUrl("qrc:/BookClubAuth/src/auth/firstPage.qml"));
+    // view->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    // view->setWindowTitle("Book Club - Welcome");
+    // view->resize(800,500);
+    // view->show();
+    LoginWindow s;
+    s.show();
     return a.exec();
 }
