@@ -18,6 +18,7 @@ public:
 signals:
     void logProduced(const QString &message);
     void clientDisconnectedSignal(qintptr descriptor);
+    void databaseUpdated(const QString &type);
 
 protected:
     void run() override;
@@ -42,6 +43,7 @@ public:
 signals:
     void serverLogEvent(const QString &message);
     void clientCountChanged(int count);
+    void databaseUpdated(const QString &type);
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;

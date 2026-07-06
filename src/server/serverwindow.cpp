@@ -1,6 +1,12 @@
 #include "serverwindow.h"
+#include "databasemanager.h"
 #include <QGroupBox>
 #include <QDateTime>
+#include <QTabWidget>
+#include <QHeaderView>
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QSqlError>
 
 ServerWindow::ServerWindow(ServerManager *server, QWidget *parent )
     : QMainWindow(parent), m_serverManager(server)
@@ -8,9 +14,22 @@ ServerWindow::ServerWindow(ServerManager *server, QWidget *parent )
     setupUi();
     connect(m_serverManager, &ServerManager::serverLogEvent, this, &ServerWindow::onNewLogReceived);
     connect(m_serverManager, &ServerManager::clientCountChanged, this, &ServerWindow::onClientCountUpdated);
+    connect(m_serverManager, &ServerManager::databaseUpdated ,this,[this](const QString &type){
+        if (type == "users") {
+            loadUsersFromDatabase();
+            onNewLogReceived("UI Updated: Users list refreshed");
+        }
+        if (type == "book"){
+            loadBooksFromDatabase();
+            onNewLogReceived("UI Updated: Books list refreshed");
+        }
+    });
+
     m_statusLabel->setText("🟢 Server Status: ACTIVE (Port 1234)");
     m_statusLabel->setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;");
     onNewLogReceived("System: Server successfully booted and listening...");
+    loadBooksFromDatabase();
+    loadUsersFromDatabase();
 #ifdef Q_OS_WIN
     GetSystemTimes(&m_preIdleTime, &m_preKernelTime, &m_preUserTime);
 #endif
@@ -55,6 +74,12 @@ void ServerWindow::setupUi()
 
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
+    QTabWidget *tabWidget = new QTabWidget(this);
+    tabWidget->setStyleSheet("QTabBar::tab { background: #2a2a35; color: white; padding: 8px 20px; border: 1px solid #3a3a4c; } "
+                             "QTabBar::tab:selected { background: #3498db; font-weight: bold; } "
+                             "QTabWidget::panel { border: 1px solid #3a3a4c; background: #1e1e24; }");
+    QWidget *monitorTab = new QWidget();
+    QVBoxLayout *monitorLayout = new QVBoxLayout(monitorTab);
     QHBoxLayout *statsLayout = new QHBoxLayout();
 
     m_statusLabel = new QLabel("⚪ Server Status: Checking...", this);
@@ -71,7 +96,7 @@ void ServerWindow::setupUi()
     statsLayout->addWidget(m_clientCountLabel);
     statsLayout->addWidget(m_cpuLabel);
     statsLayout->addWidget(m_ramLabel);
-    mainLayout->addLayout(statsLayout);
+    monitorLayout->addLayout(statsLayout);
 
     QGroupBox *logGroup = new QGroupBox("Live Activity Logs (Real-time)", this);
     logGroup->setStyleSheet("QGroupBox { font-weight: bold; color: #e0e0e0; border: 1px solid #3a3a4c; border-radius: 8px; margin-top: 10px; padding-top: 15px; }");
@@ -82,8 +107,35 @@ void ServerWindow::setupUi()
     m_logDisplay->setStyleSheet("background-color: #0f0f12; color: #a3be8c; border: none; font-family: 'Consolas', monospace; font-size: 12px;");
 
     logGroupLayout->addWidget(m_logDisplay);
-    mainLayout->addWidget(logGroup);
+    monitorLayout->addWidget(logGroup);
 
+
+    QWidget *dbTab = new QWidget();
+    usersTable = new QTableWidget(this);
+    usersTable->setColumnCount(4);
+    usersTable->setHorizontalHeaderLabels({"ID", "Username", "Full Name", "Role"});
+    usersTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    usersTable->setStyleSheet("background-color: #0f0f12; color: white; gridline-color: #3a3a4c; QHeaderView::section { background-color: #2a2a35; color: white; }");
+
+    booksTable = new QTableWidget(this);
+    booksTable->setColumnCount(4);
+    booksTable->setHorizontalHeaderLabels({"ID", "Title", "Author", "Price"});
+    booksTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    booksTable->setStyleSheet("background-color: #0f0f12; color: white; gridline-color: #3a3a4c; QHeaderView::section { background-color: #2a2a35; color: white; }");
+
+    QVBoxLayout *dbLayout = new QVBoxLayout(dbTab);
+    QLabel *usersTitle = new QLabel("👥 All Registered Users:", this);
+    usersTitle->setStyleSheet("font-weight: bold; font-size: 14px; color: #3498db; margin-top: 5px;");
+    dbLayout->addWidget(usersTitle);
+    dbLayout->addWidget(usersTable);
+    QLabel *booksTitle = new QLabel("📚 Library Books:", this);
+    booksTitle->setStyleSheet("font-weight: bold; font-size: 14px; color: #2ecc71; margin-top: 5px;");
+    dbLayout->addWidget(booksTitle);
+    dbLayout->addWidget(booksTable);
+
+    tabWidget->addTab(monitorTab,"📈 Live Monitor");
+    tabWidget->addTab(dbTab,"🗄️ Database Live Sync");
+    mainLayout->addWidget(tabWidget);
     this->setCentralWidget(centralWidget);
 }
 
@@ -111,4 +163,45 @@ void ServerWindow::updateSystemUsage()
     m_cpuLabel->setText("💻 CPU Usage: N/A");
     m_ramLabel->setText("🧠 RAM Usage: N/A");
 #endif
+}
+void ServerWindow::loadUsersFromDatabase()
+{
+    usersTable->setRowCount(0);
+    QSqlDatabase db = QSqlDatabase::database();
+    if (!db.isOpen()) {
+        onNewLogReceived("Database Sync Error: Connection is not open in this thread.");
+        return;
+    }
+    QSqlQuery query("SELECT id, username, full_name, role FROM users", db);
+    if (!query.isActive()) {
+        onNewLogReceived("Database Query Error: " + query.lastError().text());
+        return;
+    }
+    int row = 0;
+    while (query.next()) {
+        usersTable->insertRow(row);
+        usersTable->setItem(row, 0, new QTableWidgetItem(query.value("id").toString()));
+        usersTable->setItem(row, 1, new QTableWidgetItem(query.value("username").toString()));
+        usersTable->setItem(row, 2, new QTableWidgetItem(query.value("full_name").toString()));
+        usersTable->setItem(row, 3, new QTableWidgetItem(query.value("role").toString()));
+        row++;
+    }
+}
+void ServerWindow::loadBooksFromDatabase()
+{
+    booksTable->setRowCount(0);
+    QVector<Book> booksList;
+    QString errorMsg;
+    if (DatabaseManager::instance().fetchAllBooks(booksList, errorMsg, false)) {
+        for (int row = 0; row < booksList.size(); ++row) {
+            booksTable->insertRow(row);
+            booksTable->setItem(row, 0, new QTableWidgetItem(QString::number(booksList[row].id)));
+            booksTable->setItem(row, 1, new QTableWidgetItem(booksList[row].title));
+            booksTable->setItem(row, 2, new QTableWidgetItem(booksList[row].author));
+            booksTable->setItem(row, 3, new QTableWidgetItem(QString::number(booksList[row].price) + " $"));
+        }
+    }
+    else{
+        onNewLogReceived("Database Error: " + errorMsg);
+    }
 }

@@ -71,6 +71,7 @@ void ClientHandler::onReadyRead()
             if (DatabaseManager::instance().registerUser(username, password, fullName, email, recoveryAnswer, errorMsg, role)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Registration successful. You can now log in.";
+                emit databaseUpdated("users");
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -156,6 +157,7 @@ void ClientHandler::onReadyRead()
                     responseObj["status"] = "success";
                     responseObj["message"] = "Book added successfully.";
                     responseObj["bookId"] = newBookId;
+                    emit databaseUpdated("book");
                 } else {
                     responseObj["status"] = "error";
                     responseObj["message"] = errorMsg;
@@ -177,6 +179,7 @@ void ClientHandler::onReadyRead()
             if (DatabaseManager::instance().updateBook(b, errorMsg)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Book information updated successfully.";
+                emit databaseUpdated("book");
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -188,6 +191,7 @@ void ClientHandler::onReadyRead()
             if (DatabaseManager::instance().deleteBook(bookId, errorMsg)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Book deleted successfully.";
+                emit databaseUpdated("book");
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -796,6 +800,7 @@ void ServerManager::incomingConnection(qintptr socketDescriptor)
     ClientHandler *handler = new ClientHandler(socketDescriptor);
     m_activeClients++;
     emit clientCountChanged(m_activeClients);
+    connect(handler, &ClientHandler::databaseUpdated,this,&ServerManager::databaseUpdated);
     connect(handler, &ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc){
         if(m_activeClients > 0) m_activeClients--;
         emit clientCountChanged(m_activeClients);
