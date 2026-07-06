@@ -11,6 +11,8 @@
 #include "databasemanager.h"
 #include "signupwindow.h"
 #include "recoverywindow.h"
+#include "serverwindow.h"
+
 
 int main(int argc, char *argv[])
 {
@@ -23,6 +25,7 @@ int main(int argc, char *argv[])
     if (!server->startServer(1234)) {
         qCritical() << "سرور نتوانست روی پورت 1234 روشن شود. احتمالا پورت اشغال است!";
     }
+
     QQuickWidget *firstPageWidget = new QQuickWidget;
     firstPageWidget->setSource(QUrl("qrc:/BookClubAuth/src/auth/firstPage.qml"));
     firstPageWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
@@ -96,6 +99,5 @@ int main(int argc, char *argv[])
     });
 
     firstPageWidget->show();
-
     return a.exec();
 }

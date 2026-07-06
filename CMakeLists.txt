@@ -28,6 +28,9 @@ qt_add_executable(Book-Club-_-Ap-Project
     src/database/databasemanager_publisher.cpp
     src/server/servermanager.h
     src/server/servermanager.cpp
+    src/server/serverwindow.h
+    src/server/serverwindow.cpp
+    src/server/serverwindow.ui
     ${RESOURCES}
 )
 
