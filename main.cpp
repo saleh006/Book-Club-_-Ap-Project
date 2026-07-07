@@ -61,6 +61,13 @@ int main(int argc, char *argv[])
         firstPageWidget->show();
     });
 
+    QObject::connect(signupWin,&SignupWindow::signupSuccessful,[&](const QString &username){
+        signupWin->clearFields();
+        signupWin->hide();
+        firstPageWidget->show();
+        QMetaObject::invokeMethod(qmlRoot,"showNotification",Q_ARG(QVariant,"Registration successful :)"));
+    });
+
     QObject::connect(loginWin, &LoginWindow::loginSuccessful, [&](const QString &username) {
         const QString role = loginWin->loggedInRole();
         qDebug() << "Logged in as" << username << "role:" << role;

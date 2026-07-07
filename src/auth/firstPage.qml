@@ -236,4 +236,51 @@ Item {
             }
         }
     }
+
+    function showNotification(message) {
+        notificationText.text = message
+        notificationToast.opacity = 1.0
+        notificationTimer.restart()
+    }
+    Rectangle {
+        id: notificationToast
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 30
+        anchors.horizontalCenterOffset: -200
+        width: 250
+        height: 45
+        radius: 12
+        color: "#1E3E2A"
+        border.color: "#2ECC71"
+        border.width: 1.5
+        opacity: 0
+        z: 999
+        Behavior on opacity {
+            NumberAnimation { duration: 300 }
+        }
+
+        RowLayout {
+            anchors.centerIn: parent
+            spacing: 10
+            Text {
+                text: "✓"
+                color: "#2ECC71"
+                font.bold: true
+                font.pixelSize: 16
+            }
+            Text {
+                id: notificationText
+                color: "#EAEAEA"
+                font.family: "Segoe UI, sans-serif"
+                font.pixelSize: 14
+                font.bold: true
+            }
+        }
+    }
+    Timer {
+        id: notificationTimer
+        interval: 3000
+        onTriggered: notificationToast.opacity = 0.0
+    }
 }
