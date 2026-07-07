@@ -16,17 +16,17 @@ class SignupWindow : public QWidget
 
 public:
     explicit SignupWindow(QWidget *parent = nullptr);
-//     void clearFields();
+    void clearFields();
 
 signals:
-//     void signupSuccessful(const QString &username);
+    void signupSuccessful(const QString &username);
     void switchToLoginRequested();
     void backToMainRequested();
 
-// private slots:
-//     void handleSignupClicked();
-//     void onReadyRead();
-//     void onSocketError(QAbstractSocket::SocketError error);
+private slots:
+    void handleSignupClicked();
+    void onReadyRead();
+    void onSocketError(QAbstractSocket::SocketError error);
 
 private:
     QLineEdit *m_fullNameEdit;
