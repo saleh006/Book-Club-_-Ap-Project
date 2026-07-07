@@ -99,7 +99,11 @@ SignupWindow::SignupWindow(QWidget *parent)
     rightLayout->addWidget(imageLabel);
 
 
-    QPushButton *backBtn = new QPushButton("Back to Main", this);  //     این رو درستش کنننننننننننن
+    QPushButton *backBtn = new QPushButton("← Back", this);
+    backBtn->setObjectName("backButton");
+    backBtn->move(696, 4);
+    backBtn->setCursor(Qt::PointingHandCursor);
+    backBtn->setFixedSize(95, 32);
 
     setStyleSheet(R"(
         QWidget {
@@ -153,6 +157,26 @@ SignupWindow::SignupWindow(QWidget *parent)
             font-size: 14px;
             font-weight: bold;
             color: white;
+        }
+
+        #backButton {
+            background-color: transparent;
+            border: 1px solid #7C3E66;
+            border-radius: 15px;
+            color: #D9C2D1;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+        }
+
+        #backButton:hover {
+             background-color: rgba(124, 62, 102, 60);
+            color: white;
+            border: 1px solid #B06B96;
+        }
+
+        #backButton:pressed {
+            background-color: rgba(124, 62, 102, 120);
         }
 
         #loginButton:hover {
