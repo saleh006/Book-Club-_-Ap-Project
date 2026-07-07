@@ -17,7 +17,7 @@ public:
 
 signals:
     void logProduced(const QString &message);
-    void clientDisconnectedSignal(qintptr descriptor);
+    void clientDisconnectedSignal(qintptr descriptor, const QString &username);
     void databaseUpdated(const QString &type);
 
 protected:
@@ -31,6 +31,7 @@ private:
     qintptr m_socketDescriptor;
     QTcpSocket *m_socket;
     QByteArray m_buffer;
+    QString m_username = "Anonymous";
 };
 
 class ServerManager : public QTcpServer

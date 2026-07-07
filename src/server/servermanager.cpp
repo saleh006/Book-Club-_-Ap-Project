@@ -54,7 +54,13 @@ void ClientHandler::onReadyRead()
         QJsonObject requestObj = jsonDoc.object();
         QString action = requestObj["action"].toString();
         QJsonObject responseObj;
-        emit logProduced(QString("[Request] Client (Thread %1) requested action: %2").arg(size_t(QThread::currentThreadId())).arg(action));
+        QString clientIp = m_socket ? m_socket->peerAddress().toString() : "Unknown IP";
+        QString reqLog = QString("<font color='#3498db'><b>[REQ]</b></font> "
+                                 "User: <b>%1</b> | IP: %2 | Action: <font color='#f1c40f'><b>%3</b></font>")
+                             .arg(m_username)
+                             .arg(clientIp)
+                             .arg(action);
+        emit logProduced(reqLog);
 
         // ========
         // USERS
@@ -88,6 +94,7 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = "Login successful.";
                 responseObj["role"] = loggedInUser.role;
                 responseObj["fullName"] = loggedInUser.fullName;
+                m_username = username;
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -758,13 +765,28 @@ void ClientHandler::onReadyRead()
         QJsonDocument responseDoc(responseObj);
         m_socket->write(responseDoc.toJson(QJsonDocument::Compact) + "\n");
         m_socket->flush();
-        emit logProduced(QString("[Response] Sent status back: %1").arg(responseObj["status"].toString()));
+
+        QString status = responseObj["status"].toString();
+        QString msg = responseObj["message"].toString();
+        QString resLog;
+        if (status == "success") {
+            resLog = QString("<font color='#2ecc71'><b>[RES]</b></font> Action: <b>%1</b> | Status: SUCCESS")
+            .arg(action);
+            if (!msg.isEmpty()) resLog += QString(" (%1)").arg(msg);
+        }
+        else {
+            resLog = QString("<font color='#e74c3c'><b>[ERR]</b></font> Action: <b>%1</b> | Status: ERROR | Reason: <i>%2</i>")
+            .arg(action)
+                .arg(msg.isEmpty() ? "Unknown Error" : msg);
+        }
+        emit logProduced(resLog);
+        emit logProduced("<hr style='border: 0; border-top: 1px solid #3a3a4c; margin: 4px 0;'>");
     }
 }
 
 void ClientHandler::onDisconnected(){
     qDebug() << "Client disconnected. Cleaning up memory...";
-    emit clientDisconnectedSignal(m_socketDescriptor);
+    emit clientDisconnectedSignal(m_socketDescriptor,m_username);
     if(m_socket){
         m_socket->close();
         m_socket->deleteLater();
@@ -798,15 +820,21 @@ bool ServerManager::startServer(int port)
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
     ClientHandler *handler = new ClientHandler(socketDescriptor);
+    QString connectLog = QString("<font color='#7f8c8d'><b>[SYS]</b></font> New client connected. User: <b>Anonymous</b> | Descriptor: %1")
+                             .arg(socketDescriptor);
+    emit serverLogEvent(connectLog);
+
     m_activeClients++;
     emit clientCountChanged(m_activeClients);
+
+    connect(handler,&ClientHandler::logProduced,this,&ServerManager::serverLogEvent);
     connect(handler, &ClientHandler::databaseUpdated,this,&ServerManager::databaseUpdated);
-    connect(handler, &ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc){
+    connect(handler, &ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc,const QString &username){
         if(m_activeClients > 0) m_activeClients--;
         emit clientCountChanged(m_activeClients);
-        emit serverLogEvent(QString("Client with descriptor %1 disconnected.").arg(desc));
+        emit serverLogEvent(QString("<font color='#7f8c8d'><b>[SYS]</b></font> User <b>%1</b> disconnected.").arg(username));
     });
+
     connect(handler, &ClientHandler::finished, handler, &ClientHandler::deleteLater);
     handler->start();
-    emit serverLogEvent(QString("New client connected. Descriptor: %1").arg(socketDescriptor));
 }

@@ -116,12 +116,14 @@ void ServerWindow::setupUi()
     usersTable->setHorizontalHeaderLabels({"ID", "Username", "Full Name", "Role"});
     usersTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     usersTable->setStyleSheet("background-color: #0f0f12; color: white; gridline-color: #3a3a4c; QHeaderView::section { background-color: #2a2a35; color: white; }");
+    usersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     booksTable = new QTableWidget(this);
     booksTable->setColumnCount(4);
     booksTable->setHorizontalHeaderLabels({"ID", "Title", "Author", "Price"});
     booksTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     booksTable->setStyleSheet("background-color: #0f0f12; color: white; gridline-color: #3a3a4c; QHeaderView::section { background-color: #2a2a35; color: white; }");
+    booksTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     QVBoxLayout *dbLayout = new QVBoxLayout(dbTab);
     QLabel *usersTitle = new QLabel("👥 All Registered Users:", this);
@@ -141,8 +143,10 @@ void ServerWindow::setupUi()
 
 void ServerWindow::onNewLogReceived(const QString &message)
 {
-    QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
-    m_logDisplay->append(QString("[%1] %2").arg(currentTime, message));
+    QString currentTime = QDateTime::currentDateTime().toString("[yyyy-MM-dd hh:mm:ss]");
+    QString formattedMessage = QString("<span style='color: #7f8c8d;'>%1</span> %2").arg(currentTime, message);
+    m_logDisplay->append(formattedMessage);
+    m_logDisplay->moveCursor(QTextCursor::End);
 }
 void ServerWindow::onClientCountUpdated(int count)
 {
@@ -184,6 +188,12 @@ void ServerWindow::loadUsersFromDatabase()
         usersTable->setItem(row, 1, new QTableWidgetItem(query.value("username").toString()));
         usersTable->setItem(row, 2, new QTableWidgetItem(query.value("full_name").toString()));
         usersTable->setItem(row, 3, new QTableWidgetItem(query.value("role").toString()));
+
+        usersTable->item(row, 0)->setTextAlignment(Qt::AlignCenter);
+        usersTable->item(row, 1)->setTextAlignment(Qt::AlignCenter);
+        usersTable->item(row, 2)->setTextAlignment(Qt::AlignCenter);
+        usersTable->item(row, 3)->setTextAlignment(Qt::AlignCenter);
+
         row++;
     }
 }
@@ -199,6 +209,12 @@ void ServerWindow::loadBooksFromDatabase()
             booksTable->setItem(row, 1, new QTableWidgetItem(booksList[row].title));
             booksTable->setItem(row, 2, new QTableWidgetItem(booksList[row].author));
             booksTable->setItem(row, 3, new QTableWidgetItem(QString::number(booksList[row].price) + " $"));
+
+            booksTable->item(row, 0)->setTextAlignment(Qt::AlignCenter);
+            booksTable->item(row, 1)->setTextAlignment(Qt::AlignCenter);
+            booksTable->item(row, 2)->setTextAlignment(Qt::AlignCenter);
+            booksTable->item(row, 3)->setTextAlignment(Qt::AlignCenter);
+            booksTable->item(row, 4)->setTextAlignment(Qt::AlignCenter);
         }
     }
     else{
