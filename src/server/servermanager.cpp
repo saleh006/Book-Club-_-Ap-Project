@@ -117,6 +117,20 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
+        else if (action == "recover_password") {
+            QString username = requestObj["username"].toString();
+            QString recoveryAnswer = requestObj["recoveryAnswer"].toString();
+            QString newPassword = requestObj["newPassword"].toString();
+            QString errorMsg;
+
+            if (DatabaseManager::instance().resetPasswordWithRecovery(username, recoveryAnswer, newPassword, errorMsg)) {
+                responseObj["status"] = "success";
+                responseObj["message"] = "Password reset successfully. You can now log in.";
+            } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
+        }
 
         // ========
         // BOOKS

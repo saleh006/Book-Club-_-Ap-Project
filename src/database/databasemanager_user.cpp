@@ -129,6 +129,48 @@ bool DatabaseManager::setUserBlocked(const QString &username, bool blocked, QStr
     return true;
 }
 
+bool DatabaseManager::resetPasswordWithRecovery(const QString &username, const QString &recoveryAnswer, const QString &newPassword, QString &errorMsg)
+{
+    if (newPassword.length() < 6) {
+        errorMsg = "New password must be at least 6 characters.";
+        return false;
+    }
+    QSqlQuery query(database());
+    query.prepare("SELECT recovery_answer, recovery_salt FROM users WHERE username = :username");
+    query.bindValue(":username", username);
+    if (!query.exec()) {
+        errorMsg = "Database error: " + query.lastError().text();
+        return false;
+    }
+    if (!query.next()) {
+        errorMsg = "No account found with that username.";
+        return false;
+    }
+    const QString storedHash = query.value("recovery_answer").toString();
+    const QString recoverySalt = query.value("recovery_salt").toString();
+    if (storedHash.isEmpty() || recoverySalt.isEmpty()) {
+        errorMsg = "No recovery answer was set for this account.";
+        return false;
+    }
+    const QString attemptedHash = hashPassword(recoveryAnswer.trimmed().toLower(), recoverySalt);
+    if (attemptedHash != storedHash) {
+        errorMsg = "Recovery answer is incorrect.";
+        return false;
+    }
+    const QString newSalt = generateSalt();
+    const QString newHash = hashPassword(newPassword, newSalt);
+    QSqlQuery update(database());
+    update.prepare("UPDATE users SET password_hash = :hash, salt = :salt WHERE username = :username");
+    update.bindValue(":hash", newHash);
+    update.bindValue(":salt", newSalt);
+    update.bindValue(":username", username);
+    if (!update.exec()) {
+        errorMsg = "Failed to update password: " + update.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 QString DatabaseManager::generateSalt() const
 {
     QByteArray bytes(16, 0);
@@ -173,3 +215,4 @@ bool DatabaseManager::fetchUser(const QString &username, User &outUser, QString 
 
     return true;
 }
+
