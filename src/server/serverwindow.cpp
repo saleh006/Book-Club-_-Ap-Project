@@ -199,9 +199,9 @@ void ServerWindow::onReadyRead()
         for (int i = 0; i < usersArray.size(); ++i) {
             QJsonObject u = usersArray[i].toObject();
             usersTable->insertRow(i);
-            usersTable->setItem(i, 0, new QTableWidgetItem(u["username"].toString()));
-            usersTable->setItem(i, 1, new QTableWidgetItem(u["name"].toString()));
-            usersTable->setItem(i, 2, new QTableWidgetItem(u["email"].toString()));
+            usersTable->setItem(i, 0, new QTableWidgetItem(QString::number(u["id"].toInt())));
+            usersTable->setItem(i, 1, new QTableWidgetItem(u["username"].toString()));
+            usersTable->setItem(i, 2, new QTableWidgetItem(u["fullName"].toString()));
             usersTable->setItem(i, 3, new QTableWidgetItem(u["role"].toString()));
 
             usersTable->item(i, 0)->setTextAlignment(Qt::AlignCenter);
@@ -233,6 +233,9 @@ void ServerWindow::onConnected(){
     m_statusLabel->setText("🟢 Server Status: ACTIVE (Connected via Network)");
     m_statusLabel->setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;");
     onNewLogReceived("System: Connected to the remote server core successfully.");
+    QJsonObject req;
+    req["action"] = "admin_subscribe";
+    m_socket->write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
     loadUsersFromDatabase();
     loadBooksFromDatabase();
 }

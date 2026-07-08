@@ -140,6 +140,61 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
+        else if (action == "admin_get_users") {
+            emit logProduced("Admin requested registered users list.");
+            QJsonObject response;
+            response["type"] = "users_list";
+            QJsonArray usersArray;
+            QVector<UserProfileSummary> outProfiles;
+            QString errorMsg;
+
+            if (DatabaseManager::instance().fetchAllUsersProfilesForAdmin(outProfiles, errorMsg)) {
+                for (const auto &profile : outProfiles) {
+                    QJsonObject userObj;
+                    userObj["id"] = profile.user.id;
+                    userObj["username"] = profile.user.username;
+                    userObj["fullName"] = profile.user.fullName;
+                    userObj["role"] = profile.user.role;
+                    usersArray.append(userObj);
+                }
+            }
+            else {
+                emit logProduced("Error fetching users for admin: " + errorMsg);
+            }
+
+            response["users"] = usersArray;
+            QJsonDocument resDoc(response);
+            m_socket->write(resDoc.toJson(QJsonDocument::Compact) + "\n");
+        }
+        else if (action == "admin_get_books") {
+            emit logProduced("Admin requested library books list.");
+            QJsonObject response;
+            response["type"] = "books_list";
+            QJsonArray booksArray;
+            QVector<Book> booksList;
+            QString errorMsg;
+
+            if (DatabaseManager::instance().fetchAllBooks(booksList, errorMsg, false)) {
+                for (const auto &book : booksList) {
+                    QJsonObject bookObj;
+                    bookObj["id"] = book.id;
+                    bookObj["title"] = book.title;
+                    bookObj["author"] = book.author;
+                    bookObj["price"] = book.price;
+                    booksArray.append(bookObj);
+                }
+            }
+            response["books"] = booksArray;
+            QJsonDocument resDoc(response);
+            m_socket->write(resDoc.toJson(QJsonDocument::Compact) + "\n");
+        }
+        else if (action == "admin_subscribe") {
+            ServerManager *server = qobject_cast<ServerManager*>(parent());
+            if (server) {
+                connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
+            }
+        }
+
         // ========
         // BOOKS
         // ========
@@ -779,8 +834,8 @@ void ClientHandler::onReadyRead()
             .arg(action)
                 .arg(msg.isEmpty() ? "Unknown Error" : msg);
         }
-        emit logProduced(resLog);
-        emit logProduced("<hr style='border: 0; border-top: 1px solid #3a3a4c; margin: 4px 0;'>");
+        QString finalLog = resLog + "<hr style='border: 0; border-top: 1px solid #3a3a4c; margin: 4px 0;'>";
+        emit logProduced(finalLog);
     }
 }
 
@@ -795,9 +850,31 @@ void ClientHandler::onDisconnected(){
     quit();
 }
 
+void ClientHandler::sendToClient(const QJsonObject &msg)
+{
+    if (m_socket && m_socket->isOpen()) {
+        m_socket->write(QJsonDocument(msg).toJson(QJsonDocument::Compact) + "\n");
+        m_socket->flush();
+    }
+}
+
 ServerManager::ServerManager(QObject *parent)
     : QTcpServer(parent)
-{}
+{
+    connect(this, &ServerManager::serverLogEvent, this, [this](const QString &msg) {
+        QJsonObject obj;
+        obj["type"] = "log";
+        obj["message"] = msg;
+        emit broadcastToAdmins(obj);
+    });
+
+    connect(this, &ServerManager::clientCountChanged, this, [this](int count) {
+        QJsonObject obj;
+        obj["type"] = "client_count";
+        obj["count"] = count;
+        emit broadcastToAdmins(obj);
+    });
+}
 
 bool ServerManager::startServer(int port)
 {
@@ -819,7 +896,7 @@ bool ServerManager::startServer(int port)
 
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
-    ClientHandler *handler = new ClientHandler(socketDescriptor);
+    ClientHandler *handler = new ClientHandler(socketDescriptor,this);
     QString connectLog = QString("<font color='#7f8c8d'><b>[SYS]</b></font> New client connected. User: <b>Anonymous</b> | Descriptor: %1")
                              .arg(socketDescriptor);
     emit serverLogEvent(connectLog);

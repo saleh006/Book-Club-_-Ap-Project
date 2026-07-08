@@ -27,6 +27,9 @@ private slots:
     void onReadyRead();
     void onDisconnected();
 
+public slots:
+    void sendToClient(const QJsonObject &msg);
+
 private:
     qintptr m_socketDescriptor;
     QTcpSocket *m_socket;
@@ -45,6 +48,7 @@ signals:
     void serverLogEvent(const QString &message);
     void clientCountChanged(int count);
     void databaseUpdated(const QString &type);
+    void broadcastToAdmins(const QJsonObject &msg);
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
