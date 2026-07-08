@@ -87,6 +87,15 @@ struct CartItem {
     double price = 0.0;
 };
 
+struct UserProfileSummary {
+    User user;
+    QVector<Book> ownedBooks;
+    QVector<Book> wishlist;
+    QVector<CartItem> cartItems;
+    double cartTotal = 0.0;
+    QVector<Purchase> purchaseHistory;
+};
+
 class DatabaseManager
 {
 public:
@@ -112,6 +121,8 @@ public:
                                    const QString &recoveryAnswer,
                                    const QString &newPassword,
                                    QString &errorMsg);
+    bool fetchUserProfileForAdmin(const QString &username, UserProfileSummary &outProfile, QString &errorMsg);
+    bool fetchAllUsersProfilesForAdmin(QVector<UserProfileSummary>& outProfiles , QString &errorMsg);
 
     //book
 
