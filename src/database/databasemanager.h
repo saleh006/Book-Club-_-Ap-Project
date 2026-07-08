@@ -96,6 +96,15 @@ struct UserProfileSummary {
     QVector<Purchase> purchaseHistory;
 };
 
+struct PublisherProfileSummary {
+    User user;
+    QVector<Book> publishedBooks;
+    double totalIncome = 0.0;
+    int bookCount = 0;
+    int totalSales = 0;
+    double averageRating = 0.0;
+};
+
 class DatabaseManager
 {
 public:
@@ -177,7 +186,9 @@ public:
     bool fetchPublisherIncome(int publisherId, double &outTotalIncome, QString &errorMsg);
     bool fetchPublisherIncomeForBook(int publisherId, int bookId, double &outIncome, QString &errorMsg);
     bool fetchPublisherStats(int publisherId, int &outBookCount, int &outTotalSales, double &outAverageRating, QString &errorMsg);
-    bool setBookOwnership(int bookId, int publisherId, QString &errorMsg); // reassign/transfer
+    bool setBookOwnership(int bookId, int publisherId, QString &errorMsg);    // reassign/transfer
+    bool fetchPublisherProfileForAdmin(const QString &username, PublisherProfileSummary &outProfile, QString &errorMsg);
+    bool fetchAllPublisherProfilesForAdmin(QVector<PublisherProfileSummary> &outProfiles, QString &errorMsg);
 
 
 private:
