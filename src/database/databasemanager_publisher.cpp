@@ -118,3 +118,52 @@ bool DatabaseManager::setBookOwnership(int bookId, int publisherId, QString &err
     }
     return true;
 }
+
+bool DatabaseManager::fetchPublisherProfileForAdmin(const QString &username, PublisherProfileSummary &outProfile, QString &errorMsg)
+{
+    if (!fetchUser(username, outProfile.user, errorMsg)) {
+        return false;
+    }
+
+    if (outProfile.user.role != "publisher") {
+        errorMsg = "This user is not a publisher.";
+        return false;
+    }
+
+    const int publisherId = outProfile.user.id;
+
+    QString stepError;
+    if (!fetchPublishedBooks(publisherId, outProfile.publishedBooks, stepError, false))
+        qWarning() << "Failed to fetch published books for admin view:" << stepError;
+    if (!fetchPublisherIncome(publisherId, outProfile.totalIncome, stepError))
+        qWarning() << "Failed to fetch publisher income for admin view:" << stepError;
+    if (!fetchPublisherStats(publisherId, outProfile.bookCount, outProfile.totalSales, outProfile.averageRating, stepError))
+        qWarning() << "Failed to fetch publisher stats for admin view:" << stepError;
+    return true;
+}
+
+bool DatabaseManager::fetchAllPublisherProfilesForAdmin(QVector<PublisherProfileSummary> &outProfiles, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("SELECT username FROM users WHERE role = 'publisher' ORDER BY id ASC");
+    if (!query.exec()) {
+        errorMsg = "Database error while listing publishers: " + query.lastError().text();
+        return false;
+    }
+    QStringList usernames;
+    while (query.next()) {
+        usernames.push_back(query.value("username").toString());
+    }
+    outProfiles.clear();
+    for (const QString &username : std::as_const(usernames)) {
+        PublisherProfileSummary profile;
+        QString profileError;
+        if (fetchPublisherProfileForAdmin(username, profile, profileError)) {
+            outProfiles.push_back(profile);
+        } else {
+            qWarning() << "Skipping publisher" << username << "in admin listing:" << profileError;
+        }
+    }
+    return true;
+}
+

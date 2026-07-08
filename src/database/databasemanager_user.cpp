@@ -171,6 +171,49 @@ bool DatabaseManager::resetPasswordWithRecovery(const QString &username, const Q
     return true;
 }
 
+bool DatabaseManager::fetchUserProfileForAdmin(const QString &username, UserProfileSummary &outProfile, QString &errorMsg)
+{
+    if (!fetchUser(username, outProfile.user, errorMsg)) {
+        return false; // allready has erorr msg
+    }
+    const int userId = outProfile.user.id;
+    QString stepError;
+    if (!fetchOwnedBooks(userId, outProfile.ownedBooks, stepError))
+        qWarning() << "Failed to fetch owned books for admin view:" << stepError;
+    if (!fetchWishlist(userId, outProfile.wishlist, stepError))
+        qWarning() << "Failed to fetch wishlist for admin view:" << stepError;
+    if (!fetchCart(userId, outProfile.cartItems, outProfile.cartTotal, stepError))
+        qWarning() << "Failed to fetch cart for admin view:" << stepError;
+    if (!fetchPurchaseHistory(userId, outProfile.purchaseHistory, stepError))
+        qWarning() << "Failed to fetch purchase history for admin view:" << stepError;
+    return true;
+}
+
+bool DatabaseManager::fetchAllUsersProfilesForAdmin(QVector<UserProfileSummary> &outProfiles, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("SELECT username FROM users WHERE role = 'user' ORDER BY id ASC");
+    if (!query.exec()) {
+        errorMsg = "Database error while listing users: " + query.lastError().text();
+        return false;
+    }
+    QStringList usernames;
+    while(query.next()) {
+        usernames.push_back(query.value("username").toString());
+    }
+    outProfiles.clear();
+    for (const QString& un : std::as_const(usernames)) {
+        UserProfileSummary p;
+        QString pErorr;
+        if (fetchUserProfileForAdmin(un , p , pErorr)) {
+            outProfiles.push_back(p);
+        } else {
+            qWarning() << "Skipping user" << un << "in admin listing:" << pErorr;
+        }
+    }
+    return true;
+}
+
 QString DatabaseManager::generateSalt() const
 {
     QByteArray bytes(16, 0);

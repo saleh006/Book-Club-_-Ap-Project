@@ -87,6 +87,24 @@ struct CartItem {
     double price = 0.0;
 };
 
+struct UserProfileSummary {
+    User user;
+    QVector<Book> ownedBooks;
+    QVector<Book> wishlist;
+    QVector<CartItem> cartItems;
+    double cartTotal = 0.0;
+    QVector<Purchase> purchaseHistory;
+};
+
+struct PublisherProfileSummary {
+    User user;
+    QVector<Book> publishedBooks;
+    double totalIncome = 0.0;
+    int bookCount = 0;
+    int totalSales = 0;
+    double averageRating = 0.0;
+};
+
 class DatabaseManager
 {
 public:
@@ -112,6 +130,8 @@ public:
                                    const QString &recoveryAnswer,
                                    const QString &newPassword,
                                    QString &errorMsg);
+    bool fetchUserProfileForAdmin(const QString &username, UserProfileSummary &outProfile, QString &errorMsg);
+    bool fetchAllUsersProfilesForAdmin(QVector<UserProfileSummary>& outProfiles , QString &errorMsg);
 
     //book
 
@@ -166,7 +186,9 @@ public:
     bool fetchPublisherIncome(int publisherId, double &outTotalIncome, QString &errorMsg);
     bool fetchPublisherIncomeForBook(int publisherId, int bookId, double &outIncome, QString &errorMsg);
     bool fetchPublisherStats(int publisherId, int &outBookCount, int &outTotalSales, double &outAverageRating, QString &errorMsg);
-    bool setBookOwnership(int bookId, int publisherId, QString &errorMsg); // reassign/transfer
+    bool setBookOwnership(int bookId, int publisherId, QString &errorMsg);    // reassign/transfer
+    bool fetchPublisherProfileForAdmin(const QString &username, PublisherProfileSummary &outProfile, QString &errorMsg);
+    bool fetchAllPublisherProfilesForAdmin(QVector<PublisherProfileSummary> &outProfiles, QString &errorMsg);
 
 
 private:
