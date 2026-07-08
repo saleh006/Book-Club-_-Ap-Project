@@ -1,42 +1,35 @@
 #include "serverwindow.h"
-#include "databasemanager.h"
 #include <QGroupBox>
 #include <QDateTime>
 #include <QTabWidget>
 #include <QHeaderView>
-#include <QSqlDatabase>
-#include <QSqlQuery>
-#include <QSqlError>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
-ServerWindow::ServerWindow(ServerManager *server, QWidget *parent )
-    : QMainWindow(parent), m_serverManager(server)
+ServerWindow::ServerWindow( QWidget *parent )
+    : QMainWindow(parent)
 {
     setupUi();
-    connect(m_serverManager, &ServerManager::serverLogEvent, this, &ServerWindow::onNewLogReceived);
-    connect(m_serverManager, &ServerManager::clientCountChanged, this, &ServerWindow::onClientCountUpdated);
-    connect(m_serverManager, &ServerManager::databaseUpdated ,this,[this](const QString &type){
-        if (type == "users") {
-            loadUsersFromDatabase();
-            onNewLogReceived("UI Updated: Users list refreshed");
-        }
-        if (type == "book"){
-            loadBooksFromDatabase();
-            onNewLogReceived("UI Updated: Books list refreshed");
-        }
-    });
 
-    m_statusLabel->setText("🟢 Server Status: ACTIVE (Port 1234)");
-    m_statusLabel->setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;");
-    onNewLogReceived("System: Server successfully booted and listening...");
-    loadBooksFromDatabase();
-    loadUsersFromDatabase();
-#ifdef Q_OS_WIN
-    GetSystemTimes(&m_preIdleTime, &m_preKernelTime, &m_preUserTime);
-#endif
+    m_socket = new QTcpSocket(this);
+    connect(m_socket, &QTcpSocket::connected, this, &ServerWindow::onConnected);
+    connect(m_socket, &QTcpSocket::readyRead, this, &ServerWindow::onReadyRead);
+    m_socket->connectToHost("127.0.0.1",1234);
+
+    m_statusLabel->setText("🟡 Connecting to Server...");
+    m_statusLabel->setStyleSheet("color: #f39c12; font-weight: bold; font-size: 14px;");
+
     m_sysTimer = new QTimer(this);
     connect(m_sysTimer, &QTimer::timeout, this, &ServerWindow::updateSystemUsage);
     m_sysTimer->start(1000);
-    onNewLogReceived("System: GUI Dashboard connected. Resource monitoring started.");
+}
+
+ServerWindow::~ServerWindow()
+{
+    if (m_socket && m_socket->isOpen()) {
+        m_socket->disconnectFromHost();
+    }
 }
 
 #ifdef Q_OS_WIN
@@ -62,9 +55,6 @@ double ServerWindow::getCpuUsage()
     return static_cast<double>(system - idle) * 100.0 / system;
 }
 #endif
-
-ServerWindow::~ServerWindow()
-{}
 
 void ServerWindow::setupUi()
 {
@@ -171,53 +161,78 @@ void ServerWindow::updateSystemUsage()
 void ServerWindow::loadUsersFromDatabase()
 {
     usersTable->setRowCount(0);
-    QSqlDatabase db = QSqlDatabase::database();
-    if (!db.isOpen()) {
-        onNewLogReceived("Database Sync Error: Connection is not open in this thread.");
-        return;
-    }
-    QSqlQuery query("SELECT id, username, full_name, role FROM users", db);
-    if (!query.isActive()) {
-        onNewLogReceived("Database Query Error: " + query.lastError().text());
-        return;
-    }
-    int row = 0;
-    while (query.next()) {
-        usersTable->insertRow(row);
-        usersTable->setItem(row, 0, new QTableWidgetItem(query.value("id").toString()));
-        usersTable->setItem(row, 1, new QTableWidgetItem(query.value("username").toString()));
-        usersTable->setItem(row, 2, new QTableWidgetItem(query.value("full_name").toString()));
-        usersTable->setItem(row, 3, new QTableWidgetItem(query.value("role").toString()));
-
-        usersTable->item(row, 0)->setTextAlignment(Qt::AlignCenter);
-        usersTable->item(row, 1)->setTextAlignment(Qt::AlignCenter);
-        usersTable->item(row, 2)->setTextAlignment(Qt::AlignCenter);
-        usersTable->item(row, 3)->setTextAlignment(Qt::AlignCenter);
-
-        row++;
-    }
+    if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState) return;
+    QJsonObject request;
+    request["action"] = "admin_get_users";
+    QJsonDocument doc(request);
+    m_socket->write(doc.toJson(QJsonDocument::Compact) + "\n");
 }
 void ServerWindow::loadBooksFromDatabase()
 {
-    booksTable->setRowCount(0);
-    QVector<Book> booksList;
-    QString errorMsg;
-    if (DatabaseManager::instance().fetchAllBooks(booksList, errorMsg, false)) {
-        for (int row = 0; row < booksList.size(); ++row) {
-            booksTable->insertRow(row);
-            booksTable->setItem(row, 0, new QTableWidgetItem(QString::number(booksList[row].id)));
-            booksTable->setItem(row, 1, new QTableWidgetItem(booksList[row].title));
-            booksTable->setItem(row, 2, new QTableWidgetItem(booksList[row].author));
-            booksTable->setItem(row, 3, new QTableWidgetItem(QString::number(booksList[row].price) + " $"));
+    if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState) return;
 
-            booksTable->item(row, 0)->setTextAlignment(Qt::AlignCenter);
-            booksTable->item(row, 1)->setTextAlignment(Qt::AlignCenter);
-            booksTable->item(row, 2)->setTextAlignment(Qt::AlignCenter);
-            booksTable->item(row, 3)->setTextAlignment(Qt::AlignCenter);
-            booksTable->item(row, 4)->setTextAlignment(Qt::AlignCenter);
+    QJsonObject request;
+    request["action"] = "admin_get_books";
+
+    QJsonDocument doc(request);
+    m_socket->write(doc.toJson(QJsonDocument::Compact) + "\n");
+}
+
+void ServerWindow::onReadyRead()
+{
+    QByteArray data = m_socket->readAll();
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (!doc.isObject()) return;
+
+    QJsonObject response = doc.object();
+    QString type = response["type"].toString();
+
+    if (type == "log") {
+        onNewLogReceived(response["message"].toString());
+    }
+    else if (type == "client_count") {
+        onClientCountUpdated(response["count"].toInt());
+    }
+    else if (type == "users_list") {
+        usersTable->setRowCount(0);
+        QJsonArray usersArray = response["users"].toArray();
+        for (int i = 0; i < usersArray.size(); ++i) {
+            QJsonObject u = usersArray[i].toObject();
+            usersTable->insertRow(i);
+            usersTable->setItem(i, 0, new QTableWidgetItem(u["username"].toString()));
+            usersTable->setItem(i, 1, new QTableWidgetItem(u["name"].toString()));
+            usersTable->setItem(i, 2, new QTableWidgetItem(u["email"].toString()));
+            usersTable->setItem(i, 3, new QTableWidgetItem(u["role"].toString()));
+
+            usersTable->item(i, 0)->setTextAlignment(Qt::AlignCenter);
+            usersTable->item(i, 1)->setTextAlignment(Qt::AlignCenter);
+            usersTable->item(i, 2)->setTextAlignment(Qt::AlignCenter);
+            usersTable->item(i, 3)->setTextAlignment(Qt::AlignCenter);
         }
     }
-    else{
-        onNewLogReceived("Database Error: " + errorMsg);
+    else if (type == "books_list") {
+        booksTable->setRowCount(0);
+        QJsonArray booksArray = response["books"].toArray();
+        for (int i = 0; i < booksArray.size(); ++i) {
+            QJsonObject b = booksArray[i].toObject();
+            booksTable->insertRow(i);
+            booksTable->setItem(i, 0, new QTableWidgetItem(QString::number(b["id"].toInt())));
+            booksTable->setItem(i, 1, new QTableWidgetItem(b["title"].toString()));
+            booksTable->setItem(i, 2, new QTableWidgetItem(b["author"].toString()));
+            booksTable->setItem(i, 3, new QTableWidgetItem(QString::number(b["price"].toDouble()) + " $"));
+
+            booksTable->item(i, 0)->setTextAlignment(Qt::AlignCenter);
+            booksTable->item(i, 1)->setTextAlignment(Qt::AlignCenter);
+            booksTable->item(i, 2)->setTextAlignment(Qt::AlignCenter);
+            booksTable->item(i, 3)->setTextAlignment(Qt::AlignCenter);
+        }
     }
+}
+
+void ServerWindow::onConnected(){
+    m_statusLabel->setText("🟢 Server Status: ACTIVE (Connected via Network)");
+    m_statusLabel->setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;");
+    onNewLogReceived("System: Connected to the remote server core successfully.");
+    loadUsersFromDatabase();
+    loadBooksFromDatabase();
 }

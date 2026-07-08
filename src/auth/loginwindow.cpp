@@ -1,5 +1,4 @@
 #include "loginwindow.h"
-#include "databasemanager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
