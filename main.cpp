@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
     firstPageWidget->resize(800, 500);
     LoginWindow *loginWin = new LoginWindow();
     SignupWindow *signupWin = new SignupWindow();
+    RecoveryWindow *recoveryWin = new RecoveryWindow();
 
     QQuickItem *qmlRoot = firstPageWidget->rootObject();
     if (qmlRoot) {
@@ -60,6 +61,23 @@ int main(int argc, char *argv[])
     QObject::connect(signupWin, &SignupWindow::backToMainRequested, [&]() {
         signupWin->hide();
         firstPageWidget->show();
+    });
+
+    QObject::connect(loginWin,&LoginWindow::useRecoveryAnswer,[&](){
+        loginWin->hide();
+        recoveryWin->show();
+    });
+
+    QObject::connect(recoveryWin,&RecoveryWindow::switchToLoginRequested, [&](){
+        recoveryWin->hide();
+        loginWin->show();
+    });
+
+    QObject::connect(recoveryWin,&RecoveryWindow::passwordResetSuccessful,[&](){
+        recoveryWin->clearFields();
+        recoveryWin->hide();
+        loginWin->show();
+        loginWin->showSuccessMessage("Password changed successfully! Please log in.");
     });
 
     QObject::connect(signupWin,&SignupWindow::signupSuccessful,[&](const QString &username){

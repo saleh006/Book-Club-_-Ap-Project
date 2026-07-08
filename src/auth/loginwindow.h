@@ -18,6 +18,7 @@ class LoginWindow : public QWidget
 public:
     explicit LoginWindow(QWidget *parent = nullptr);
         void clearFields();
+        void showSuccessMessage(const QString &message);
         QString loggedInRole() const;
     signals:
         void loginSuccessful(const QString &username);

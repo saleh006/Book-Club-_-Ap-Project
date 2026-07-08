@@ -220,8 +220,16 @@ void LoginWindow::clearFields()
 {
     m_usernameEdit->clear();
     m_passwordEdit->clear();
+    m_statusLabel->setStyleSheet("color: #E06C8C; font-size: 12px;");
     m_statusLabel->clear();
     m_statusLabel->setVisible(false);
+}
+
+void LoginWindow::showSuccessMessage(const QString &message)
+{
+    m_statusLabel->setStyleSheet("color: #2ECC71; font-size: 12px;");
+    m_statusLabel->setText(message);
+    m_statusLabel->setVisible(true);
 }
 
 QString LoginWindow::loggedInRole() const
