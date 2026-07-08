@@ -131,7 +131,6 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
-
         // ========
         // BOOKS
         // ========

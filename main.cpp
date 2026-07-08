@@ -10,6 +10,7 @@
 #include "servermanager.h"
 #include "databasemanager.h"
 #include "signupwindow.h"
+#include "recoverywindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -77,5 +78,6 @@ int main(int argc, char *argv[])
     });
 
     firstPageWidget->show();
+
     return a.exec();
 }

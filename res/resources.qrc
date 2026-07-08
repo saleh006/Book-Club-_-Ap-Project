@@ -4,5 +4,6 @@
         <file>RUBSTAMP.TTF</file>
         <file>bookclublogo.png</file>
         <file>gif.gif</file>
+	<file>resetpass.png</file>
     </qresource>
 </RCC>
