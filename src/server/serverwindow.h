@@ -9,7 +9,7 @@
 #include <QHBoxLayout>
 #include <QTimer>
 #include <QTableWidget>
-#include "servermanager.h"
+#include <QTcpSocket>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -19,7 +19,7 @@ class ServerWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit ServerWindow(ServerManager *server, QWidget *parent = nullptr);
+    explicit ServerWindow(QWidget *parent = nullptr);
     ~ServerWindow();
 
 private slots:
@@ -28,10 +28,12 @@ private slots:
     void updateSystemUsage();
     void loadUsersFromDatabase();
     void loadBooksFromDatabase();
+    void onReadyRead();
+    void onConnected();
 
 private:
     QTimer *m_sysTimer;
-    ServerManager *m_serverManager;
+    QTcpSocket *m_socket;
     QTextEdit *m_logDisplay;
     QLabel *m_statusLabel;
     QLabel *m_clientCountLabel;
