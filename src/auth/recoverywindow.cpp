@@ -128,12 +128,100 @@ RecoveryWindow::RecoveryWindow(QWidget *parent)
         #loginButton:hover { background-color: #5F2E4F; }
         #signupLabel { color: #9A8FA0; font-size: 12px; }
     )");
+    m_socket = new QTcpSocket(this);
+    connect(m_socket, &QTcpSocket::readyRead, this, &RecoveryWindow::onReadyRead);
+    connect(m_socket, &QTcpSocket::errorOccurred, this, &RecoveryWindow::onSocketError);
+    connect(m_resetButton, &QPushButton::clicked, this, &RecoveryWindow::handleResetClicked);
+    connect(backToLoginLabel, &QLabel::linkActivated, this, [this](const QString &) {
+        emit switchToLoginRequested();
+    });
+}
 
-    // m_socket = new QTcpSocket(this);
-    // connect(m_socket, &QTcpSocket::readyRead, this, &RecoveryWindow::onReadyRead);
-    // connect(m_socket, &QTcpSocket::errorOccurred, this, &RecoveryWindow::onSocketError);
-    // connect(m_resetButton, &QPushButton::clicked, this, &RecoveryWindow::handleResetClicked);
-    // connect(backToLoginLabel, &QLabel::linkActivated, this, [this](const QString &) {
-    //     emit switchToLoginRequested();
-    // });
+
+void RecoveryWindow::clearFields()
+{
+    m_usernameEdit->clear();
+    m_recoveryAnswerEdit->clear();
+    m_newPasswordEdit->clear();
+    m_confirmPasswordEdit->clear();
+    m_statusLabel->clear();
+    m_statusLabel->setVisible(false);
+}
+
+void RecoveryWindow::handleResetClicked()
+{
+    const QString username = m_usernameEdit->text().trimmed();
+    const QString recoveryAnswer = m_recoveryAnswerEdit->text().trimmed();
+    const QString newPassword = m_newPasswordEdit->text();
+    const QString confirmPassword = m_confirmPasswordEdit->text();
+
+    if (username.isEmpty() || recoveryAnswer.isEmpty() || newPassword.isEmpty()) {
+        m_statusLabel->setText("Please fill in all fields.");
+        m_statusLabel->setVisible(true);
+        return;
+    }
+    if (newPassword.length() < 6) {
+        m_statusLabel->setText("New password must be at least 6 characters.");
+        m_statusLabel->setVisible(true);
+        return;
+    }
+    if (newPassword != confirmPassword) {
+        m_statusLabel->setText("Passwords do not match.");
+        m_statusLabel->setVisible(true);
+        return;
+    }
+
+    m_statusLabel->setVisible(false);
+    m_resetButton->setEnabled(false);
+
+    if (m_socket->state() != QAbstractSocket::ConnectedState) {
+        m_socket->connectToHost("127.0.0.1", 1234);
+        if (!m_socket->waitForConnected(3000)) {
+            m_statusLabel->setText("Could not connect to server.");
+            m_statusLabel->setVisible(true);
+            m_resetButton->setEnabled(true);
+            return;
+        }
+    }
+
+    QJsonObject requestObj;
+    requestObj["action"] = "recover_password";
+    requestObj["username"] = username;
+    requestObj["recoveryAnswer"] = recoveryAnswer;
+    requestObj["newPassword"] = newPassword;
+
+    QJsonDocument doc(requestObj);
+    m_socket->write(doc.toJson(QJsonDocument::Compact) + "\n");
+}
+
+void RecoveryWindow::onReadyRead()
+{
+    const QByteArray data = m_socket->readAll();
+    const QJsonDocument doc = QJsonDocument::fromJson(data);
+
+    m_resetButton->setEnabled(true);
+
+    if (!doc.isObject()) {
+        m_statusLabel->setText("Invalid server response.");
+        m_statusLabel->setVisible(true);
+        return;
+    }
+
+    const QJsonObject responseObj = doc.object();
+    const QString status = responseObj["status"].toString();
+
+    if (status == "success") {
+        emit passwordResetSuccessful();
+    } else {
+        m_statusLabel->setText(responseObj["message"].toString());
+        m_statusLabel->setVisible(true);
+    }
+}
+
+void RecoveryWindow::onSocketError(QAbstractSocket::SocketError error)
+{
+    Q_UNUSED(error);
+    m_resetButton->setEnabled(true);
+    m_statusLabel->setText("Connection error: " + m_socket->errorString());
+    m_statusLabel->setVisible(true);
 }

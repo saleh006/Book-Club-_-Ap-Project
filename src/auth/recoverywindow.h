@@ -15,16 +15,16 @@ class RecoveryWindow : public QWidget
 
 public:
     explicit RecoveryWindow(QWidget *parent = nullptr);
-//     void clearFields();
+    void clearFields();
 
-// signals:
-//     void passwordResetSuccessful();
-//     void switchToLoginRequested();
+signals:
+    void passwordResetSuccessful();
+    void switchToLoginRequested();
 
-// private slots:
-//     void handleResetClicked();
-//     void onReadyRead();
-//     void onSocketError(QAbstractSocket::SocketError error);
+private slots:
+    void handleResetClicked();
+    void onReadyRead();
+    void onSocketError(QAbstractSocket::SocketError error);
 
 private:
     QLineEdit *m_usernameEdit;
