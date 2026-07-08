@@ -54,6 +54,13 @@ void ClientHandler::onReadyRead()
         QJsonObject requestObj = jsonDoc.object();
         QString action = requestObj["action"].toString();
         QJsonObject responseObj;
+        QString clientIp = m_socket ? m_socket->peerAddress().toString() : "Unknown IP";
+        QString reqLog = QString("<font color='#3498db'><b>[REQ]</b></font> "
+                                 "User: <b>%1</b> | IP: %2 | Action: <font color='#f1c40f'><b>%3</b></font>")
+                             .arg(m_username)
+                             .arg(clientIp)
+                             .arg(action);
+        emit logProduced(reqLog);
 
         // ========
         // USERS
@@ -70,6 +77,7 @@ void ClientHandler::onReadyRead()
             if (DatabaseManager::instance().registerUser(username, password, fullName, email, recoveryAnswer, errorMsg, role)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Registration successful. You can now log in.";
+                emit databaseUpdated("users");
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -86,6 +94,7 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = "Login successful.";
                 responseObj["role"] = loggedInUser.role;
                 responseObj["fullName"] = loggedInUser.fullName;
+                m_username = username;
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -131,6 +140,61 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
+        else if (action == "admin_get_users") {
+            emit logProduced("Admin requested registered users list.");
+            QJsonObject response;
+            response["type"] = "users_list";
+            QJsonArray usersArray;
+            QVector<UserProfileSummary> outProfiles;
+            QString errorMsg;
+
+            if (DatabaseManager::instance().fetchAllUsersProfilesForAdmin(outProfiles, errorMsg)) {
+                for (const auto &profile : outProfiles) {
+                    QJsonObject userObj;
+                    userObj["id"] = profile.user.id;
+                    userObj["username"] = profile.user.username;
+                    userObj["fullName"] = profile.user.fullName;
+                    userObj["role"] = profile.user.role;
+                    usersArray.append(userObj);
+                }
+            }
+            else {
+                emit logProduced("Error fetching users for admin: " + errorMsg);
+            }
+
+            response["users"] = usersArray;
+            QJsonDocument resDoc(response);
+            m_socket->write(resDoc.toJson(QJsonDocument::Compact) + "\n");
+        }
+        else if (action == "admin_get_books") {
+            emit logProduced("Admin requested library books list.");
+            QJsonObject response;
+            response["type"] = "books_list";
+            QJsonArray booksArray;
+            QVector<Book> booksList;
+            QString errorMsg;
+
+            if (DatabaseManager::instance().fetchAllBooks(booksList, errorMsg, false)) {
+                for (const auto &book : booksList) {
+                    QJsonObject bookObj;
+                    bookObj["id"] = book.id;
+                    bookObj["title"] = book.title;
+                    bookObj["author"] = book.author;
+                    bookObj["price"] = book.price;
+                    booksArray.append(bookObj);
+                }
+            }
+            response["books"] = booksArray;
+            QJsonDocument resDoc(response);
+            m_socket->write(resDoc.toJson(QJsonDocument::Compact) + "\n");
+        }
+        else if (action == "admin_subscribe") {
+            ServerManager *server = qobject_cast<ServerManager*>(parent());
+            if (server) {
+                connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
+            }
+        }
+
         // ========
         // BOOKS
         // ========
@@ -155,6 +219,7 @@ void ClientHandler::onReadyRead()
                     responseObj["status"] = "success";
                     responseObj["message"] = "Book added successfully.";
                     responseObj["bookId"] = newBookId;
+                    emit databaseUpdated("book");
                 } else {
                     responseObj["status"] = "error";
                     responseObj["message"] = errorMsg;
@@ -176,6 +241,7 @@ void ClientHandler::onReadyRead()
             if (DatabaseManager::instance().updateBook(b, errorMsg)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Book information updated successfully.";
+                emit databaseUpdated("book");
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -187,6 +253,7 @@ void ClientHandler::onReadyRead()
             if (DatabaseManager::instance().deleteBook(bookId, errorMsg)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Book deleted successfully.";
+                emit databaseUpdated("book");
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -753,11 +820,28 @@ void ClientHandler::onReadyRead()
         QJsonDocument responseDoc(responseObj);
         m_socket->write(responseDoc.toJson(QJsonDocument::Compact) + "\n");
         m_socket->flush();
+
+        QString status = responseObj["status"].toString();
+        QString msg = responseObj["message"].toString();
+        QString resLog;
+        if (status == "success") {
+            resLog = QString("<font color='#2ecc71'><b>[RES]</b></font> Action: <b>%1</b> | Status: SUCCESS")
+            .arg(action);
+            if (!msg.isEmpty()) resLog += QString(" (%1)").arg(msg);
+        }
+        else {
+            resLog = QString("<font color='#e74c3c'><b>[ERR]</b></font> Action: <b>%1</b> | Status: ERROR | Reason: <i>%2</i>")
+            .arg(action)
+                .arg(msg.isEmpty() ? "Unknown Error" : msg);
+        }
+        QString finalLog = resLog + "<hr style='border: 0; border-top: 1px solid #3a3a4c; margin: 4px 0;'>";
+        emit logProduced(finalLog);
     }
 }
 
 void ClientHandler::onDisconnected(){
     qDebug() << "Client disconnected. Cleaning up memory...";
+    emit clientDisconnectedSignal(m_socketDescriptor,m_username);
     if(m_socket){
         m_socket->close();
         m_socket->deleteLater();
@@ -766,9 +850,31 @@ void ClientHandler::onDisconnected(){
     quit();
 }
 
+void ClientHandler::sendToClient(const QJsonObject &msg)
+{
+    if (m_socket && m_socket->isOpen()) {
+        m_socket->write(QJsonDocument(msg).toJson(QJsonDocument::Compact) + "\n");
+        m_socket->flush();
+    }
+}
+
 ServerManager::ServerManager(QObject *parent)
     : QTcpServer(parent)
-{}
+{
+    connect(this, &ServerManager::serverLogEvent, this, [this](const QString &msg) {
+        QJsonObject obj;
+        obj["type"] = "log";
+        obj["message"] = msg;
+        emit broadcastToAdmins(obj);
+    });
+
+    connect(this, &ServerManager::clientCountChanged, this, [this](int count) {
+        QJsonObject obj;
+        obj["type"] = "client_count";
+        obj["count"] = count;
+        emit broadcastToAdmins(obj);
+    });
+}
 
 bool ServerManager::startServer(int port)
 {
@@ -790,6 +896,22 @@ bool ServerManager::startServer(int port)
 
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
-    ClientHandler *handler = new ClientHandler(socketDescriptor);
+    ClientHandler *handler = new ClientHandler(socketDescriptor,this);
+    QString connectLog = QString("<font color='#7f8c8d'><b>[SYS]</b></font> New client connected. User: <b>Anonymous</b> | Descriptor: %1")
+                             .arg(socketDescriptor);
+    emit serverLogEvent(connectLog);
+
+    m_activeClients++;
+    emit clientCountChanged(m_activeClients);
+
+    connect(handler,&ClientHandler::logProduced,this,&ServerManager::serverLogEvent);
+    connect(handler, &ClientHandler::databaseUpdated,this,&ServerManager::databaseUpdated);
+    connect(handler, &ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc,const QString &username){
+        if(m_activeClients > 0) m_activeClients--;
+        emit clientCountChanged(m_activeClients);
+        emit serverLogEvent(QString("<font color='#7f8c8d'><b>[SYS]</b></font> User <b>%1</b> disconnected.").arg(username));
+    });
+
+    connect(handler, &ClientHandler::finished, handler, &ClientHandler::deleteLater);
     handler->start();
 }

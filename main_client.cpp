@@ -7,33 +7,28 @@
 #include <QStackedWidget>
 #include <QQuickItem>
 #include "loginwindow.h"
-#include "servermanager.h"
-#include "databasemanager.h"
 #include "signupwindow.h"
 #include "recoverywindow.h"
+#include "serverwindow.h"
 
 int main(int argc, char *argv[])
 {
     qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
     QApplication a(argc, argv);
-    if (!DatabaseManager::instance().initialize("bookclub.db")) {
-        return -1;
-    }
-    ServerManager *server = new ServerManager();
-    if (!server->startServer(1234)) {
-        qCritical() << "سرور نتوانست روی پورت 1234 روشن شود. احتمالا پورت اشغال است!";
-    }
+
     QQuickWidget *firstPageWidget = new QQuickWidget;
     firstPageWidget->setSource(QUrl("qrc:/BookClubAuth/src/auth/firstPage.qml"));
     firstPageWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
     firstPageWidget->setWindowTitle("Book Club - Welcome");
     firstPageWidget->resize(800, 500);
+
     LoginWindow *loginWin = new LoginWindow();
     SignupWindow *signupWin = new SignupWindow();
     RecoveryWindow *recoveryWin = new RecoveryWindow();
+    ServerWindow *serverWin = new ServerWindow(nullptr);
 
-    QQuickItem *qmlRoot = firstPageWidget->rootObject();
-    if (qmlRoot) {
+    QObject *qmlRoot = firstPageWidget->rootObject();
+    if(qmlRoot){
         QObject::connect(qmlRoot, SIGNAL(loginRequested()), loginWin, SLOT(show()));
         QObject::connect(qmlRoot, SIGNAL(loginRequested()), firstPageWidget, SLOT(hide()));
 
@@ -63,28 +58,28 @@ int main(int argc, char *argv[])
         firstPageWidget->show();
     });
 
-    QObject::connect(loginWin,&LoginWindow::useRecoveryAnswer,[&](){
+    QObject::connect(loginWin, &LoginWindow::useRecoveryAnswer, [&]() {
         loginWin->hide();
         recoveryWin->show();
     });
 
-    QObject::connect(recoveryWin,&RecoveryWindow::switchToLoginRequested, [&](){
+    QObject::connect(recoveryWin, &RecoveryWindow::switchToLoginRequested, [&]() {
         recoveryWin->hide();
         loginWin->show();
     });
 
-    QObject::connect(recoveryWin,&RecoveryWindow::passwordResetSuccessful,[&](){
+    QObject::connect(recoveryWin, &RecoveryWindow::passwordResetSuccessful, [&]() {
         recoveryWin->clearFields();
         recoveryWin->hide();
         loginWin->show();
         loginWin->showSuccessMessage("Password changed successfully! Please log in.");
     });
 
-    QObject::connect(signupWin,&SignupWindow::signupSuccessful,[&](const QString &username){
+    QObject::connect(signupWin, &SignupWindow::signupSuccessful, [&](const QString &username) {
         signupWin->clearFields();
         signupWin->hide();
         firstPageWidget->show();
-        QMetaObject::invokeMethod(qmlRoot,"showNotification",Q_ARG(QVariant,"Registration successful :)"));
+        QMetaObject::invokeMethod(qmlRoot, "showNotification", Q_ARG(QVariant, "Registration successful :)"));
     });
 
     QObject::connect(loginWin, &LoginWindow::loginSuccessful, [&](const QString &username) {
@@ -92,10 +87,14 @@ int main(int argc, char *argv[])
         qDebug() << "Logged in as" << username << "role:" << role;
         loginWin->clearFields();
         loginWin->hide();
-        // پنجره های پنل کاربر ها رو باید اینجا باز کنیم
+        if (role == "admin") {
+            serverWin->show();
+        }
+        else {
+            qDebug() << "Redirecting to regular user dashboard...";
+        }
     });
 
     firstPageWidget->show();
-
     return a.exec();
 }
