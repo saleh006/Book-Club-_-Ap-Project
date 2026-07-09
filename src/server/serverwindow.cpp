@@ -58,34 +58,47 @@ double ServerWindow::getCpuUsage()
 
 void ServerWindow::setupUi()
 {
-    this->setStyleSheet("background-color: #1e1e24; color: #ffffff; font-family: 'Segoe UI', Arial;");
+    this->setStyleSheet("color: #EAEAEA; font-family: 'Segoe UI', Arial;");
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    QHBoxLayout *statsLayout = new QHBoxLayout();
+    mainLayout->setContentsMargins(15,15,15,15);
+    mainLayout->setSpacing(12);
+    QGridLayout *statsGrid = new QGridLayout();
+    statsGrid->setSpacing(8);
 
     m_statusLabel = new QLabel("⚪ Server Status: Checking...", this);
     m_clientCountLabel = new QLabel("👥 Active Clients: 0", this);
     m_cpuLabel = new QLabel("💻 CPU Usage: -- %", this);
     m_ramLabel = new QLabel("🧠 RAM Usage: -- %", this);
 
-    m_statusLabel->setStyleSheet("background-color: #2a2a35; border: 1px solid #3a3a4c; border-radius: 6px; padding: 10px; font-size: 13px;");
-    m_clientCountLabel->setStyleSheet("background-color: #2a2a35; border: 1px solid #3a3a4c; border-radius: 6px; padding: 10px; font-size: 13px; color: #3498db; font-weight: bold;");
-    m_cpuLabel->setStyleSheet("background-color: #2a2a35; border: 1px solid #3a3a4c; border-radius: 6px; padding: 10px; font-size: 13px; color: #f1c40f; font-weight: bold;");
-    m_ramLabel->setStyleSheet("background-color: #2a2a35; border: 1px solid #3a3a4c; border-radius: 6px; padding: 10px; font-size: 13px; color: #9b59b6; font-weight: bold;");
+    QString cardStyle =
+        "QLabel { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
+        "padding: 8px; font-size: 12px; font-weight: bold; ";
 
-    statsLayout->addWidget(m_statusLabel);
-    statsLayout->addWidget(m_clientCountLabel);
-    statsLayout->addWidget(m_cpuLabel);
-    statsLayout->addWidget(m_ramLabel);
-    mainLayout->addLayout(statsLayout);
+    m_statusLabel->setStyleSheet(cardStyle + "color: #f39c12; }");
+    m_clientCountLabel->setStyleSheet(cardStyle + "color: #3498db }");
+    m_cpuLabel->setStyleSheet(cardStyle + "color: #f1c40f }");
+    m_ramLabel->setStyleSheet(cardStyle + "color: #9b59b6 }");
+
+    m_statusLabel->setAlignment(Qt::AlignCenter);
+    m_clientCountLabel->setAlignment(Qt::AlignCenter);
+    m_cpuLabel->setAlignment(Qt::AlignCenter);
+    m_ramLabel->setAlignment(Qt::AlignCenter);
+
+    statsGrid->addWidget(m_statusLabel,0,0);
+    statsGrid->addWidget(m_clientCountLabel,0,1);
+    statsGrid->addWidget(m_cpuLabel,1,0);
+    statsGrid->addWidget(m_ramLabel,1,1);
+    mainLayout->addLayout(statsGrid);
 
     QGroupBox *logGroup = new QGroupBox("Live Activity Logs (Real-time)", this);
-    logGroup->setStyleSheet("QGroupBox { font-weight: bold; color: #e0e0e0; border: 1px solid #3a3a4c; border-radius: 8px; margin-top: 10px; padding-top: 15px; }");
+    logGroup->setStyleSheet("QGroupBox { font-weight: bold; color: #e0e0e0; border: 1px solid #3a3a4c; border-radius: 8px; margin-top: 5px; padding-top: 15px; }");
     QVBoxLayout *logGroupLayout = new QVBoxLayout(logGroup);
+    logGroupLayout->setContentsMargins(10,10,10,10);
 
     m_logDisplay = new QTextEdit(this);
     m_logDisplay->setReadOnly(true);
-    m_logDisplay->setStyleSheet("background-color: #0f0f12; color: #a3be8c; border: none; font-family: 'Consolas', monospace; font-size: 12px;");
+    m_logDisplay->setStyleSheet("background-color: #0f0f12; color: #a3be8c; border: none; font-family: 'Consolas', monospace; font-size: 11px;");
 
     logGroupLayout->addWidget(m_logDisplay);
     mainLayout->addWidget(logGroup);
@@ -137,8 +150,12 @@ void ServerWindow::onReadyRead()
 }
 
 void ServerWindow::onConnected(){
-    m_statusLabel->setText("🟢 Server Status: ACTIVE (Connected via Network)");
-    m_statusLabel->setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px;");
+    m_statusLabel->setText("🟢 Server Status: ACTIVE ");
+    QString cardStyle =
+        "QLabel { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
+        "padding: 8px; font-size: 12px; font-weight: bold; color: #2ecc71; }";
+
+    m_statusLabel->setStyleSheet(cardStyle);
     onNewLogReceived("System: Connected to the remote server core successfully.");
     QJsonObject req;
     req["action"] = "admin_subscribe";
