@@ -1,6 +1,7 @@
 #include "adminpanel.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
+#include <QHeaderView>
 
 AdminPanel::AdminPanel(QWidget *parent)
     : QWidget(parent)
@@ -78,9 +79,8 @@ void AdminPanel::setupUi()
     ServerWindow *serverPage = new ServerWindow(this);
     m_stackedWidget->addWidget(serverPage);
 
-    QLabel *usersPlaceholder = new QLabel("Users Management Page (Work in Progress...)", this);
-    usersPlaceholder->setAlignment(Qt::AlignCenter);
-    m_stackedWidget->addWidget(usersPlaceholder);
+    QWidget * usersPage = createUsersPage();
+    m_stackedWidget->addWidget(usersPage);
 
     QLabel *booksPlaceholder = new QLabel("Books Management Page (Work in Progress...)", this);
     booksPlaceholder->setAlignment(Qt::AlignCenter);
@@ -93,6 +93,101 @@ void AdminPanel::setupUi()
     connect(m_btnUsers, &QPushButton::clicked, this, [this](){ switchPage(1); });
     connect(m_btnBooks, &QPushButton::clicked, this, [this](){ switchPage(2); });
     connect(m_btnLogout, &QPushButton::clicked, this, &AdminPanel::logoutRequested);
+}
+
+QWidget* AdminPanel::createUsersPage()
+{
+    QWidget *page = new QWidget(this);
+    QVBoxLayout *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(15, 15, 15, 15);
+    layout->setSpacing(12);
+
+    m_searchEdit = new QLineEdit(page);
+    m_searchEdit->setPlaceholderText("🔍 Search users by username or role...");
+    m_searchEdit->setStyleSheet(
+        "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
+        "padding: 8px; color: #EAEAEA; font-size: 13px; }"
+        "QLineEdit:focus { border: 1px solid #7C3E66; }"
+        );
+    layout->addWidget(m_searchEdit);
+
+    m_usersTable = new QTableWidget(page);
+    m_usersTable->setColumnCount(4);
+    m_usersTable->setHorizontalHeaderLabels({"ID", "Username", "Role", "Status"});
+    m_usersTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_usersTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_usersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    m_usersTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    m_usersTable->verticalHeader()->setVisible(false);
+
+    m_usersTable->setStyleSheet(
+        "QTableWidget { background-color: #09070C; border: 1px solid #1F1724; gridline-color: #1F1724; color: #EAEAEA; }"
+        "QTableWidget::item:selected { background-color: #7C3E66; color: white; }"
+        "QHeaderView::section { background-color: #120E14; color: #A594B3; font-weight: bold; border: 1px solid #1F1724; padding: 6px; }"
+        );
+    layout->addWidget(m_usersTable);
+
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(10);
+
+    m_btnBlock = new QPushButton("🚫 Block User", page);
+    m_btnUnblock = new QPushButton("✅ Unblock User", page);
+
+    m_btnBlock->setCursor(Qt::PointingHandCursor);
+    m_btnUnblock->setCursor(Qt::PointingHandCursor);
+
+    m_btnBlock->setStyleSheet(
+        "QPushButton { background-color: transparent; border: 1px solid #C0392B; border-radius: 6px; padding: 8px; font-weight: bold; color: #E6B0AA; }"
+        "QPushButton:hover { background-color: rgba(192, 57, 43, 50); color: white; }"
+        );
+    m_btnUnblock->setStyleSheet(
+        "QPushButton { background-color: transparent; border: 1px solid #2ECC71; border-radius: 6px; padding: 8px; font-weight: bold; color: #ABEBC6; }"
+        "QPushButton:hover { background-color: rgba(46, 204, 113, 50); color: white; }"
+        );
+
+    btnLayout->addWidget(m_btnBlock);
+    btnLayout->addWidget(m_btnUnblock);
+    layout->addLayout(btnLayout);
+
+    connect(m_searchEdit, &QLineEdit::textChanged, this, &AdminPanel::filterUsers);
+    connect(m_btnBlock, &QPushButton::clicked, this, &AdminPanel::handleBlockUser);
+    connect(m_btnUnblock, &QPushButton::clicked, this, &AdminPanel::handleUnblockUser);
+
+    return page;
+}
+
+void AdminPanel::filterUsers(const QString &text)
+{
+    for (int i = 0; i < m_usersTable->rowCount(); ++i) {
+        bool match = false;
+        if (m_usersTable->item(i, 1)->text().contains(text, Qt::CaseInsensitive)) {
+            match = true;
+        }
+        m_usersTable->setRowHidden(i, !match);
+    }
+}
+
+void AdminPanel::handleBlockUser()
+{
+    int currentRow = m_usersTable->currentRow();
+    if (currentRow < 0) return;
+
+    QString username = m_usersTable->item(currentRow, 1)->text();
+    m_usersTable->item(currentRow, 3)->setText("Blocked");
+
+    // TODO: ارسال درخواست شبکه به سرور core برای بلاک کردن این یوزر در دیتابیس اصلی
+}
+
+void AdminPanel::handleUnblockUser()
+{
+    int currentRow = m_usersTable->currentRow();
+    if (currentRow < 0) return;
+
+    QString username = m_usersTable->item(currentRow, 1)->text();
+    m_usersTable->item(currentRow, 3)->setText("Active");
+
+    // TODO: ارسال درخواست شبکه به سرور برای آن‌بلاک کردن
 }
 
 void AdminPanel::switchPage(int index)
