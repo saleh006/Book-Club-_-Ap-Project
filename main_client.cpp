@@ -9,7 +9,7 @@
 #include "loginwindow.h"
 #include "signupwindow.h"
 #include "recoverywindow.h"
-#include "serverwindow.h"
+#include "src/adminPanel/adminpanel.h"
 
 int main(int argc, char *argv[])
 {
@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     LoginWindow *loginWin = new LoginWindow();
     SignupWindow *signupWin = new SignupWindow();
     RecoveryWindow *recoveryWin = new RecoveryWindow();
-    ServerWindow *serverWin = new ServerWindow(nullptr);
+    AdminPanel *adminWin = new AdminPanel();
 
     QObject *qmlRoot = firstPageWidget->rootObject();
     if(qmlRoot){
@@ -82,13 +82,19 @@ int main(int argc, char *argv[])
         QMetaObject::invokeMethod(qmlRoot, "showNotification", Q_ARG(QVariant, "Registration successful :)"));
     });
 
+    QObject::connect(adminWin,&AdminPanel::logoutRequested,[&](){
+        adminWin->hide();
+        loginWin->show();
+    });
+
     QObject::connect(loginWin, &LoginWindow::loginSuccessful, [&](const QString &username) {
         const QString role = loginWin->loggedInRole();
         qDebug() << "Logged in as" << username << "role:" << role;
         loginWin->clearFields();
         loginWin->hide();
         if (role == "admin") {
-            serverWin->show();
+            loginWin->hide();
+            adminWin->show();
         }
         else {
             qDebug() << "Redirecting to regular user dashboard...";
