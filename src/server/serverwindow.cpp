@@ -8,14 +8,14 @@
 #include <QJsonArray>
 
 ServerWindow::ServerWindow( QWidget *parent )
-    : QMainWindow(parent)
+    : QWidget(parent)
 {
     setupUi();
 
     m_socket = new QTcpSocket(this);
     connect(m_socket, &QTcpSocket::connected, this, &ServerWindow::onConnected);
     connect(m_socket, &QTcpSocket::readyRead, this, &ServerWindow::onReadyRead);
-    m_socket->connectToHost("127.0.0.1",1234);
+    m_socket->connectToHost("127.0.0.1", 1234);
 
     m_statusLabel->setText("🟡 Connecting to Server...");
     m_statusLabel->setStyleSheet("color: #f39c12; font-weight: bold; font-size: 14px;");
@@ -58,18 +58,9 @@ double ServerWindow::getCpuUsage()
 
 void ServerWindow::setupUi()
 {
-    this->setWindowTitle("BookClub - Advanced Server Dashboard");
-    this->resize(800, 600);
     this->setStyleSheet("background-color: #1e1e24; color: #ffffff; font-family: 'Segoe UI', Arial;");
 
-    QWidget *centralWidget = new QWidget(this);
-    QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-    QTabWidget *tabWidget = new QTabWidget(this);
-    tabWidget->setStyleSheet("QTabBar::tab { background: #2a2a35; color: white; padding: 8px 20px; border: 1px solid #3a3a4c; } "
-                             "QTabBar::tab:selected { background: #3498db; font-weight: bold; } "
-                             "QTabWidget::panel { border: 1px solid #3a3a4c; background: #1e1e24; }");
-    QWidget *monitorTab = new QWidget();
-    QVBoxLayout *monitorLayout = new QVBoxLayout(monitorTab);
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
     QHBoxLayout *statsLayout = new QHBoxLayout();
 
     m_statusLabel = new QLabel("⚪ Server Status: Checking...", this);
@@ -86,7 +77,7 @@ void ServerWindow::setupUi()
     statsLayout->addWidget(m_clientCountLabel);
     statsLayout->addWidget(m_cpuLabel);
     statsLayout->addWidget(m_ramLabel);
-    monitorLayout->addLayout(statsLayout);
+    mainLayout->addLayout(statsLayout);
 
     QGroupBox *logGroup = new QGroupBox("Live Activity Logs (Real-time)", this);
     logGroup->setStyleSheet("QGroupBox { font-weight: bold; color: #e0e0e0; border: 1px solid #3a3a4c; border-radius: 8px; margin-top: 10px; padding-top: 15px; }");
@@ -97,38 +88,7 @@ void ServerWindow::setupUi()
     m_logDisplay->setStyleSheet("background-color: #0f0f12; color: #a3be8c; border: none; font-family: 'Consolas', monospace; font-size: 12px;");
 
     logGroupLayout->addWidget(m_logDisplay);
-    monitorLayout->addWidget(logGroup);
-
-
-    QWidget *dbTab = new QWidget();
-    usersTable = new QTableWidget(this);
-    usersTable->setColumnCount(4);
-    usersTable->setHorizontalHeaderLabels({"ID", "Username", "Full Name", "Role"});
-    usersTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    usersTable->setStyleSheet("background-color: #0f0f12; color: white; gridline-color: #3a3a4c; QHeaderView::section { background-color: #2a2a35; color: white; }");
-    usersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-
-    booksTable = new QTableWidget(this);
-    booksTable->setColumnCount(4);
-    booksTable->setHorizontalHeaderLabels({"ID", "Title", "Author", "Price"});
-    booksTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    booksTable->setStyleSheet("background-color: #0f0f12; color: white; gridline-color: #3a3a4c; QHeaderView::section { background-color: #2a2a35; color: white; }");
-    booksTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
-
-    QVBoxLayout *dbLayout = new QVBoxLayout(dbTab);
-    QLabel *usersTitle = new QLabel("👥 All Registered Users:", this);
-    usersTitle->setStyleSheet("font-weight: bold; font-size: 14px; color: #3498db; margin-top: 5px;");
-    dbLayout->addWidget(usersTitle);
-    dbLayout->addWidget(usersTable);
-    QLabel *booksTitle = new QLabel("📚 Library Books:", this);
-    booksTitle->setStyleSheet("font-weight: bold; font-size: 14px; color: #2ecc71; margin-top: 5px;");
-    dbLayout->addWidget(booksTitle);
-    dbLayout->addWidget(booksTable);
-
-    tabWidget->addTab(monitorTab,"📈 Live Monitor");
-    tabWidget->addTab(dbTab,"🗄️ Database Live Sync");
-    mainLayout->addWidget(tabWidget);
-    this->setCentralWidget(centralWidget);
+    mainLayout->addWidget(logGroup);
 }
 
 void ServerWindow::onNewLogReceived(const QString &message)
@@ -158,25 +118,6 @@ void ServerWindow::updateSystemUsage()
     m_ramLabel->setText("🧠 RAM Usage: N/A");
 #endif
 }
-void ServerWindow::loadUsersFromDatabase()
-{
-    usersTable->setRowCount(0);
-    if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState) return;
-    QJsonObject request;
-    request["action"] = "admin_get_users";
-    QJsonDocument doc(request);
-    m_socket->write(doc.toJson(QJsonDocument::Compact) + "\n");
-}
-void ServerWindow::loadBooksFromDatabase()
-{
-    if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState) return;
-
-    QJsonObject request;
-    request["action"] = "admin_get_books";
-
-    QJsonDocument doc(request);
-    m_socket->write(doc.toJson(QJsonDocument::Compact) + "\n");
-}
 
 void ServerWindow::onReadyRead()
 {
@@ -193,40 +134,6 @@ void ServerWindow::onReadyRead()
     else if (type == "client_count") {
         onClientCountUpdated(response["count"].toInt());
     }
-    else if (type == "users_list") {
-        usersTable->setRowCount(0);
-        QJsonArray usersArray = response["users"].toArray();
-        for (int i = 0; i < usersArray.size(); ++i) {
-            QJsonObject u = usersArray[i].toObject();
-            usersTable->insertRow(i);
-            usersTable->setItem(i, 0, new QTableWidgetItem(QString::number(u["id"].toInt())));
-            usersTable->setItem(i, 1, new QTableWidgetItem(u["username"].toString()));
-            usersTable->setItem(i, 2, new QTableWidgetItem(u["fullName"].toString()));
-            usersTable->setItem(i, 3, new QTableWidgetItem(u["role"].toString()));
-
-            usersTable->item(i, 0)->setTextAlignment(Qt::AlignCenter);
-            usersTable->item(i, 1)->setTextAlignment(Qt::AlignCenter);
-            usersTable->item(i, 2)->setTextAlignment(Qt::AlignCenter);
-            usersTable->item(i, 3)->setTextAlignment(Qt::AlignCenter);
-        }
-    }
-    else if (type == "books_list") {
-        booksTable->setRowCount(0);
-        QJsonArray booksArray = response["books"].toArray();
-        for (int i = 0; i < booksArray.size(); ++i) {
-            QJsonObject b = booksArray[i].toObject();
-            booksTable->insertRow(i);
-            booksTable->setItem(i, 0, new QTableWidgetItem(QString::number(b["id"].toInt())));
-            booksTable->setItem(i, 1, new QTableWidgetItem(b["title"].toString()));
-            booksTable->setItem(i, 2, new QTableWidgetItem(b["author"].toString()));
-            booksTable->setItem(i, 3, new QTableWidgetItem(QString::number(b["price"].toDouble()) + " $"));
-
-            booksTable->item(i, 0)->setTextAlignment(Qt::AlignCenter);
-            booksTable->item(i, 1)->setTextAlignment(Qt::AlignCenter);
-            booksTable->item(i, 2)->setTextAlignment(Qt::AlignCenter);
-            booksTable->item(i, 3)->setTextAlignment(Qt::AlignCenter);
-        }
-    }
 }
 
 void ServerWindow::onConnected(){
@@ -236,6 +143,4 @@ void ServerWindow::onConnected(){
     QJsonObject req;
     req["action"] = "admin_subscribe";
     m_socket->write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
-    loadUsersFromDatabase();
-    loadBooksFromDatabase();
 }
