@@ -25,6 +25,10 @@ private slots:
     void handleBlockUser();
     void handleUnblockUser();
 
+    void filterBooks(const QString &text);
+    void handleApproveBook();
+    void handleRejectBook();
+
 private:
     QStackedWidget *m_stackedWidget;
     QPushButton *m_btnMonitor;
@@ -38,8 +42,16 @@ private:
     QPushButton *m_btnUnblock;
     QWidget* createUsersPage();
 
+    QTableWidget *m_booksTable;
+    QLineEdit *m_bookSearchEdit;
+    QPushButton *m_btnApprove;
+    QPushButton *m_btnReject;
+    QWidget* createBooksPage();
+
     void setupUi();
     void updateButtonStyles(int currentIndex);
+protected:
+    void mousePressEvent(QMouseEvent *event) override;
 };
 
 #endif // ADMINPANEL_H
