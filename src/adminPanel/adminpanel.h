@@ -7,6 +7,10 @@
 #include <QLabel>
 #include <QTableWidget>
 #include <QLineEdit>
+#include <QTcpSocket>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #include "serverwindow.h"
 
 class AdminPanel : public QWidget
@@ -29,7 +33,12 @@ private slots:
     void handleApproveBook();
     void handleRejectBook();
 
+    void onReadyRead();
+
 private:
+    QTcpSocket *m_socket;
+    void updateRowAppearance(QTableWidget *table, int row, bool isDimmed);
+
     QStackedWidget *m_stackedWidget;
     QPushButton *m_btnMonitor;
     QPushButton *m_btnUsers;

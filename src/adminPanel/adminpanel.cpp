@@ -8,6 +8,20 @@ AdminPanel::AdminPanel(QWidget *parent)
 {
     setupUi();
     switchPage(0);
+
+    m_socket = new QTcpSocket(this);
+    connect(m_socket,&QTcpSocket::readyRead,this,&AdminPanel::onReadyRead);
+    m_socket->connectToHost("127.0.0.1" , 1234);
+
+    connect(m_socket, &QTcpSocket::connected, this, [this]() {
+        QJsonObject reqUsers;
+        reqUsers["action"] = "get_users_list";
+        m_socket->write(QJsonDocument(reqUsers).toJson(QJsonDocument::Compact) + "\n");
+
+        QJsonObject reqBooks;
+        reqBooks["action"] = "get_books_list";
+        m_socket->write(QJsonDocument(reqBooks).toJson(QJsonDocument::Compact) + "\n");
+    });
 }
 
 void AdminPanel::setupUi()
@@ -233,17 +247,11 @@ void AdminPanel::handleBlockUser()
     if (currentRow < 0) return;
 
     QString username = m_usersTable->item(currentRow, 1)->text();
-    m_usersTable->item(currentRow, 3)->setText("Blocked");
-
-    for (int col = 0; col < m_booksTable->columnCount(); ++col) {
-        QTableWidgetItem *item = m_booksTable->item(currentRow, col);
-        if (item) {
-            item->setForeground(QColor("#6A5D75"));
-            item->setBackground(QColor("#050407"));
-        }
-    }
-
-    // TODO: ارسال درخواست شبکه به سرور core برای بلاک کردن این یوزر در دیتابیس اصلی
+    QJsonObject packet;
+    packet["action"] = "set_user_block_status";
+    packet["username"] = username;
+    packet["block_status"] = true;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
 
 void AdminPanel::handleUnblockUser()
@@ -252,17 +260,11 @@ void AdminPanel::handleUnblockUser()
     if (currentRow < 0) return;
 
     QString username = m_usersTable->item(currentRow, 1)->text();
-    m_usersTable->item(currentRow, 3)->setText("Active");
-
-    for (int col = 0; col < m_booksTable->columnCount(); ++col) {
-        QTableWidgetItem *item = m_booksTable->item(currentRow, col);
-        if (item) {
-            item->setForeground(QColor("#EAEAEA"));
-            item->setBackground(QColor("#09070C"));
-        }
-    }
-
-    // TODO: ارسال درخواست شبکه به سرور برای آن‌بلاک کردن
+    QJsonObject packet;
+    packet["action"] = "set_user_block_status";
+    packet["username"] = username;
+    packet["block_status"] = false;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
 
 void AdminPanel::filterBooks(const QString &text)
@@ -283,34 +285,28 @@ void AdminPanel::handleApproveBook()
 {
     int currentRow = m_booksTable->currentRow();
     if (currentRow < 0) return;
-    m_booksTable->item(currentRow, 3)->setText("Approved");
 
-    for (int col = 0; col < m_booksTable->columnCount(); ++col) {
-        QTableWidgetItem *item = m_booksTable->item(currentRow, col);
-        if (item) {
-            item->setForeground(QColor("#EAEAEA"));
-            item->setBackground(QColor("#09070C"));
-        }
-    }
+    int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
 
-    // TODO: ارسال سیگنال به سرور core برای آپدیت وضعیت کتاب در دیتابیس
+    QJsonObject packet;
+    packet["action"] = "set_book_active_status";
+    packet["bookId"] = bookId;
+    packet["active_status"] = true;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+
 }
 
 void AdminPanel::handleRejectBook()
 {
     int currentRow = m_booksTable->currentRow();
     if (currentRow < 0) return;
-    m_booksTable->item(currentRow, 3)->setText("Rejected");
+    int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
 
-    for (int col = 0; col < m_booksTable->columnCount(); ++col) {
-        QTableWidgetItem *item = m_booksTable->item(currentRow, col);
-        if (item) {
-            item->setForeground(QColor("#6A5D75"));
-            item->setBackground(QColor("#050407"));
-        }
-    }
-
-    // TODO: ارسال سیگنال حذف یا رد کتاب به سرور core
+    QJsonObject packet;
+    packet["action"] = "set_book_active_status";
+    packet["bookId"] = bookId;
+    packet["active_status"] = false;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
 
 void AdminPanel::switchPage(int index)
@@ -338,4 +334,85 @@ void AdminPanel::mousePressEvent(QMouseEvent *event)
     m_usersTable->clearSelection();
     m_booksTable->clearSelection();
     QWidget::mousePressEvent(event);
+}
+
+void AdminPanel::updateRowAppearance(QTableWidget *table, int row, bool isDimmed)
+{
+    for (int col = 0; col < table->columnCount(); ++col) {
+        QTableWidgetItem *item = table->item(row, col);
+        if (item) {
+            if (isDimmed) {
+                item->setForeground(QColor("#6A5D75"));
+                item->setBackground(QColor("#050407"));
+            } else {
+                item->setForeground(QColor("#EAEAEA"));
+                item->setBackground(QColor("#09070C"));
+            }
+        }
+    }
+}
+
+void AdminPanel::onReadyRead()
+{
+    while (m_socket->canReadLine()) {
+        QByteArray line = m_socket->readLine().trimmed();
+        QJsonDocument doc = QJsonDocument::fromJson(line);
+        if (doc.isNull()) continue;
+
+        QJsonObject response = doc.object();
+        QString action = response["action"].toString();
+
+        if (action == "users_list_response" && response["status"] == "success") {
+            QJsonArray users = response["data"].toArray();
+            m_usersTable->setRowCount(0);
+
+            for (int i = 0; i < users.size(); ++i) {
+                QJsonObject u = users[i].toObject();
+                m_usersTable->insertRow(i);
+
+                m_usersTable->setItem(i, 0, new QTableWidgetItem(QString::number(i + 1)));
+                m_usersTable->setItem(i, 1, new QTableWidgetItem(u["username"].toString()));
+                m_usersTable->setItem(i, 2, new QTableWidgetItem(u["role"].toString()));
+
+                bool isBlocked = u["isBlocked"].toBool();
+                m_usersTable->setItem(i, 3, new QTableWidgetItem(isBlocked ? "Blocked" : "Active")); // وضعیت
+
+                if (isBlocked) updateRowAppearance(m_usersTable, i, true);
+            }
+        }
+        else if (action == "books_list_response" && response["status"] == "success") {
+            QJsonArray books = response["data"].toArray();
+            m_booksTable->setRowCount(0);
+
+            for (int i = 0; i < books.size(); ++i) {
+                QJsonObject b = books[i].toObject();
+                m_booksTable->insertRow(i);
+
+                m_booksTable->setItem(i, 0, new QTableWidgetItem(QString::number(b["id"].toInt())));
+                m_booksTable->setItem(i, 1, new QTableWidgetItem(b["title"].toString()));
+                m_booksTable->setItem(i, 2, new QTableWidgetItem(b["author"].toString()));
+
+                bool isActive = b["isActive"].toBool();
+                m_booksTable->setItem(i, 3, new QTableWidgetItem(isActive ? "Approved" : "Pending/Rejected"));
+
+                if (!isActive) updateRowAppearance(m_booksTable, i, true);
+            }
+        }
+        else if (action == "set_user_block_status_response" && response["status"] == "success") {
+            int currentRow = m_usersTable->currentRow();
+            if (currentRow >= 0) {
+                bool isBlocked = response["block_status"].toBool();
+                m_usersTable->item(currentRow, 3)->setText(isBlocked ? "Blocked" : "Active");
+                updateRowAppearance(m_usersTable, currentRow, isBlocked);
+            }
+        }
+        else if (action == "set_book_active_status_response" && response["status"] == "success") {
+            int currentRow = m_booksTable->currentRow();
+            if (currentRow >= 0) {
+                bool isActive = response["active_status"].toBool();
+                m_booksTable->item(currentRow, 3)->setText(isActive ? "Approved" : "Rejected");
+                updateRowAppearance(m_booksTable, currentRow, !isActive);
+            }
+        }
+    }
 }
