@@ -13,7 +13,6 @@ AdminPanel::AdminPanel(QWidget *parent)
 void AdminPanel::setupUi()
 {
     this->resize(800, 500);
-    this->setFixedSize(800, 500);
     this->setStyleSheet("background-color: #060508; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
 
     QHBoxLayout *mainLayout = new QHBoxLayout(this);

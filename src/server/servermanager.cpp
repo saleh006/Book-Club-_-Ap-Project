@@ -114,16 +114,29 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
-        else if (action == "admin_set_blocked") {
+        else if (action == "set_user_block_status") {
             QString username = requestObj["username"].toString();
-            bool blocked = requestObj["blocked"].toBool();
+            bool blockStatus = requestObj["block_status"].toBool();
             QString errorMsg;
-            if (DatabaseManager::instance().setUserBlocked(username, blocked, errorMsg)) {
-                responseObj["status"] = "success";
-                responseObj["message"] = blocked ? "User successfully blocked." : "User successfully unblocked.";
-            } else {
-                responseObj["status"] = "error";
-                responseObj["message"] = errorMsg;
+
+            if (DatabaseManager::instance().setUserBlocked(username, blockStatus, errorMsg)) {
+                QJsonObject response;
+                response["action"] = "set_user_block_status_response";
+                response["status"] = "success";
+                response["username"] = username;
+                response["block_status"] = blockStatus;
+                sendToClient(response);
+
+                QString logMsg = QString("[ADMIN] User '%1' block status updated to: %2")
+                                     .arg(username).arg(blockStatus ? "Blocked" : "Active");
+                emit logProduced(logMsg);
+            }
+            else {
+                QJsonObject response;
+                response["action"] = "set_user_block_status_response";
+                response["status"] = "error";
+                response["message"] = errorMsg;
+                sendToClient(response);
             }
         }
         else if (action == "recover_password") {
@@ -140,53 +153,33 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
-        else if (action == "admin_get_users") {
-            emit logProduced("Admin requested registered users list.");
-            QJsonObject response;
-            response["type"] = "users_list";
-            QJsonArray usersArray;
-            QVector<UserProfileSummary> outProfiles;
+        else if (action == "get_users_list") {
+            QVector<UserProfileSummary> profiles;
             QString errorMsg;
 
-            if (DatabaseManager::instance().fetchAllUsersProfilesForAdmin(outProfiles, errorMsg)) {
-                for (const auto &profile : outProfiles) {
+            if (DatabaseManager::instance().fetchAllUsersProfilesForAdmin(profiles, errorMsg)) {
+                QJsonArray usersArray;
+                for (const auto &profile : profiles) {
                     QJsonObject userObj;
-                    userObj["id"] = profile.user.id;
                     userObj["username"] = profile.user.username;
                     userObj["fullName"] = profile.user.fullName;
                     userObj["role"] = profile.user.role;
+                    userObj["isBlocked"] = profile.user.isBlocked;
+
                     usersArray.append(userObj);
                 }
+                QJsonObject response;
+                response["action"] = "users_list_response";
+                response["status"] = "success";
+                response["data"] = usersArray;
+                sendToClient(response);
+            } else {
+                QJsonObject response;
+                response["action"] = "users_list_response";
+                response["status"] = "error";
+                response["message"] = errorMsg;
+                sendToClient(response);
             }
-            else {
-                emit logProduced("Error fetching users for admin: " + errorMsg);
-            }
-
-            response["users"] = usersArray;
-            QJsonDocument resDoc(response);
-            m_socket->write(resDoc.toJson(QJsonDocument::Compact) + "\n");
-        }
-        else if (action == "admin_get_books") {
-            emit logProduced("Admin requested library books list.");
-            QJsonObject response;
-            response["type"] = "books_list";
-            QJsonArray booksArray;
-            QVector<Book> booksList;
-            QString errorMsg;
-
-            if (DatabaseManager::instance().fetchAllBooks(booksList, errorMsg, false)) {
-                for (const auto &book : booksList) {
-                    QJsonObject bookObj;
-                    bookObj["id"] = book.id;
-                    bookObj["title"] = book.title;
-                    bookObj["author"] = book.author;
-                    bookObj["price"] = book.price;
-                    booksArray.append(bookObj);
-                }
-            }
-            response["books"] = booksArray;
-            QJsonDocument resDoc(response);
-            m_socket->write(resDoc.toJson(QJsonDocument::Compact) + "\n");
         }
         else if (action == "admin_subscribe") {
             ServerManager *server = qobject_cast<ServerManager*>(parent());
@@ -278,27 +271,59 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
-        else if (action == "books_fetch_all") {
+        else if (action == "get_books_list") {
             QVector<Book> books;
             QString errorMsg;
-            bool activeOnly = requestObj["activeOnly"].toBool(true);
-            if (DatabaseManager::instance().fetchAllBooks(books, errorMsg, activeOnly)) {
-                responseObj["status"] = "success";
-                QJsonArray bookArray;
-                for (const Book &b : books) {
+
+            if (DatabaseManager::instance().fetchAllBooks(books, errorMsg, false)) {
+                QJsonArray booksArray;
+                for (const auto &book : books) {
                     QJsonObject bookObj;
-                    bookObj["id"] = b.id;
-                    bookObj["title"] = b.title;
-                    bookObj["author"] = b.author;
-                    bookObj["genre"] = b.genre;
-                    bookObj["price"] = b.price;
-                    bookObj["averageRating"] = b.averageRating;
-                    bookArray.append(bookObj);
+                    bookObj["id"] = book.id;
+                    bookObj["title"] = book.title;
+                    bookObj["author"] = book.author;
+                    bookObj["isActive"] = book.isActive;
+                    bookObj["price"] = book.price;
+
+                    booksArray.append(bookObj);
                 }
-                responseObj["books"] = bookArray;
+
+                QJsonObject response;
+                response["action"] = "books_list_response";
+                response["status"] = "success";
+                response["data"] = booksArray;
+                sendToClient(response);
             } else {
-                responseObj["status"] = "error";
-                responseObj["message"] = errorMsg;
+                QJsonObject response;
+                response["action"] = "books_list_response";
+                response["status"] = "error";
+                response["message"] = errorMsg;
+                sendToClient(response);
+            }
+        }
+        else if (action == "set_book_active_status") {
+            int bookId = requestObj["bookId"].toInt();
+            bool activeStatus = requestObj["active_status"].toBool();
+            QString errorMsg;
+
+            if (DatabaseManager::instance().updateBookActiveStatus(bookId, activeStatus, errorMsg)) {
+                QJsonObject response;
+                response["action"] = "set_book_active_status_response";
+                response["status"] = "success";
+                response["bookId"] = bookId;
+                response["active_status"] = activeStatus;
+                sendToClient(response);
+
+                QString logMsg = QString("[ADMIN] Book ID %1 status updated to: %2")
+                                     .arg(bookId).arg(activeStatus ? "Approved/Active" : "Rejected/Inactive");
+                emit logProduced(logMsg);
+            }
+            else {
+                QJsonObject response;
+                response["action"] = "set_book_active_status_response";
+                response["status"] = "error";
+                response["message"] = errorMsg;
+                sendToClient(response);
             }
         }
         else if (action == "books_fetch_by_genre") {
