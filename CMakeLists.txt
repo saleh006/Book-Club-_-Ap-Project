@@ -12,6 +12,7 @@ qt_add_resources(RESOURCES
 
 qt_add_executable(BookClubServer
     main_server.cpp
+    src/shared/models.h
     src/database/databasemanager.h
     src/database/databasemanager.cpp
     src/database/databasemanager_core.cpp
@@ -29,6 +30,7 @@ qt_add_executable(BookClubServer
 target_include_directories(BookClubServer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shared
 )
 
 target_link_libraries(BookClubServer PRIVATE
@@ -69,11 +71,16 @@ qt_add_qml_module(BookClubClient
         SOURCES src/auth/loginwindow.h src/auth/loginwindow.cpp
         SOURCES src/auth/signupwindow.h src/auth/signupwindow.cpp
         SOURCES src/auth/recoverywindow.h src/auth/recoverywindow.cpp
+        SOURCES src/publisherPanel/publisherpanel.h src/publisherPanel/publisherpanel.cpp
+        SOURCES src/publisherPanel/bookcardwidget.h src/publisherPanel/bookcardwidget.cpp
+        SOURCES src/shared/models.h
+        SOURCES src/publisherPanel/addeditbookdialog.h src/publisherPanel/addeditbookdialog.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server
     ${CMAKE_CURRENT_SOURCE_DIR}/src/auth
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shared
 )
 
 target_link_libraries(BookClubClient
