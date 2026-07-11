@@ -14,7 +14,7 @@ class AddEditBookDialog : public QDialog
 
 public:
     explicit AddEditBookDialog(const Book &existingBook, QWidget *parent = nullptr);
-    // Book resultBook() const;
+    Book resultBook() const;
 
 private:
     void setupUi(bool isEditMode);
