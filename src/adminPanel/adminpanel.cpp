@@ -2,6 +2,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QHeaderView>
+#include <QMessageBox>
 
 AdminPanel::AdminPanel(QWidget *parent)
     : QWidget(parent)
@@ -124,8 +125,8 @@ QWidget* AdminPanel::createUsersPage()
     layout->addWidget(m_searchEdit);
 
     m_usersTable = new QTableWidget(page);
-    m_usersTable->setColumnCount(4);
-    m_usersTable->setHorizontalHeaderLabels({"ID", "Username", "Role", "Status"});
+    m_usersTable->setColumnCount(5);
+    m_usersTable->setHorizontalHeaderLabels({"ID", "Username", "Role", "Status" , "Register Date"});
     m_usersTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_usersTable->setSelectionMode(QAbstractItemView::SingleSelection);
     m_usersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -145,9 +146,11 @@ QWidget* AdminPanel::createUsersPage()
 
     m_btnBlock = new QPushButton("🚫 Block User", page);
     m_btnUnblock = new QPushButton("✅ Unblock User", page);
+    m_btnUserDetails = new QPushButton("👁 View Details", page);
 
     m_btnBlock->setCursor(Qt::PointingHandCursor);
     m_btnUnblock->setCursor(Qt::PointingHandCursor);
+    m_btnUserDetails->setCursor(Qt::PointingHandCursor);
 
     m_btnBlock->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #C0392B; border-radius: 6px; padding: 8px; font-weight: bold; color: #E6B0AA; }"
@@ -157,14 +160,20 @@ QWidget* AdminPanel::createUsersPage()
         "QPushButton { background-color: transparent; border: 1px solid #2ECC71; border-radius: 6px; padding: 8px; font-weight: bold; color: #ABEBC6; }"
         "QPushButton:hover { background-color: rgba(46, 204, 113, 50); color: white; }"
         );
+    m_btnUserDetails->setStyleSheet(
+        "QPushButton { background-color: transparent; border: 1px solid #3498DB; border-radius: 6px; padding: 8px; font-weight: bold; color: #AED6F1; }"
+        "QPushButton:hover { background-color: rgba(52, 152, 219, 50); color: white; }"
+        );
 
     btnLayout->addWidget(m_btnBlock);
     btnLayout->addWidget(m_btnUnblock);
+    btnLayout->addWidget(m_btnUserDetails);
     layout->addLayout(btnLayout);
 
     connect(m_searchEdit, &QLineEdit::textChanged, this, &AdminPanel::filterUsers);
     connect(m_btnBlock, &QPushButton::clicked, this, &AdminPanel::handleBlockUser);
     connect(m_btnUnblock, &QPushButton::clicked, this, &AdminPanel::handleUnblockUser);
+    connect(m_btnUserDetails, &QPushButton::clicked, this, &AdminPanel::handleViewUserDetails);
 
     return page;
 }
@@ -205,10 +214,12 @@ QWidget* AdminPanel::createBooksPage()
     btnLayout->setSpacing(10);
 
     m_btnApprove = new QPushButton("✨ Approve Book", page);
-    m_btnReject = new QPushButton("🗑️ Reject/Delete", page);
+    m_btnReject = new QPushButton("❌ Reject", page);
+    m_btnDeleteBook = new QPushButton("🗑️ Delete Book", page);
 
     m_btnApprove->setCursor(Qt::PointingHandCursor);
     m_btnReject->setCursor(Qt::PointingHandCursor);
+    m_btnDeleteBook->setCursor(Qt::PointingHandCursor);
 
     m_btnApprove->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #2ECC71; border-radius: 6px; padding: 8px; font-weight: bold; color: #ABEBC6; }"
@@ -218,7 +229,12 @@ QWidget* AdminPanel::createBooksPage()
         "QPushButton { background-color: transparent; border: 1px solid #E74C3C; border-radius: 6px; padding: 8px; font-weight: bold; color: #F5B7B1; }"
         "QPushButton:hover { background-color: rgba(231, 76, 60, 50); color: white; }"
         );
+    m_btnDeleteBook->setStyleSheet(
+        "QPushButton { background-color: transparent; border: 1px solid #C0392B; border-radius: 6px; padding: 8px; font-weight: bold; color: #E6B0AA; }"
+        "QPushButton:hover { background-color: rgba(192, 57, 43, 50); color: white; }"
+        );
 
+    btnLayout->addWidget(m_btnDeleteBook);
     btnLayout->addWidget(m_btnReject);
     btnLayout->addWidget(m_btnApprove);
     layout->addLayout(btnLayout);
@@ -226,6 +242,7 @@ QWidget* AdminPanel::createBooksPage()
     connect(m_bookSearchEdit,&QLineEdit::textChanged,this,&AdminPanel::filterBooks);
     connect(m_btnApprove,&QPushButton::clicked,this,&AdminPanel::handleApproveBook);
     connect(m_btnReject,&QPushButton::clicked,this,&AdminPanel::handleRejectBook);
+    connect(m_btnDeleteBook, &QPushButton::clicked, this, &AdminPanel::handleDeleteBook);
 
     return page;
 }
@@ -264,6 +281,19 @@ void AdminPanel::handleUnblockUser()
     packet["action"] = "set_user_block_status";
     packet["username"] = username;
     packet["block_status"] = false;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void AdminPanel::handleViewUserDetails()
+{
+    int currentRow = m_usersTable->currentRow();
+    if (currentRow < 0) return;
+
+    QString username = m_usersTable->item(currentRow, 1)->text();
+
+    QJsonObject packet;
+    packet["action"] = "get_user_details";
+    packet["username"] = username;
     m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
 
@@ -307,6 +337,37 @@ void AdminPanel::handleRejectBook()
     packet["bookId"] = bookId;
     packet["active_status"] = false;
     m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void AdminPanel::handleDeleteBook()
+{
+    int currentRow = m_booksTable->currentRow();
+    if (currentRow < 0) return;
+    int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
+
+    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
+                                                              "Are you sure you want to completely delete this book from the database?",
+                                                              QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        QJsonObject packet;
+        packet["action"] = "books_delete";
+        packet["bookId"] = bookId;
+        m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+    }
+}
+
+void AdminPanel::refreshUsersTable() {
+    QJsonObject request;
+    request["action"] = "get_users_list";
+    m_socket->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
+    m_socket->flush();
+}
+
+void AdminPanel::refreshBooksTable() {
+    QJsonObject request;
+    request["action"] = "get_books_list";
+    m_socket->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
+    m_socket->flush();
 }
 
 void AdminPanel::switchPage(int index)
@@ -362,6 +423,16 @@ void AdminPanel::onReadyRead()
         QJsonObject response = doc.object();
         QString action = response["action"].toString();
 
+        if (response.contains("type") && response["type"].toString() == "table_refresh_required") {
+            QString targetTable = response["target_table"].toString();
+            if (targetTable == "book") {
+                refreshBooksTable();
+            } else if (targetTable == "users") {
+                refreshUsersTable();
+            }
+            continue;
+        }
+
         if (action == "users_list_response" && response["status"] == "success") {
             QJsonArray users = response["data"].toArray();
             m_usersTable->setRowCount(0);
@@ -373,9 +444,9 @@ void AdminPanel::onReadyRead()
                 m_usersTable->setItem(i, 0, new QTableWidgetItem(QString::number(i + 1)));
                 m_usersTable->setItem(i, 1, new QTableWidgetItem(u["username"].toString()));
                 m_usersTable->setItem(i, 2, new QTableWidgetItem(u["role"].toString()));
-
                 bool isBlocked = u["isBlocked"].toBool();
-                m_usersTable->setItem(i, 3, new QTableWidgetItem(isBlocked ? "Blocked" : "Active")); // وضعیت
+                m_usersTable->setItem(i, 3, new QTableWidgetItem(isBlocked ? "Blocked" : "Active"));
+                m_usersTable->setItem(i, 4, new QTableWidgetItem(u["registerDate"].toString()));
 
                 if (isBlocked) updateRowAppearance(m_usersTable, i, true);
             }
@@ -414,5 +485,107 @@ void AdminPanel::onReadyRead()
                 updateRowAppearance(m_booksTable, currentRow, !isActive);
             }
         }
+        else if (action == "delete_book_response" && response["status"] == "success") {
+            int currentRow = m_booksTable->currentRow();
+            if (currentRow >= 0) {
+                m_booksTable->removeRow(currentRow);
+            }
+            QMessageBox::information(this, "Success", "Book completely deleted from the database.");
+        }
+        else if (action == "user_details_response" && response["status"] == "success") {
+            showUserDetailsDialog(response["data"].toObject());
+        }
     }
+}
+void AdminPanel::showUserDetailsDialog(const QJsonObject &data)
+{
+    QDialog *dialog = new QDialog(this);
+    dialog->setWindowTitle("User Profile Details");
+    dialog->resize(450, 500);
+    dialog->setStyleSheet("background-color: #09070C; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
+    mainLayout->setContentsMargins(20, 20, 20, 20);
+    mainLayout->setSpacing(15);
+
+    QLabel *avatar = new QLabel("👤", dialog);
+    avatar->setAlignment(Qt::AlignCenter);
+    avatar->setStyleSheet("font-size: 60px; color: #7C3E66;");
+
+    QLabel *nameLabel = new QLabel(data["fullName"].toString(), dialog);
+    nameLabel->setAlignment(Qt::AlignCenter);
+    nameLabel->setStyleSheet("font-size: 22px; font-weight: bold; color: #FFFFFF;");
+
+    QLabel *roleLabel = new QLabel(data["role"].toString().toUpper(), dialog);
+    roleLabel->setAlignment(Qt::AlignCenter);
+    roleLabel->setStyleSheet("font-size: 12px; color: #A594B3; letter-spacing: 2px;");
+
+    mainLayout->addWidget(avatar);
+    mainLayout->addWidget(nameLabel);
+    mainLayout->addWidget(roleLabel);
+
+    QGroupBox *infoBox = new QGroupBox("Identity Information", dialog);
+    infoBox->setStyleSheet("QGroupBox { border: 1px solid #1F1724; border-radius: 8px; margin-top: 10px; padding-top: 15px; color: #A594B3; font-weight: bold; }");
+    QFormLayout *formLayout = new QFormLayout(infoBox);
+    formLayout->setLabelAlignment(Qt::AlignRight);
+
+    QString labelStyle = "color: #9A8FA0; font-size: 13px;";
+    QString valueStyle = "color: #EAEAEA; font-size: 13px; font-weight: bold;";
+
+    auto addRow = [&](const QString &title, const QString &value) {
+        QLabel *lbl = new QLabel(title);
+        lbl->setStyleSheet(labelStyle);
+        QLabel *val = new QLabel(value);
+        val->setStyleSheet(valueStyle);
+        formLayout->addRow(lbl, val);
+    };
+
+    addRow("Username:", data["username"].toString());
+    addRow("Email:", data["email"].toString());
+    addRow("Register Date:", data["registerDate"].toString());
+
+    bool isBlocked = data["isBlocked"].toBool();
+    QLabel *statusVal = new QLabel(isBlocked ? "BLOCKED 🚫" : "ACTIVE ✅");
+    statusVal->setStyleSheet(isBlocked ? "color: #E74C3C; font-weight: bold;" : "color: #2ECC71; font-weight: bold;");
+    QLabel *statusLbl = new QLabel("Account Status:");
+    statusLbl->setStyleSheet(labelStyle);
+    formLayout->addRow(statusLbl, statusVal);
+
+    mainLayout->addWidget(infoBox);
+
+    QGroupBox *statsBox = new QGroupBox("Library Activity", dialog);
+    statsBox->setStyleSheet("QGroupBox { border: 1px solid #1F1724; border-radius: 8px; margin-top: 10px; padding-top: 15px; color: #A594B3; font-weight: bold; }");
+    QHBoxLayout *statsLayout = new QHBoxLayout(statsBox);
+
+    auto createStatWidget = [&](const QString &title, int count) {
+        QWidget *w = new QWidget();
+        QVBoxLayout *vl = new QVBoxLayout(w);
+        QLabel *c = new QLabel(QString::number(count));
+        c->setAlignment(Qt::AlignCenter);
+        c->setStyleSheet("font-size: 24px; color: #7C3E66; font-weight: bold;");
+        QLabel *t = new QLabel(title);
+        t->setAlignment(Qt::AlignCenter);
+        t->setStyleSheet("font-size: 11px; color: #9A8FA0;");
+        vl->addWidget(c);
+        vl->addWidget(t);
+        return w;
+    };
+
+    statsLayout->addWidget(createStatWidget("Owned Books", data["ownedBooksCount"].toInt()));
+    statsLayout->addWidget(createStatWidget("In Wishlist", data["wishlistCount"].toInt()));
+    statsLayout->addWidget(createStatWidget("Purchases", data["totalPurchases"].toInt()));
+
+    mainLayout->addWidget(statsBox);
+
+    QPushButton *closeBtn = new QPushButton("Close", dialog);
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    closeBtn->setStyleSheet(
+        "QPushButton { background-color: #1F1724; border: none; border-radius: 6px; padding: 10px; color: white; font-weight: bold; }"
+        "QPushButton:hover { background-color: #7C3E66; }"
+        );
+    connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
+    mainLayout->addWidget(closeBtn, 0, Qt::AlignCenter);
+
+    dialog->exec();
+    dialog->deleteLater();
 }

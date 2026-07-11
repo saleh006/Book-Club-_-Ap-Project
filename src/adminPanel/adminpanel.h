@@ -11,6 +11,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QDialog>
+#include <QFormLayout>
+#include <QGroupBox>
 #include "serverwindow.h"
 
 class AdminPanel : public QWidget
@@ -28,10 +31,12 @@ private slots:
     void filterUsers(const QString &text);
     void handleBlockUser();
     void handleUnblockUser();
+    void handleViewUserDetails();
 
     void filterBooks(const QString &text);
     void handleApproveBook();
     void handleRejectBook();
+    void handleDeleteBook();
 
     void onReadyRead();
 
@@ -50,15 +55,20 @@ private:
     QPushButton *m_btnBlock;
     QPushButton *m_btnUnblock;
     QWidget* createUsersPage();
+    QPushButton *m_btnUserDetails;
 
     QTableWidget *m_booksTable;
     QLineEdit *m_bookSearchEdit;
     QPushButton *m_btnApprove;
     QPushButton *m_btnReject;
     QWidget* createBooksPage();
+    QPushButton *m_btnDeleteBook;
 
     void setupUi();
     void updateButtonStyles(int currentIndex);
+    void showUserDetailsDialog(const QJsonObject &data);
+    void refreshUsersTable();
+    void refreshBooksTable();
 protected:
     void mousePressEvent(QMouseEvent *event) override;
 };
