@@ -35,8 +35,6 @@ void AddEditBookDialog::setupUi(bool isEditMode)
         QLabel {
             color: #A594B3;
             background-color: #120E14;
-            border: 1px solid #5F2E4F;
-            border-radius: 2px;
             padding: 6px 10px;
             min-width: 90px;
             qproperty-alignment: 'Qt::AlignCenter';
