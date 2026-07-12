@@ -871,6 +871,58 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
+        else if (action == "get_publishers_list") {
+            QVector<PublisherProfileSummary> profiles;
+            QString errorMsg;
+
+            if (DatabaseManager::instance().fetchAllPublisherProfilesForAdmin(profiles, errorMsg)) {
+                QJsonArray pubsArray;
+                for (const auto &profile : profiles) {
+                    QJsonObject pubObj;
+                    pubObj["username"] = profile.user.username;
+                    pubObj["fullName"] = profile.user.fullName;
+                    pubObj["isBlocked"] = profile.user.isBlocked;
+                    pubObj["registerDate"] = profile.user.registerDate.toString("yyyy-MM-dd");
+                    pubObj["publishedBooksCount"] = profile.publishedBooks.size();
+
+                    pubsArray.append(pubObj);
+                }
+                QJsonObject response;
+                response["action"] = "publishers_list_response";
+                response["status"] = "success";
+                response["data"] = pubsArray;
+                sendToClient(response);
+            } else {
+                QJsonObject response;
+                response["action"] = "publishers_list_response";
+                response["status"] = "error";
+                response["message"] = errorMsg;
+                sendToClient(response);
+            }
+        }
+        else if (action == "get_publisher_details") {
+            responseObj["action"] = "publisher_details_response";
+            QString username = requestObj["username"].toString();
+            QString errorMsg;
+            PublisherProfileSummary profile;
+
+            if (DatabaseManager::instance().fetchPublisherProfileForAdmin(username, profile, errorMsg)) {
+                responseObj["status"] = "success";
+                QJsonObject data;
+
+                data["username"] = profile.user.username;
+                data["fullName"] = profile.user.fullName;
+                data["email"] = profile.user.email;
+                data["registerDate"] = profile.user.registerDate.toString("yyyy-MM-dd");
+                data["isBlocked"] = profile.user.isBlocked;
+                data["publishedBooksCount"] = profile.publishedBooks.size();
+
+                responseObj["data"] = data;
+            } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg.isEmpty() ? "Publisher not found." : errorMsg;
+            }
+        }
         else {
             responseObj["status"] = "error";
             responseObj["message"] = "Invalid action.";

@@ -22,6 +22,10 @@ AdminPanel::AdminPanel(QWidget *parent)
         QJsonObject reqBooks;
         reqBooks["action"] = "get_books_list";
         m_socket->write(QJsonDocument(reqBooks).toJson(QJsonDocument::Compact) + "\n");
+
+        QJsonObject reqPublishers;
+        reqPublishers["action"] = "get_publishers_list";
+        m_socket->write(QJsonDocument(reqPublishers).toJson(QJsonDocument::Compact) + "\n");
     });
 }
 
@@ -61,6 +65,7 @@ void AdminPanel::setupUi()
     m_btnMonitor = new QPushButton("📈 Server Monitor", sidebar);
     m_btnUsers = new QPushButton("👥 Manage Users", sidebar);
     m_btnBooks = new QPushButton("📚 Manage Books", sidebar);
+    m_btnPublishers = new QPushButton("🧑‍💻 Manage Publishers", sidebar);
 
     m_btnLogout = new QPushButton("🚪 Logout", sidebar);
     m_btnLogout->setCursor(Qt::PointingHandCursor);
@@ -76,13 +81,16 @@ void AdminPanel::setupUi()
     m_btnMonitor->setStyleSheet(menuBtnStyle);
     m_btnUsers->setStyleSheet(menuBtnStyle);
     m_btnBooks->setStyleSheet(menuBtnStyle);
+    m_btnPublishers->setStyleSheet(menuBtnStyle);
 
     m_btnMonitor->setCursor(Qt::PointingHandCursor);
     m_btnUsers->setCursor(Qt::PointingHandCursor);
     m_btnBooks->setCursor(Qt::PointingHandCursor);
+    m_btnPublishers->setCursor(Qt::PointingHandCursor);
 
     sidebarLayout->addWidget(m_btnMonitor);
     sidebarLayout->addWidget(m_btnUsers);
+    sidebarLayout->addWidget(m_btnPublishers);
     sidebarLayout->addWidget(m_btnBooks);
 
     sidebarLayout->addStretch();
@@ -96,6 +104,9 @@ void AdminPanel::setupUi()
     QWidget * usersPage = createUsersPage();
     m_stackedWidget->addWidget(usersPage);
 
+    QWidget *publishersPage = createPublishersPage();
+    m_stackedWidget->addWidget(publishersPage);
+
     QWidget *booksPage = createBooksPage();
     m_stackedWidget->addWidget(booksPage);
 
@@ -104,7 +115,8 @@ void AdminPanel::setupUi()
 
     connect(m_btnMonitor, &QPushButton::clicked, this, [this](){ switchPage(0); });
     connect(m_btnUsers, &QPushButton::clicked, this, [this](){ switchPage(1); });
-    connect(m_btnBooks, &QPushButton::clicked, this, [this](){ switchPage(2); });
+    connect(m_btnPublishers, &QPushButton::clicked, this, [this](){ switchPage(2); });
+    connect(m_btnBooks, &QPushButton::clicked, this, [this](){ switchPage(3); });
     connect(m_btnLogout, &QPushButton::clicked, this, &AdminPanel::logoutRequested);
 }
 
@@ -247,6 +259,65 @@ QWidget* AdminPanel::createBooksPage()
     return page;
 }
 
+QWidget* AdminPanel::createPublishersPage()
+{
+    QWidget *page = new QWidget(this);
+    QVBoxLayout *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(15, 15, 15, 15);
+    layout->setSpacing(12);
+
+    m_publisherSearchEdit = new QLineEdit(page);
+    m_publisherSearchEdit->setPlaceholderText("🔍 Search publishers by username or name ...");
+    m_publisherSearchEdit->setStyleSheet(
+        "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
+        "padding: 8px; color: #EAEAEA; font-size: 13px; }"
+        "QLineEdit:focus { border: 1px solid #7C3E66; }"
+        );
+    layout->addWidget(m_publisherSearchEdit);
+
+    m_publishersTable = new QTableWidget(page);
+    m_publishersTable->setColumnCount(6);
+    m_publishersTable->setHorizontalHeaderLabels({"ID", "Username", "Publisher Name", "Books", "Status", "Register Date"});
+    m_publishersTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_publishersTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_publishersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_publishersTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    m_publishersTable->verticalHeader()->setVisible(false);
+    m_publishersTable->setStyleSheet(
+        "QTableWidget { background-color: #09070C; border: 1px solid #1F1724; gridline-color: #1F1724; color: #EAEAEA; }"
+        "QTableWidget::item:selected { background-color: #7C3E66; color: white; }"
+        "QHeaderView::section { background-color: #120E14; color: #A594B3; font-weight: bold; border: 1px solid #1F1724; padding: 6px; }"
+        );
+    layout->addWidget(m_publishersTable);
+
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(10);
+
+    m_btnBlockPublisher = new QPushButton("🚫 Block Publisher", page);
+    m_btnUnblockPublisher = new QPushButton("✅ Unblock Publisher", page);
+    m_btnPublisherDetails = new QPushButton("👁 View Details", page);
+
+    m_btnBlockPublisher->setCursor(Qt::PointingHandCursor);
+    m_btnUnblockPublisher->setCursor(Qt::PointingHandCursor);
+    m_btnPublisherDetails->setCursor(Qt::PointingHandCursor);
+
+    m_btnBlockPublisher->setStyleSheet(m_btnBlock->styleSheet());
+    m_btnUnblockPublisher->setStyleSheet(m_btnUnblock->styleSheet());
+    m_btnPublisherDetails->setStyleSheet(m_btnUserDetails->styleSheet());
+
+    btnLayout->addWidget(m_btnBlockPublisher);
+    btnLayout->addWidget(m_btnUnblockPublisher);
+    btnLayout->addWidget(m_btnPublisherDetails);
+    layout->addLayout(btnLayout);
+
+    connect(m_publisherSearchEdit, &QLineEdit::textChanged, this, &AdminPanel::filterPublishers);
+    connect(m_btnBlockPublisher, &QPushButton::clicked, this, &AdminPanel::handleBlockPublisher);
+    connect(m_btnUnblockPublisher, &QPushButton::clicked, this, &AdminPanel::handleUnblockPublisher);
+    connect(m_btnPublisherDetails, &QPushButton::clicked, this, &AdminPanel::handleViewPublisherDetails);
+
+    return page;
+}
+
 void AdminPanel::filterUsers(const QString &text)
 {
     for (int i = 0; i < m_usersTable->rowCount(); ++i) {
@@ -356,6 +427,57 @@ void AdminPanel::handleDeleteBook()
     }
 }
 
+void AdminPanel::filterPublishers(const QString &text)
+{
+    for (int i = 0; i < m_publishersTable->rowCount(); ++i) {
+        bool match = false;
+        if (m_publishersTable->item(i, 1)->text().contains(text, Qt::CaseInsensitive) ||
+            m_publishersTable->item(i, 2)->text().contains(text, Qt::CaseInsensitive)) {
+            match = true;
+        }
+        m_publishersTable->setRowHidden(i, !match);
+    }
+}
+
+void AdminPanel::handleBlockPublisher()
+{
+    int currentRow = m_publishersTable->currentRow();
+    if (currentRow < 0) return;
+
+    QString username = m_publishersTable->item(currentRow, 1)->text();
+    QJsonObject packet;
+    packet["action"] = "set_user_block_status";
+    packet["username"] = username;
+    packet["block_status"] = true;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void AdminPanel::handleUnblockPublisher()
+{
+    int currentRow = m_publishersTable->currentRow();
+    if (currentRow < 0) return;
+
+    QString username = m_publishersTable->item(currentRow, 1)->text();
+    QJsonObject packet;
+    packet["action"] = "set_user_block_status";
+    packet["username"] = username;
+    packet["block_status"] = false;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void AdminPanel::handleViewPublisherDetails()
+{
+    int currentRow = m_publishersTable->currentRow();
+    if (currentRow < 0) return;
+
+    QString username = m_publishersTable->item(currentRow, 1)->text();
+
+    QJsonObject packet;
+    packet["action"] = "get_publisher_details";
+    packet["username"] = username;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+}
+
 void AdminPanel::refreshUsersTable() {
     QJsonObject request;
     request["action"] = "get_users_list";
@@ -366,6 +488,13 @@ void AdminPanel::refreshUsersTable() {
 void AdminPanel::refreshBooksTable() {
     QJsonObject request;
     request["action"] = "get_books_list";
+    m_socket->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
+    m_socket->flush();
+}
+
+void AdminPanel::refreshPublishersTable() {
+    QJsonObject request;
+    request["action"] = "get_publishers_list";
     m_socket->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
     m_socket->flush();
 }
@@ -387,13 +516,15 @@ void AdminPanel::updateButtonStyles(int currentIndex)
 
     m_btnMonitor->setStyleSheet(currentIndex == 0 ? activeStyle : normalStyle);
     m_btnUsers->setStyleSheet(currentIndex == 1 ? activeStyle : normalStyle);
-    m_btnBooks->setStyleSheet(currentIndex == 2 ? activeStyle : normalStyle);
+    m_btnPublishers->setStyleSheet(currentIndex == 2 ? activeStyle : normalStyle);
+    m_btnBooks->setStyleSheet(currentIndex == 3 ? activeStyle : normalStyle);
 }
 
 void AdminPanel::mousePressEvent(QMouseEvent *event)
 {
     m_usersTable->clearSelection();
     m_booksTable->clearSelection();
+    m_publishersTable->clearSelection();
     QWidget::mousePressEvent(event);
 }
 
@@ -469,20 +600,42 @@ void AdminPanel::onReadyRead()
                 if (!isActive) updateRowAppearance(m_booksTable, i, true);
             }
         }
-        else if (action == "set_user_block_status_response" && response["status"] == "success") {
-            int currentRow = m_usersTable->currentRow();
-            if (currentRow >= 0) {
-                bool isBlocked = response["block_status"].toBool();
-                m_usersTable->item(currentRow, 3)->setText(isBlocked ? "Blocked" : "Active");
-                updateRowAppearance(m_usersTable, currentRow, isBlocked);
+        else if (action == "publishers_list_response" && response["status"] == "success") {
+            QJsonArray publishers = response["data"].toArray();
+            m_publishersTable->setRowCount(0);
+
+            for (int i = 0; i < publishers.size(); ++i) {
+                QJsonObject p = publishers[i].toObject();
+                m_publishersTable->insertRow(i);
+
+                m_publishersTable->setItem(i, 0, new QTableWidgetItem(QString::number(i + 1)));
+                m_publishersTable->setItem(i, 1, new QTableWidgetItem(p["username"].toString()));
+                m_publishersTable->setItem(i, 2, new QTableWidgetItem(p["fullName"].toString()));
+                m_publishersTable->setItem(i, 3, new QTableWidgetItem(QString::number(p["publishedBooksCount"].toInt())));
+                bool isBlocked = p["isBlocked"].toBool();
+                m_publishersTable->setItem(i, 4, new QTableWidgetItem(isBlocked ? "Blocked" : "Active"));
+                m_publishersTable->setItem(i, 5, new QTableWidgetItem(p["registerDate"].toString()));
+
+                if (isBlocked) updateRowAppearance(m_publishersTable, i, true);
             }
         }
-        else if (action == "set_book_active_status_response" && response["status"] == "success") {
-            int currentRow = m_booksTable->currentRow();
-            if (currentRow >= 0) {
-                bool isActive = response["active_status"].toBool();
-                m_booksTable->item(currentRow, 3)->setText(isActive ? "Approved" : "Rejected");
-                updateRowAppearance(m_booksTable, currentRow, !isActive);
+        else if (action == "set_user_block_status_response" && response["status"] == "success") {
+            bool isBlocked = response["block_status"].toBool();
+            QString targetUser = response["username"].toString();
+
+            for(int i=0; i<m_usersTable->rowCount(); i++) {
+                if(m_usersTable->item(i, 1)->text() == targetUser) {
+                    m_usersTable->item(i, 3)->setText(isBlocked ? "Blocked" : "Active");
+                    updateRowAppearance(m_usersTable, i, isBlocked);
+                    break;
+                }
+            }
+            for(int i=0; i<m_publishersTable->rowCount(); i++) {
+                if(m_publishersTable->item(i, 1)->text() == targetUser) {
+                    m_publishersTable->item(i, 4)->setText(isBlocked ? "Blocked" : "Active");
+                    updateRowAppearance(m_publishersTable, i, isBlocked);
+                    break;
+                }
             }
         }
         else if (action == "delete_book_response" && response["status"] == "success") {
@@ -494,6 +647,9 @@ void AdminPanel::onReadyRead()
         }
         else if (action == "user_details_response" && response["status"] == "success") {
             showUserDetailsDialog(response["data"].toObject());
+        }
+        else if (action == "publisher_details_response" && response["status"] == "success") {
+            showPublisherDetailsDialog(response["data"].toObject());
         }
     }
 }
@@ -574,6 +730,69 @@ void AdminPanel::showUserDetailsDialog(const QJsonObject &data)
     statsLayout->addWidget(createStatWidget("Owned Books", data["ownedBooksCount"].toInt()));
     statsLayout->addWidget(createStatWidget("In Wishlist", data["wishlistCount"].toInt()));
     statsLayout->addWidget(createStatWidget("Purchases", data["totalPurchases"].toInt()));
+
+    mainLayout->addWidget(statsBox);
+
+    QPushButton *closeBtn = new QPushButton("Close", dialog);
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    closeBtn->setStyleSheet(
+        "QPushButton { background-color: #1F1724; border: none; border-radius: 6px; padding: 10px; color: white; font-weight: bold; }"
+        "QPushButton:hover { background-color: #7C3E66; }"
+        );
+    connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
+    mainLayout->addWidget(closeBtn, 0, Qt::AlignCenter);
+
+    dialog->exec();
+    dialog->deleteLater();
+}
+
+void AdminPanel::showPublisherDetailsDialog(const QJsonObject &data)
+{
+    QDialog *dialog = new QDialog(this);
+    dialog->setWindowTitle("Publisher Profile Details");
+    dialog->resize(450, 420);
+    dialog->setStyleSheet("background-color: #09070C; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
+    mainLayout->setContentsMargins(20, 20, 20, 20);
+    mainLayout->setSpacing(15);
+
+    QLabel *avatar = new QLabel("🧑‍💻", dialog);
+    avatar->setAlignment(Qt::AlignCenter);
+    avatar->setStyleSheet("font-size: 55px; color: #7C3E66;");
+
+    QLabel *titleLabel = new QLabel(data["fullName"].toString(), dialog);
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #FFFFFF;");
+
+    mainLayout->addWidget(avatar);
+    mainLayout->addWidget(titleLabel);
+
+    QGroupBox *statsBox = new QGroupBox("Account & Catalog Information", dialog);
+    statsBox->setStyleSheet("QGroupBox { border: 1px solid #1F1724; border-radius: 8px; margin-top: 10px; padding-top: 15px; color: #A594B3; font-weight: bold; }");
+    QFormLayout *formLayout = new QFormLayout(statsBox);
+
+    QString labelStyle = "color: #9A8FA0; font-size: 13px;";
+    QString valueStyle = "color: #EAEAEA; font-size: 14px; font-weight: bold;";
+
+
+    auto addRow = [&](const QString &title, const QString &value, const QString &customStyle) {
+        QLabel *lbl = new QLabel(title);
+        lbl->setStyleSheet(labelStyle);
+        QLabel *val = new QLabel(value);
+        val->setStyleSheet(customStyle);
+        formLayout->addRow(lbl, val);
+    };
+
+    addRow("Username:", data["username"].toString(), valueStyle);
+    addRow("Email Address:", data["email"].toString(), valueStyle);
+    addRow("Registration Date:", data["registerDate"].toString(), valueStyle);
+
+    QString statusStr = data["isBlocked"].toBool() ? "Suspended 🚫" : "Active Member ✅";
+    addRow("Account Status:", statusStr, valueStyle);
+
+    QString booksCount = QString("%1 Books").arg(data["publishedBooksCount"].toInt());
+    addRow("Total Published:", booksCount, "color: #DDA0DD; font-size: 15px; font-weight: bold;");
 
     mainLayout->addWidget(statsBox);
 

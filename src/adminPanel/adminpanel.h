@@ -38,6 +38,11 @@ private slots:
     void handleRejectBook();
     void handleDeleteBook();
 
+    void filterPublishers(const QString &text);
+    void handleBlockPublisher();
+    void handleUnblockPublisher();
+    void handleViewPublisherDetails();
+
     void onReadyRead();
 
 private:
@@ -49,6 +54,7 @@ private:
     QPushButton *m_btnUsers;
     QPushButton *m_btnBooks;
     QPushButton *m_btnLogout;
+    QPushButton *m_btnPublishers;
 
     QTableWidget *m_usersTable;
     QLineEdit *m_searchEdit;
@@ -64,11 +70,20 @@ private:
     QWidget* createBooksPage();
     QPushButton *m_btnDeleteBook;
 
+    QTableWidget *m_publishersTable;
+    QLineEdit *m_publisherSearchEdit;
+    QPushButton *m_btnBlockPublisher;
+    QPushButton *m_btnUnblockPublisher;
+    QPushButton *m_btnPublisherDetails;
+    QWidget* createPublishersPage();
+
     void setupUi();
     void updateButtonStyles(int currentIndex);
     void showUserDetailsDialog(const QJsonObject &data);
+    void showPublisherDetailsDialog(const QJsonObject &data);
     void refreshUsersTable();
     void refreshBooksTable();
+    void refreshPublishersTable();
 protected:
     void mousePressEvent(QMouseEvent *event) override;
 };
