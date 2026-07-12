@@ -219,7 +219,7 @@ void ClientHandler::onReadyRead()
                 connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
             }
         }
-        else if (action == "delete_account") {
+        /*else if (action == "delete_account") {
             QString username = requestObj["username"].toString();
             QString errorMsg;
             if (DatabaseManager::instance().deleteUser(username, errorMsg)) {
@@ -240,7 +240,7 @@ void ClientHandler::onReadyRead()
                 response["message"] = errorMsg;
                 sendToClient(response);
             }
-        }
+        }*/
 
         // ========
         // BOOKS
@@ -356,7 +356,7 @@ void ClientHandler::onReadyRead()
                 sendToClient(response);
             }
         }
-        else if (action == "set_book_active_status") {
+        /*else if (action == "set_book_active_status") {
             int bookId = requestObj["bookId"].toInt();
             bool activeStatus = requestObj["active_status"].toBool();
             QString errorMsg;
@@ -381,7 +381,7 @@ void ClientHandler::onReadyRead()
                 response["message"] = errorMsg;
                 sendToClient(response);
             }
-        }
+        }*/
         else if (action == "books_fetch_by_genre") {
             QString genre = requestObj["genre"].toString();
             QVector<Book> books;
@@ -938,6 +938,22 @@ void ClientHandler::onReadyRead()
                 data["registerDate"] = profile.user.registerDate.toString("yyyy-MM-dd");
                 data["isBlocked"] = profile.user.isBlocked;
                 data["publishedBooksCount"] = profile.publishedBooks.size();
+                data["totalSales"] = profile.totalSales;
+                data["averageRating"] = profile.averageRating;
+                data["totalIncome"] = profile.totalIncome;
+
+                QJsonArray booksArr;
+                for (const Book &b : profile.publishedBooks) {
+                    QJsonObject o;
+                    o["title"] = b.title;
+                    o["genre"] = b.genre;
+                    o["price"] = b.price;
+                    o["totalSales"] = b.totalSales;
+                    o["averageRating"] = b.averageRating;
+                    o["isActive"] = b.isActive;
+                    booksArr.append(o);
+                }
+                data["publishedBooks"] = booksArr;
 
                 responseObj["data"] = data;
             } else {

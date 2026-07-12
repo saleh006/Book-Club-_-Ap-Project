@@ -802,51 +802,169 @@ void AdminPanel::showPublisherDetailsDialog(const QJsonObject &data)
 {
     QDialog *dialog = new QDialog(this);
     dialog->setWindowTitle("Publisher Profile Details");
-    dialog->resize(450, 420);
+    dialog->resize(640,680);
     dialog->setStyleSheet("background-color: #09070C; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
 
     QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
-    mainLayout->setSpacing(15);
+    mainLayout->setContentsMargins(24,24,24,20);
+    mainLayout->setSpacing(14);
+
+    QHBoxLayout *headerLayout = new QHBoxLayout();
+    headerLayout->setSpacing(16);
 
     QLabel *avatar = new QLabel("🧑‍💻", dialog);
+    avatar->setFixedSize(64,64);
     avatar->setAlignment(Qt::AlignCenter);
-    avatar->setStyleSheet("font-size: 55px; color: #7C3E66;");
+    avatar->setStyleSheet("font-size: 28px; background-color: #1F1724; border-radius: 32px;");
 
-    QLabel *titleLabel = new QLabel(data["fullName"].toString(), dialog);
-    titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #FFFFFF;");
+    QVBoxLayout *headerTextLayout = new QVBoxLayout();
+    headerTextLayout->setSpacing(2);
 
-    mainLayout->addWidget(avatar);
-    mainLayout->addWidget(titleLabel);
+    QLabel *nameLabel = new QLabel(data["fullName"].toString(), dialog);
+    nameLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #FFFFFF;");
 
-    QGroupBox *statsBox = new QGroupBox("Account & Catalog Information", dialog);
-    statsBox->setStyleSheet("QGroupBox { border: 1px solid #1F1724; border-radius: 8px; margin-top: 10px; padding-top: 15px; color: #A594B3; font-weight: bold; }");
-    QFormLayout *formLayout = new QFormLayout(statsBox);
+    QLabel *usernameLabel = new QLabel("@" + data["username"].toString(), dialog);
+    usernameLabel->setStyleSheet("font-size: 12px; color: #9A8FA0;");
+
+    QHBoxLayout *badgeRow = new QHBoxLayout();
+    badgeRow->setSpacing(8);
+
+    QLabel *roleBadge = new QLabel("PUBLISHER PARTNER", dialog);
+    roleBadge->setStyleSheet(
+        "background-color: rgba(124, 62, 102, 90); color: #FFEAD2; font-size: 10px; font-weight: bold; "
+        "padding: 3px 10px; border-radius: 8px; letter-spacing: 1px;");
+    roleBadge->setFixedHeight(20);
+
+    bool isBlocked = data["isBlocked"].toBool();
+    QLabel *statusBadge = new QLabel(isBlocked ? "🚫 SUSPENDED" : "✅ ACTIVE", dialog);
+    statusBadge->setStyleSheet(
+        QString("background-color: %1; color: white; font-size: 10px; font-weight: bold; "
+                "padding: 3px 10px; border-radius: 8px; letter-spacing: 1px;")
+            .arg(isBlocked ? "rgba(192,57,43,180)" : "rgba(46,204,113,150)"));
+    statusBadge->setFixedHeight(20);
+
+    badgeRow->addWidget(roleBadge);
+    badgeRow->addWidget(statusBadge);
+    badgeRow->addStretch();
+
+    headerTextLayout->addWidget(nameLabel);
+    headerTextLayout->addWidget(usernameLabel);
+    headerTextLayout->addSpacing(4);
+    headerTextLayout->addLayout(badgeRow);
+
+    headerLayout->addWidget(avatar);
+    headerLayout->addLayout(headerTextLayout, 1);
+    mainLayout->addLayout(headerLayout);
+
+    QString cardStyle =
+        "QGroupBox { border: 1px solid #1F1724; border-radius: 10px; margin-top: 8px; padding-top: 16px; "
+        "color: #A594B3; font-weight: bold; background-color: #0F0C12; }"
+        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; }";
+
+    QGroupBox *infoBox = new QGroupBox("Account Information", dialog);
+    infoBox->setStyleSheet(cardStyle);
+    QFormLayout *formLayout = new QFormLayout(infoBox);
+    formLayout->setLabelAlignment(Qt::AlignRight);
+    formLayout->setHorizontalSpacing(16);
+    formLayout->setVerticalSpacing(8);
 
     QString labelStyle = "color: #9A8FA0; font-size: 13px;";
     QString valueStyle = "color: #EAEAEA; font-size: 14px; font-weight: bold;";
 
 
-    auto addRow = [&](const QString &title, const QString &value, const QString &customStyle) {
+    auto addRow = [&](const QString &title, const QString &value) {
         QLabel *lbl = new QLabel(title);
         lbl->setStyleSheet(labelStyle);
-        QLabel *val = new QLabel(value);
-        val->setStyleSheet(customStyle);
+        QLabel *val = new QLabel(value.isEmpty() ? "_" : value);
+        val->setStyleSheet(valueStyle);
         formLayout->addRow(lbl, val);
     };
 
-    addRow("Username:", data["username"].toString(), valueStyle);
-    addRow("Email Address:", data["email"].toString(), valueStyle);
-    addRow("Registration Date:", data["registerDate"].toString(), valueStyle);
+    addRow("Email:", data["email"].toString());
+    addRow("Registered:", data["registerDate"].toString());
 
-    QString statusStr = data["isBlocked"].toBool() ? "Suspended 🚫" : "Active Member ✅";
-    addRow("Account Status:", statusStr, valueStyle);
+    mainLayout->addWidget(infoBox);
 
-    QString booksCount = QString("%1 Books").arg(data["publishedBooksCount"].toInt());
-    addRow("Total Published:", booksCount, "color: #DDA0DD; font-size: 15px; font-weight: bold;");
+    QGroupBox *statsBox = new QGroupBox("Performance Dashboard", dialog);
+    statsBox->setStyleSheet(cardStyle);
+    QGridLayout *statsLayout = new QGridLayout(statsBox);
+    statsLayout->setHorizontalSpacing(10);
+    statsLayout->setVerticalSpacing(10);
+
+    auto createStatWidget = [&](const QString &title, const QString &valueText, const QString &color) {
+        QWidget *w = new QWidget();
+        w->setStyleSheet("background-color: #120E14; border-radius: 8px;");
+        QVBoxLayout *vl = new QVBoxLayout(w);
+        vl->setContentsMargins(8, 10, 8, 10);
+        QLabel *c = new QLabel(valueText);
+        c->setAlignment(Qt::AlignCenter);
+        c->setStyleSheet(QString("font-size: 20px; color: %1; font-weight: bold; border: none; background: transparent;").arg(color));
+        QLabel *t = new QLabel(title);
+        t->setAlignment(Qt::AlignCenter);
+        t->setStyleSheet("font-size: 10px; color: #9A8FA0; border: none; background: transparent;");
+        vl->addWidget(c);
+        vl->addWidget(t);
+        return w;
+    };
+
+    QString booksCount = QString::number(data["publishedBooksCount"].toInt());
+    QString salesCount = QString::number(data["totalSales"].toInt());
+
+    double avgRating = data["averageRating"].toDouble();
+    QString ratingStr = avgRating > 0.0 ? QString::number(avgRating, 'f', 1) + " ⭐" : "N/A";
+
+    double income = data["totalIncome"].toDouble();
+    QString incomeStr = "$" + QString::number(income, 'f', 2);
+
+    statsLayout->addWidget(createStatWidget("Total Books", booksCount, "#DDA0DD"), 0, 0);
+    statsLayout->addWidget(createStatWidget("Total Sales", salesCount, "#3498DB"), 0, 1);
+    statsLayout->addWidget(createStatWidget("Avg Rating", ratingStr, "#F1C40F"), 0, 2);
+    statsLayout->addWidget(createStatWidget("Est. Income", incomeStr, "#2ECC71"), 0, 3);
 
     mainLayout->addWidget(statsBox);
+
+    QGroupBox *booksBox = new QGroupBox("Published Catalog", dialog);
+    booksBox->setStyleSheet(cardStyle);
+    QVBoxLayout *booksBoxLayout = new QVBoxLayout(booksBox);
+
+    QJsonArray booksArr = data["publishedBooks"].toArray();
+    QTableWidget *booksTable = new QTableWidget(booksArr.size(), 5, dialog);
+    booksTable->setHorizontalHeaderLabels({"Title", "Genre", "Price", "Sales", "Rating"});
+    booksTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    booksTable->verticalHeader()->setVisible(false);
+    booksTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    booksTable->setSelectionMode(QAbstractItemView::NoSelection);
+    booksTable->setStyleSheet(
+        "QTableWidget { background-color: #09070C; border: 1px solid #1F1724; gridline-color: #1F1724; color: #EAEAEA; }"
+        "QTableWidget::item { padding: 4px; }"
+        "QHeaderView::section { background-color: #120E14; color: #A594B3; font-weight: bold; border: 1px solid #1F1724; padding: 6px; }");
+
+    for (int i = 0; i < booksArr.size(); ++i) {
+        QJsonObject b = booksArr[i].toObject();
+        bool active = b["isActive"].toBool();
+
+        QTableWidgetItem *titleItem = new QTableWidgetItem(b["title"].toString());
+        if (!active) titleItem->setForeground(QColor("#6B6470"));
+        booksTable->setItem(i, 0, titleItem);
+
+        booksTable->setItem(i, 1, new QTableWidgetItem(b["genre"].toString()));
+        booksTable->setItem(i, 2, new QTableWidgetItem("$" + QString::number(b["price"].toDouble(), 'f', 2)));
+        booksTable->setItem(i, 3, new QTableWidgetItem(QString::number(b["totalSales"].toInt())));
+
+        double r = b["averageRating"].toDouble();
+        booksTable->setItem(i, 4, new QTableWidgetItem(r > 0.0 ? QString::number(r, 'f', 1) + " ⭐" : "—"));
+    }
+    if (booksArr.isEmpty()) {
+        booksTable->setRowCount(1);
+        booksTable->setSpan(0, 0, 1, 5);
+        QTableWidgetItem *empty = new QTableWidgetItem("No books published yet.");
+        empty->setTextAlignment(Qt::AlignCenter);
+        empty->setForeground(QColor("#6B6470"));
+        booksTable->setItem(0, 0, empty);
+    }
+
+    booksBoxLayout->addWidget(booksTable);
+    mainLayout->addWidget(booksBox, 1);
 
     QPushButton *closeBtn = new QPushButton("Close", dialog);
     closeBtn->setCursor(Qt::PointingHandCursor);
@@ -855,7 +973,11 @@ void AdminPanel::showPublisherDetailsDialog(const QJsonObject &data)
         "QPushButton:hover { background-color: #7C3E66; }"
         );
     connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
-    mainLayout->addWidget(closeBtn, 0, Qt::AlignCenter);
+
+    QHBoxLayout *footerLayout = new QHBoxLayout();
+    footerLayout->addStretch();
+    footerLayout->addWidget(closeBtn);
+    mainLayout->addLayout(footerLayout);
 
     dialog->exec();
     dialog->deleteLater();
