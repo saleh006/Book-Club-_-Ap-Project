@@ -925,6 +925,32 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
+        else if (action == "publisher_set_book_status") {
+            int bookId = requestObj["bookId"].toInt();
+            int publisherId = requestObj["publisherId"].toInt();
+            int status = requestObj["status"].toInt();
+
+            if (status != 0 && status != 1) {
+                responseObj["type"] = "action_result";
+                responseObj["success"] = false;
+                responseObj["message"] = "Publishers can only set active/inactive.";
+            } else {
+                // Verify the book actually belongs to this publisher before touching it
+                Book b;
+                QString fetchErr;
+                if (!DatabaseManager::instance().fetchBook(bookId, b, fetchErr) || b.publisherId != publisherId) {
+                    responseObj["type"] = "action_result";
+                    responseObj["success"] = false;
+                    responseObj["message"] = "Book not found or not owned by you.";
+                } else {
+                    QString errorMsg;
+                    bool ok = DatabaseManager::instance().setBookStatus(bookId, status, errorMsg);
+                    responseObj["type"] = "action_result";
+                    responseObj["success"] = ok;
+                    responseObj["message"] = ok ? "Book status updated." : errorMsg;
+                }
+            }
+        }
         else if (action == "upload_file") {
             QString fileType = requestObj["fileType"].toString(); // "cover" or "pdf"
             QString fileName = requestObj["fileName"].toString();
@@ -933,8 +959,6 @@ void ClientHandler::onReadyRead()
             QString subfolder = (fileType == "cover") ? "covers" : "pdfs";
             QString storageDir = QCoreApplication::applicationDirPath() + "/uploads/" + subfolder;
             QDir().mkpath(storageDir); // creates the folder if it doesn't exist yet
-
-            // Prefix with a timestamp so two publishers uploading "cover.png" don't collide
             QString uniqueName = QString::number(QDateTime::currentMSecsSinceEpoch()) + "_" + fileName;
             QString fullPath = storageDir + "/" + uniqueName;
 
