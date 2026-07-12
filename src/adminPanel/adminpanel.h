@@ -32,6 +32,7 @@ private slots:
     void handleBlockUser();
     void handleUnblockUser();
     void handleViewUserDetails();
+    void handleDeleteUser();
 
     void filterBooks(const QString &text);
     void handleApproveBook();
@@ -42,6 +43,7 @@ private slots:
     void handleBlockPublisher();
     void handleUnblockPublisher();
     void handleViewPublisherDetails();
+    void handleDeletePublisher();
 
     void onReadyRead();
 
@@ -62,6 +64,7 @@ private:
     QPushButton *m_btnUnblock;
     QWidget* createUsersPage();
     QPushButton *m_btnUserDetails;
+    QPushButton *m_btnDeleteUser;
 
     QTableWidget *m_booksTable;
     QLineEdit *m_bookSearchEdit;
@@ -76,6 +79,7 @@ private:
     QPushButton *m_btnUnblockPublisher;
     QPushButton *m_btnPublisherDetails;
     QWidget* createPublishersPage();
+    QPushButton *m_btnDeletePublisher;
 
     void setupUi();
     void updateButtonStyles(int currentIndex);

@@ -159,10 +159,12 @@ QWidget* AdminPanel::createUsersPage()
     m_btnBlock = new QPushButton("🚫 Block User", page);
     m_btnUnblock = new QPushButton("✅ Unblock User", page);
     m_btnUserDetails = new QPushButton("👁 View Details", page);
+    m_btnDeleteUser = new QPushButton("🗑️ Delete User", page);
 
     m_btnBlock->setCursor(Qt::PointingHandCursor);
     m_btnUnblock->setCursor(Qt::PointingHandCursor);
     m_btnUserDetails->setCursor(Qt::PointingHandCursor);
+    m_btnDeleteUser->setCursor(Qt::PointingHandCursor);
 
     m_btnBlock->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #C0392B; border-radius: 6px; padding: 8px; font-weight: bold; color: #E6B0AA; }"
@@ -176,9 +178,14 @@ QWidget* AdminPanel::createUsersPage()
         "QPushButton { background-color: transparent; border: 1px solid #3498DB; border-radius: 6px; padding: 8px; font-weight: bold; color: #AED6F1; }"
         "QPushButton:hover { background-color: rgba(52, 152, 219, 50); color: white; }"
         );
+    m_btnDeleteUser->setStyleSheet(
+        "QPushButton { background-color: transparent; border: 1px solid #C0392B; border-radius: 6px; padding: 8px; font-weight: bold; color: #E6B0AA; }"
+        "QPushButton:hover { background-color: rgba(192, 57, 43, 50); color: white; }"
+        );
 
     btnLayout->addWidget(m_btnBlock);
     btnLayout->addWidget(m_btnUnblock);
+    btnLayout->addWidget(m_btnDeleteUser);
     btnLayout->addWidget(m_btnUserDetails);
     layout->addLayout(btnLayout);
 
@@ -186,6 +193,7 @@ QWidget* AdminPanel::createUsersPage()
     connect(m_btnBlock, &QPushButton::clicked, this, &AdminPanel::handleBlockUser);
     connect(m_btnUnblock, &QPushButton::clicked, this, &AdminPanel::handleUnblockUser);
     connect(m_btnUserDetails, &QPushButton::clicked, this, &AdminPanel::handleViewUserDetails);
+    connect(m_btnDeleteUser, &QPushButton::clicked, this, &AdminPanel::handleDeleteUser);
 
     return page;
 }
@@ -296,17 +304,21 @@ QWidget* AdminPanel::createPublishersPage()
     m_btnBlockPublisher = new QPushButton("🚫 Block Publisher", page);
     m_btnUnblockPublisher = new QPushButton("✅ Unblock Publisher", page);
     m_btnPublisherDetails = new QPushButton("👁 View Details", page);
+    m_btnDeletePublisher = new QPushButton("🗑️ Delete Publisher", page);
 
     m_btnBlockPublisher->setCursor(Qt::PointingHandCursor);
     m_btnUnblockPublisher->setCursor(Qt::PointingHandCursor);
     m_btnPublisherDetails->setCursor(Qt::PointingHandCursor);
+    m_btnDeletePublisher->setCursor(Qt::PointingHandCursor);
 
     m_btnBlockPublisher->setStyleSheet(m_btnBlock->styleSheet());
     m_btnUnblockPublisher->setStyleSheet(m_btnUnblock->styleSheet());
     m_btnPublisherDetails->setStyleSheet(m_btnUserDetails->styleSheet());
+    m_btnDeletePublisher->setStyleSheet(m_btnDeleteUser->styleSheet());
 
     btnLayout->addWidget(m_btnBlockPublisher);
     btnLayout->addWidget(m_btnUnblockPublisher);
+    btnLayout->addWidget(m_btnDeletePublisher);
     btnLayout->addWidget(m_btnPublisherDetails);
     layout->addLayout(btnLayout);
 
@@ -314,6 +326,7 @@ QWidget* AdminPanel::createPublishersPage()
     connect(m_btnBlockPublisher, &QPushButton::clicked, this, &AdminPanel::handleBlockPublisher);
     connect(m_btnUnblockPublisher, &QPushButton::clicked, this, &AdminPanel::handleUnblockPublisher);
     connect(m_btnPublisherDetails, &QPushButton::clicked, this, &AdminPanel::handleViewPublisherDetails);
+    connect(m_btnDeletePublisher, &QPushButton::clicked, this, &AdminPanel::handleDeletePublisher);
 
     return page;
 }
@@ -366,6 +379,23 @@ void AdminPanel::handleViewUserDetails()
     packet["action"] = "get_user_details";
     packet["username"] = username;
     m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void AdminPanel::handleDeleteUser()
+{
+    int currentRow = m_usersTable->currentRow();
+    if (currentRow < 0) return;
+
+    QString username = m_usersTable->item(currentRow, 1)->text();
+    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
+                                                              "Are you sure you want to completely delete user: " + username + "?",
+                                                              QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        QJsonObject packet;
+        packet["action"] = "delete_account";
+        packet["username"] = username;
+        m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+    }
 }
 
 void AdminPanel::filterBooks(const QString &text)
@@ -476,6 +506,23 @@ void AdminPanel::handleViewPublisherDetails()
     packet["action"] = "get_publisher_details";
     packet["username"] = username;
     m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void AdminPanel::handleDeletePublisher()
+{
+    int currentRow = m_publishersTable->currentRow();
+    if (currentRow < 0) return;
+
+    QString username = m_publishersTable->item(currentRow, 1)->text();
+    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
+                                                              "Are you sure you want to completely delete publisher: " + username + "?",
+                                                              QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        QJsonObject packet;
+        packet["action"] = "delete_account";
+        packet["username"] = username;
+        m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+    }
 }
 
 void AdminPanel::refreshUsersTable() {
@@ -650,6 +697,11 @@ void AdminPanel::onReadyRead()
         }
         else if (action == "publisher_details_response" && response["status"] == "success") {
             showPublisherDetailsDialog(response["data"].toObject());
+        }
+        else if (action == "delete_account_response" && response["status"] == "success") {
+            QMessageBox::information(this, "Success", "Account deleted successfully from the database.");
+            refreshUsersTable();
+            refreshPublishersTable();
         }
     }
 }

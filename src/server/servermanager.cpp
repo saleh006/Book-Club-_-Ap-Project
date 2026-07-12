@@ -219,6 +219,28 @@ void ClientHandler::onReadyRead()
                 connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
             }
         }
+        else if (action == "delete_account") {
+            QString username = requestObj["username"].toString();
+            QString errorMsg;
+            if (DatabaseManager::instance().deleteUser(username, errorMsg)) {
+                QJsonObject response;
+                response["action"] = "delete_account_response";
+                response["status"] = "success";
+                sendToClient(response);
+
+                emit databaseUpdated("users");
+                emit databaseUpdated("publishers");
+                QString logMsg = QString("[ADMIN] Account '%1' was permanently deleted.").arg(username);
+                emit logProduced(logMsg);
+            }
+            else {
+                QJsonObject response;
+                response["action"] = "delete_account_response";
+                response["status"] = "error";
+                response["message"] = errorMsg;
+                sendToClient(response);
+            }
+        }
 
         // ========
         // BOOKS
@@ -334,7 +356,7 @@ void ClientHandler::onReadyRead()
                 sendToClient(response);
             }
         }
-        /*else if (action == "set_book_active_status") {
+        else if (action == "set_book_active_status") {
             int bookId = requestObj["bookId"].toInt();
             bool activeStatus = requestObj["active_status"].toBool();
             QString errorMsg;
@@ -359,7 +381,7 @@ void ClientHandler::onReadyRead()
                 response["message"] = errorMsg;
                 sendToClient(response);
             }
-        }*/
+        }
         else if (action == "books_fetch_by_genre") {
             QString genre = requestObj["genre"].toString();
             QVector<Book> books;
