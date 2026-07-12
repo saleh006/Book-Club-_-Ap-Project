@@ -29,7 +29,7 @@ bool DatabaseManager::fetchPublishedBooks(int publisherId, QVector<Book> &outBoo
         b.price = query.value("price").toDouble();
         b.coverImagePath = query.value("cover_image_path").toString();
         b.pdfPath = query.value("pdf_path").toString();
-        b.isActive = query.value("is_active").toBool();
+        b.status = query.value("is_active").toInt();
         b.averageRating = query.value("average_rating").toDouble();
         b.totalSales = query.value("total_sales").toInt();
         outBooks.push_back(b);
