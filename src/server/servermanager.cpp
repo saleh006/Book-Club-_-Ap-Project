@@ -200,6 +200,40 @@ void ClientHandler::onReadyRead()
                 data["wishlistCount"] = profile.wishlist.size();
                 data["totalPurchases"] = profile.purchaseHistory.size();
 
+                data["cartItemsCount"] = profile.cartItems.size();
+                data["cartTotal"] = profile.cartTotal;
+
+                QJsonArray ownedArr;
+                for (const Book &b : profile.ownedBooks) {
+                    QJsonObject o;
+                    o["title"] = b.title;
+                    o["author"] = b.author;
+                    ownedArr.append(o);
+                }
+                data["ownedBooks"] = ownedArr;
+
+                QJsonArray wishlistArr;
+                for (const Book &b : profile.wishlist) {
+                    QJsonObject o;
+                    o["title"] = b.title;
+                    o["author"] = b.author;
+                    wishlistArr.append(o);
+                }
+                data["wishlist"] = wishlistArr;
+
+                QJsonArray purchasesArr;
+                double totalSpent = 0.0;
+                for (const Purchase &p : profile.purchaseHistory) {
+                    QJsonObject o;
+                    o["date"] = p.purchaseDate.toString("yyyy-MM-dd");
+                    o["total"] = p.totalPrice;
+                    o["itemCount"] = p.bookIds.size();
+                    purchasesArr.append(o);
+                    totalSpent += p.totalPrice;
+                }
+                data["purchaseHistory"] = purchasesArr;
+                data["totalSpent"] = totalSpent;
+
                 QJsonObject response;
                 response["action"] = "user_details_response";
                 response["status"] = "success";

@@ -709,81 +709,191 @@ void AdminPanel::showUserDetailsDialog(const QJsonObject &data)
 {
     QDialog *dialog = new QDialog(this);
     dialog->setWindowTitle("User Profile Details");
-    dialog->resize(450, 500);
+    dialog->resize(620,680);
     dialog->setStyleSheet("background-color: #09070C; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
 
     QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
-    mainLayout->setSpacing(15);
+    mainLayout->setContentsMargins(24,24,24,20);
+    mainLayout->setSpacing(14);
+
+    QHBoxLayout *headerLayout = new QHBoxLayout();
+    headerLayout->setSpacing(16);
 
     QLabel *avatar = new QLabel("👤", dialog);
+    avatar->setFixedSize(64,64);
     avatar->setAlignment(Qt::AlignCenter);
-    avatar->setStyleSheet("font-size: 60px; color: #7C3E66;");
+    avatar->setStyleSheet("font-size: 30px; background-color: #1F1724; border-radius: 32px; color: #DDA0DD;");
+
+    QVBoxLayout *headerTextLayout = new QVBoxLayout();
+    headerTextLayout->setSpacing(2);
 
     QLabel *nameLabel = new QLabel(data["fullName"].toString(), dialog);
-    nameLabel->setAlignment(Qt::AlignCenter);
     nameLabel->setStyleSheet("font-size: 22px; font-weight: bold; color: #FFFFFF;");
 
-    QLabel *roleLabel = new QLabel(data["role"].toString().toUpper(), dialog);
-    roleLabel->setAlignment(Qt::AlignCenter);
-    roleLabel->setStyleSheet("font-size: 12px; color: #A594B3; letter-spacing: 2px;");
+    QLabel *usernameLabel = new QLabel("@" + data["username"].toString(), dialog);
+    usernameLabel->setStyleSheet("font-size: 12px; color: #9A8FA0;");
 
-    mainLayout->addWidget(avatar);
-    mainLayout->addWidget(nameLabel);
-    mainLayout->addWidget(roleLabel);
+    QHBoxLayout *badgeRow = new QHBoxLayout();
+    badgeRow->setSpacing(8);
 
-    QGroupBox *infoBox = new QGroupBox("Identity Information", dialog);
-    infoBox->setStyleSheet("QGroupBox { border: 1px solid #1F1724; border-radius: 8px; margin-top: 10px; padding-top: 15px; color: #A594B3; font-weight: bold; }");
+    QLabel *roleBadge = new QLabel(data["role"].toString().toUpper(), dialog);
+    roleBadge->setStyleSheet(
+        "background-color: #5C2E4C; color: #FFEAD2; font-size: 10px; font-weight: bold; "
+        "padding: 3px 10px; border-radius: 8px; letter-spacing: 1px;");
+    roleBadge->setFixedHeight(20);
+
+    bool isBlocked = data["isBlocked"].toBool();
+    QLabel *statusBadge = new QLabel(isBlocked ? "🚫 BLOCKED" : "✅ ACTIVE", dialog);
+    statusBadge->setStyleSheet(
+        QString("background-color: %1; color: white; font-size: 10px; font-weight: bold; "
+                "padding: 3px 10px; border-radius: 8px; letter-spacing: 1px;")
+            .arg(isBlocked ? "#8d1f1f" : "#268730"));
+    statusBadge->setFixedHeight(20);
+
+    badgeRow->addWidget(roleBadge);
+    badgeRow->addWidget(statusBadge);
+    badgeRow->addStretch();
+
+    headerTextLayout->addWidget(nameLabel);
+    headerTextLayout->addWidget(usernameLabel);
+    headerTextLayout->addSpacing(4);
+    headerTextLayout->addLayout(badgeRow);
+
+    headerLayout->addWidget(avatar);
+    headerLayout->addLayout(headerTextLayout , 1);
+    mainLayout->addLayout(headerLayout);
+
+    QString cardStyle =
+        "QGroupBox { border: 1px solid #1F1724; border-radius: 10px; margin-top: 8px; padding-top: 16px; "
+        "color: #A594B3; font-weight: bold; background-color: #0F0C12; }"
+        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; }";
+
+    QGroupBox *infoBox = new QGroupBox("Account Information", dialog);
+    infoBox->setStyleSheet(cardStyle);
     QFormLayout *formLayout = new QFormLayout(infoBox);
     formLayout->setLabelAlignment(Qt::AlignRight);
+    formLayout->setHorizontalSpacing(16);
+    formLayout->setVerticalSpacing(8);
 
-    QString labelStyle = "color: #9A8FA0; font-size: 13px;";
-    QString valueStyle = "color: #EAEAEA; font-size: 13px; font-weight: bold;";
+    QString labelStyle = "color: #9A8FA0; font-size: 12px; border: none; background: transparent;";
+    QString valueStyle = "color: #EAEAEA; font-size: 13px; font-weight: 600; border: none; background: transparent;";
 
     auto addRow = [&](const QString &title, const QString &value) {
         QLabel *lbl = new QLabel(title);
         lbl->setStyleSheet(labelStyle);
-        QLabel *val = new QLabel(value);
+        QLabel *val = new QLabel(value.isEmpty() ? "_" : value);
         val->setStyleSheet(valueStyle);
         formLayout->addRow(lbl, val);
     };
 
-    addRow("Username:", data["username"].toString());
     addRow("Email:", data["email"].toString());
-    addRow("Register Date:", data["registerDate"].toString());
-
-    bool isBlocked = data["isBlocked"].toBool();
-    QLabel *statusVal = new QLabel(isBlocked ? "BLOCKED 🚫" : "ACTIVE ✅");
-    statusVal->setStyleSheet(isBlocked ? "color: #E74C3C; font-weight: bold;" : "color: #2ECC71; font-weight: bold;");
-    QLabel *statusLbl = new QLabel("Account Status:");
-    statusLbl->setStyleSheet(labelStyle);
-    formLayout->addRow(statusLbl, statusVal);
+    addRow("Registered:", data["registerDate"].toString());
+    addRow("Card Items:",QString::number(data["cartItemCount"].toInt()));
+    addRow("Cart Total:", "$" + QString::number(data["cartTotal"].toDouble(), 'f', 2));
 
     mainLayout->addWidget(infoBox);
 
     QGroupBox *statsBox = new QGroupBox("Library Activity", dialog);
-    statsBox->setStyleSheet("QGroupBox { border: 1px solid #1F1724; border-radius: 8px; margin-top: 10px; padding-top: 15px; color: #A594B3; font-weight: bold; }");
+    statsBox->setStyleSheet(cardStyle);
     QHBoxLayout *statsLayout = new QHBoxLayout(statsBox);
 
-    auto createStatWidget = [&](const QString &title, int count) {
+    auto createStatWidget = [&](const QString &title, const QString &valueText, const QString &color) {
         QWidget *w = new QWidget();
+        w->setStyleSheet("background-color: #120E14; border-radius: 8px;");
         QVBoxLayout *vl = new QVBoxLayout(w);
-        QLabel *c = new QLabel(QString::number(count));
+        vl->setContentsMargins(8,10,8,10);
+        QLabel *c = new QLabel(valueText);
         c->setAlignment(Qt::AlignCenter);
-        c->setStyleSheet("font-size: 24px; color: #7C3E66; font-weight: bold;");
+        c->setStyleSheet(QString("font-size: 22px; color: %1; font-weight: bold; borde: none; backgroud: transparent").arg(color));
         QLabel *t = new QLabel(title);
         t->setAlignment(Qt::AlignCenter);
-        t->setStyleSheet("font-size: 11px; color: #9A8FA0;");
+        t->setStyleSheet("font-size: 11px; color: #9A8FA0; border: none; background: transparent;");
         vl->addWidget(c);
         vl->addWidget(t);
         return w;
     };
 
-    statsLayout->addWidget(createStatWidget("Owned Books", data["ownedBooksCount"].toInt()));
-    statsLayout->addWidget(createStatWidget("In Wishlist", data["wishlistCount"].toInt()));
-    statsLayout->addWidget(createStatWidget("Purchases", data["totalPurchases"].toInt()));
+    statsLayout->addWidget(createStatWidget("Owned Books", QString::number(data["ownedBooksCount"].toInt()), "#7C3E66"));
+    statsLayout->addWidget(createStatWidget("Wishlist", QString::number(data["wishlistCount"].toInt()), "#DDA0DD"));
+    statsLayout->addWidget(createStatWidget("Purchases", QString::number(data["totalPurchases"].toInt()), "#3498DB"));
+    statsLayout->addWidget(createStatWidget("Total Spent", "$" + QString::number(data["totalSpent"].toDouble(), 'f', 2), "#2ECC71"));
 
     mainLayout->addWidget(statsBox);
+
+    QTabWidget *tabs = new QTabWidget(dialog);
+    tabs->setStyleSheet(
+        "QTabWidget::pane { border: 1px solid #1F1724; border-radius: 8px; background-color: #09070C; top: -1px; }"
+        "QTabBar::tab { background-color: #120E14; color: #9A8FA0; padding: 8px 16px; border: 1px solid #1F1724; "
+        "border-bottom: none; border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px; font-size: 12px; }"
+        "QTabBar::tab:selected { background-color: #1F1724; color: #EAEAEA; font-weight: bold; }"
+        "QTabBar::tab:hover { color: #EAEAEA; }");
+
+    QString tableStyle =
+        "QTableWidget { background-color: #09070C; border: none; gridline-color: #1F1724; color: #EAEAEA; }"
+        "QTableWidget::item { padding: 4px; }"
+        "QTableWidget::item:selected { background-color: #7C3E66; color: white; }"
+        "QHeaderView::section { background-color: #120E14; color: #A594B3; font-weight: bold; border: 1px solid #1F1724; padding: 6px; }";
+
+    auto makeEmptyRow = [](QTableWidget *table, int columnSpan, const QString &message) {
+        table->setRowCount(1);
+        table->setSpan(0, 0, 1, columnSpan);
+        QTableWidgetItem *empty = new QTableWidgetItem(message);
+        empty->setTextAlignment(Qt::AlignCenter);
+        empty->setForeground(QColor("#6B6470"));
+        table->setItem(0, 0, empty);
+    };
+
+    QJsonArray ownedArr = data["ownedBooks"].toArray();
+    QTableWidget *ownedTable = new QTableWidget(ownedArr.size(), 2, dialog);
+    ownedTable->setHorizontalHeaderLabels({"Title", "Author"});
+    ownedTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ownedTable->verticalHeader()->setVisible(false);
+    ownedTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ownedTable->setSelectionMode(QAbstractItemView::NoSelection);
+    ownedTable->setStyleSheet(tableStyle);
+    for (int i = 0; i < ownedArr.size(); ++i) {
+        QJsonObject b = ownedArr[i].toObject();
+        ownedTable->setItem(i, 0, new QTableWidgetItem(b["title"].toString()));
+        ownedTable->setItem(i, 1, new QTableWidgetItem(b["author"].toString()));
+    }
+    if (ownedArr.isEmpty()) makeEmptyRow(ownedTable, 2, "No books owned yet.");
+    tabs->addTab(ownedTable, QString("📚 Owned (%1)").arg(data["ownedBooksCount"].toInt()));
+
+    QJsonArray wishlistArr = data["wishlist"].toArray();
+    QTableWidget *wishTable = new QTableWidget(wishlistArr.size(), 2, dialog);
+    wishTable->setHorizontalHeaderLabels({"Title", "Author"});
+    wishTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    wishTable->verticalHeader()->setVisible(false);
+    wishTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    wishTable->setSelectionMode(QAbstractItemView::NoSelection);
+    wishTable->setStyleSheet(tableStyle);
+    for (int i = 0; i < wishlistArr.size(); ++i) {
+        QJsonObject b = wishlistArr[i].toObject();
+        wishTable->setItem(i, 0, new QTableWidgetItem(b["title"].toString()));
+        wishTable->setItem(i, 1, new QTableWidgetItem(b["author"].toString()));
+    }
+    if (wishlistArr.isEmpty()) makeEmptyRow(wishTable, 2, "Wishlist is empty.");
+    tabs->addTab(wishTable, QString("💜 Wishlist (%1)").arg(data["wishlistCount"].toInt()));
+
+    QJsonArray purchasesArr = data["purchaseHistory"].toArray();
+    QTableWidget *purchTable = new QTableWidget(purchasesArr.size(), 3, dialog);
+    purchTable->setHorizontalHeaderLabels({"Date", "Items", "Total"});
+    purchTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    purchTable->verticalHeader()->setVisible(false);
+    purchTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    purchTable->setSelectionMode(QAbstractItemView::NoSelection);
+    purchTable->setStyleSheet(tableStyle);
+    for (int i = 0; i < purchasesArr.size(); ++i) {
+        QJsonObject p = purchasesArr[i].toObject();
+        purchTable->setItem(i, 0, new QTableWidgetItem(p["date"].toString()));
+        purchTable->setItem(i, 1, new QTableWidgetItem(QString::number(p["itemCount"].toInt())));
+        purchTable->setItem(i, 2, new QTableWidgetItem("$" + QString::number(p["total"].toDouble(), 'f', 2)));
+    }
+    if (purchasesArr.isEmpty()) makeEmptyRow(purchTable, 3, "No purchases yet.");
+    tabs->addTab(purchTable, QString("🧾 Purchases (%1)").arg(data["totalPurchases"].toInt()));
+
+    mainLayout->addWidget(tabs, 1);
+
 
     QPushButton *closeBtn = new QPushButton("Close", dialog);
     closeBtn->setCursor(Qt::PointingHandCursor);
@@ -792,7 +902,11 @@ void AdminPanel::showUserDetailsDialog(const QJsonObject &data)
         "QPushButton:hover { background-color: #7C3E66; }"
         );
     connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
-    mainLayout->addWidget(closeBtn, 0, Qt::AlignCenter);
+
+    QHBoxLayout *footerLayout = new QHBoxLayout();
+    footerLayout->addStretch();
+    footerLayout->addWidget(closeBtn);
+    mainLayout->addLayout(footerLayout);
 
     dialog->exec();
     dialog->deleteLater();
