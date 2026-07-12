@@ -14,7 +14,59 @@
 #include <QJsonDocument>
 #include "QMessageBox"
 
+static bool uploadFileToServer(const QString &localFilePath, const QString &fileType,
+                               QString &outServerPath, QString &errorMsg)
+{
+    QFile file(localFilePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        errorMsg = "Could not open file: " + localFilePath;
+        return false;
+    }
+    QByteArray fileBytes = file.readAll();
+    file.close();
 
+    QFileInfo info(localFilePath);
+
+    QJsonObject req;
+    req["action"] = "upload_file";
+    req["fileType"] = fileType;
+    req["fileName"] = info.fileName();
+    req["fileData"] = QString(fileBytes.toBase64());
+
+    QTcpSocket socket;
+    socket.connectToHost("127.0.0.1", 1234);
+    if (!socket.waitForConnected(3000)) {
+        errorMsg = "Could not connect to server for upload.";
+        return false;
+    }
+
+    socket.write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
+
+    if (!socket.waitForReadyRead(10000)) {
+        errorMsg = "Server did not respond to upload.";
+        socket.disconnectFromHost();
+        return false;
+    }
+
+    QByteArray responseData = socket.readAll();
+    while (socket.waitForReadyRead(500)) {
+        responseData += socket.readAll(); // in case the response arrives in multiple chunks
+    }
+    socket.disconnectFromHost();
+
+    QJsonDocument responseDoc = QJsonDocument::fromJson(responseData);
+    if (!responseDoc.isObject()) {
+        errorMsg = "Invalid upload response.";
+        return false;
+    }
+    QJsonObject responseObj = responseDoc.object();
+    if (responseObj["type"].toString() != "upload_result" || !responseObj["success"].toBool()) {
+        errorMsg = responseObj["message"].toString();
+        return false;
+    }
+    outServerPath = responseObj["serverPath"].toString();
+    return true;
+}
 
 AddEditBookDialog::AddEditBookDialog(const Book &existingBook, QWidget *parent)
     : QDialog(parent), m_book(existingBook)
@@ -125,6 +177,32 @@ void AddEditBookDialog::setupUi(bool isEditMode)
     browseCoverBtn->setStyleSheet(browseStyle);
     browsePdfBtn->setStyleSheet(browseStyle);
 
+    connect(browseCoverBtn, &QPushButton::clicked, this, [this]() {
+        QString localPath = QFileDialog::getOpenFileName(
+            this, "Select Cover Image", QString(), "Images (*.png *.jpg *.jpeg *.bmp)");
+        if (localPath.isEmpty()) return;
+
+        QString serverPath, errorMsg;
+        if (uploadFileToServer(localPath, "cover", serverPath, errorMsg)) {
+            m_coverPathEdit->setText(serverPath);
+        } else {
+            QMessageBox::warning(this, "Upload failed", errorMsg);
+        }
+    });
+
+    connect(browsePdfBtn, &QPushButton::clicked, this, [this]() {
+        QString localPath = QFileDialog::getOpenFileName(
+            this, "Select Book PDF", QString(), "PDF Files (*.pdf)");
+        if (localPath.isEmpty()) return;
+
+        QString serverPath, errorMsg;
+        if (uploadFileToServer(localPath, "pdf", serverPath, errorMsg)) {
+            m_pdfPathEdit->setText(serverPath);
+        } else {
+            QMessageBox::warning(this, "Upload failed", errorMsg);
+        }
+    });
+
     QHBoxLayout *coverRow = new QHBoxLayout;
     coverRow->addWidget(m_coverPathEdit);
     coverRow->addWidget(browseCoverBtn);
@@ -165,59 +243,6 @@ void AddEditBookDialog::setupUi(bool isEditMode)
     mainLayout->addWidget(buttonBox);
 }
 
-static bool uploadFileToServer(const QString &localFilePath, const QString &fileType,
-                               QString &outServerPath, QString &errorMsg)
-{
-    QFile file(localFilePath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        errorMsg = "Could not open file: " + localFilePath;
-        return false;
-    }
-    QByteArray fileBytes = file.readAll();
-    file.close();
-
-    QFileInfo info(localFilePath);
-
-    QJsonObject req;
-    req["action"] = "upload_file";
-    req["fileType"] = fileType;
-    req["fileName"] = info.fileName();
-    req["fileData"] = QString(fileBytes.toBase64());
-
-    QTcpSocket socket;
-    socket.connectToHost("127.0.0.1", 1234);
-    if (!socket.waitForConnected(3000)) {
-        errorMsg = "Could not connect to server for upload.";
-        return false;
-    }
-
-    socket.write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
-
-    if (!socket.waitForReadyRead(10000)) {
-        errorMsg = "Server did not respond to upload.";
-        socket.disconnectFromHost();
-        return false;
-    }
-
-    QByteArray responseData = socket.readAll();
-    while (socket.waitForReadyRead(500)) {
-        responseData += socket.readAll(); // in case the response arrives in multiple chunks
-    }
-    socket.disconnectFromHost();
-
-    QJsonDocument responseDoc = QJsonDocument::fromJson(responseData);
-    if (!responseDoc.isObject()) {
-        errorMsg = "Invalid upload response.";
-        return false;
-    }
-    QJsonObject responseObj = responseDoc.object();
-    if (responseObj["type"].toString() != "upload_result" || !responseObj["success"].toBool()) {
-        errorMsg = responseObj["message"].toString();
-        return false;
-    }
-    outServerPath = responseObj["serverPath"].toString();
-    return true;
-}
 
 Book AddEditBookDialog::resultBook() const
 {
