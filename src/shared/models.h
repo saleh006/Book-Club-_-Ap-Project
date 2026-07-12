@@ -15,7 +15,7 @@ struct Book {
     double price = 0.0;
     QString coverImagePath;
     QString pdfPath;
-    bool isActive = true;
+    int status = 1;
     double averageRating = 0.0;
     int totalSales = 0;
 };

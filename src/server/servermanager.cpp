@@ -833,7 +833,7 @@ void ClientHandler::onReadyRead()
                 bo["price"] = b.price;
                 bo["coverImagePath"] = b.coverImagePath;
                 bo["pdfPath"] = b.pdfPath;
-                bo["isActive"] = b.isActive;
+                bo["status"] = b.status;
                 bo["averageRating"] = b.averageRating;
                 bo["totalSales"] = b.totalSales;
                 booksArray.append(bo);
@@ -894,7 +894,9 @@ void ClientHandler::onReadyRead()
             book.price = requestObj["price"].toDouble();
             book.coverImagePath = requestObj["coverImagePath"].toString();
             book.pdfPath = requestObj["pdfPath"].toString();
-            book.isActive = true;
+            // remove the "book.isActive = true;" line entirely,
+            // OR if publishers should be able to resubmit for review:
+            book.status = requestObj.contains("status") ? requestObj["status"].toInt() : 1;
 
             QString errorMsg;
             bool ok = DatabaseManager::instance().updateBook(book, errorMsg);
@@ -910,6 +912,18 @@ void ClientHandler::onReadyRead()
             responseObj["type"] = "action_result";
             responseObj["success"] = ok;
             responseObj["message"] = ok ? "Book removed." : errorMsg;
+        }
+        else if (action == "admin_set_book_status") {
+            int bookId = requestObj["bookId"].toInt();
+            int status = requestObj["status"].toInt(); // 1, 0, or -1
+            QString errorMsg;
+            if (DatabaseManager::instance().setBookStatus(bookId, status, errorMsg)) {
+                responseObj["status"] = "success";
+                responseObj["message"] = "Book status updated.";
+            } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
         }
         else if (action == "upload_file") {
             QString fileType = requestObj["fileType"].toString(); // "cover" or "pdf"

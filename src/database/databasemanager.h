@@ -142,6 +142,7 @@ public:
     bool fetchBook(int bookId, Book &outBook, QString &errorMsg);
     bool fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, bool activeOnly = true);
     bool fetchBooksByGenre(const QString &genre, QVector<Book> &outBooks, QString &errorMsg);
+    bool setBookStatus(int bookId, int status, QString &errorMsg); // 1=active, 0=inactive/pending, -1=deleted
 
     //discounts
 
