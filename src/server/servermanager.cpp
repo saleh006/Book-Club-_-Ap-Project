@@ -98,6 +98,7 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = "Login successful.";
                 responseObj["role"] = loggedInUser.role;
                 responseObj["fullName"] = loggedInUser.fullName;
+                responseObj["userId"] = loggedInUser.id;
                 m_username = username;
             } else {
                 responseObj["status"] = "error";

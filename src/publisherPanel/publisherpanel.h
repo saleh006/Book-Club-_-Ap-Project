@@ -16,7 +16,7 @@ class PublisherPanel : public QWidget
     Q_OBJECT
 
 public:
-    explicit PublisherPanel(int publisherId, QWidget *parent = nullptr);
+    explicit PublisherPanel(int publisherId, const QString &fullName, const QString &username, QWidget *parent = nullptr);
 
 signals:
     void logoutRequested();
@@ -61,6 +61,10 @@ private:
     QScrollArea *m_booksScrollArea;
     QWidget *m_booksGridContainer;
     QGridLayout *m_booksGrid;
+    QLabel *m_nameLabel;
+    QLabel *m_usernameLabel;
+    QString m_fullName;
+    QString m_username;
 };
 
 #endif

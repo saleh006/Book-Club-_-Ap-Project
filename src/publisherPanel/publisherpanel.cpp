@@ -8,8 +8,8 @@
 #include <QJsonDocument>
 #include <QMessageBox>
 
-PublisherPanel::PublisherPanel(int publisherId, QWidget *parent)
-    : QWidget(parent), m_publisherId(publisherId)
+PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const QString &username, QWidget *parent)
+    : QWidget(parent), m_publisherId(publisherId), m_fullName(fullName), m_username(username)
 {
     setupUi();
 
@@ -75,6 +75,21 @@ void PublisherPanel::setupUi()
     roleLabel->setStyleSheet("font-size: 13px; font-weight: bold; color: #FFEAD2; border: none; background: transparent;");
     roleLabel->setAlignment(Qt::AlignCenter);
 
+    m_nameLabel = new QLabel(m_fullName.isEmpty() ? m_username : m_fullName, sidebar);
+    m_nameLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #EAEAEA; border: none; background: transparent;");
+    m_nameLabel->setAlignment(Qt::AlignCenter);
+    m_nameLabel->setWordWrap(true);
+
+    m_usernameLabel = new QLabel("@" + m_username, sidebar);
+    m_usernameLabel->setStyleSheet("font-size: 11px; color: #9A8FA0; border: none; background: transparent;");
+    m_usernameLabel->setAlignment(Qt::AlignCenter);
+
+    sidebarLayout->addWidget(avatarLabel);
+    sidebarLayout->addWidget(roleLabel);
+    sidebarLayout->addSpacing(8);
+    sidebarLayout->addWidget(m_nameLabel);
+    sidebarLayout->addWidget(m_usernameLabel);
+    sidebarLayout->addSpacing(15);
     sidebarLayout->addWidget(avatarLabel);
     sidebarLayout->addWidget(roleLabel);
     sidebarLayout->addSpacing(15);
