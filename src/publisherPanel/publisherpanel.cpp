@@ -1,6 +1,7 @@
 #include "publisherpanel.h"
 #include "bookcardwidget.h"
 #include "addeditbookdialog.h"
+#include "setofferdialog.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QJsonObject>
@@ -310,8 +311,25 @@ void PublisherPanel::handleToggleActive(int bookId, int newStatus)
 
 void PublisherPanel::handleSetOffer(int bookId)
 {
-    // TODO: open SetOfferDialog, then send "publisher_add_discount" with the result
-    Q_UNUSED(bookId);
+    SetOfferDialog dialog(bookId, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        Discount d = dialog.resultDiscount();
+
+        if (d.startDate >= d.endDate) {
+            QMessageBox::warning(this, "Invalid dates", "Start time must be before end time.");
+            return;
+        }
+
+        QJsonObject req;
+        req["action"] = "publisher_add_discount";
+        req["publisherId"] = m_publisherId;
+        req["bookId"] = d.bookId;
+        req["type"] = d.type;
+        req["value"] = d.value;
+        req["startDate"] = d.startDate.toUTC().toString(Qt::ISODate);
+        req["endDate"] = d.endDate.toUTC().toString(Qt::ISODate);
+        sendRequest(req);
+    }
 }
 
 void PublisherPanel::onReadyRead()

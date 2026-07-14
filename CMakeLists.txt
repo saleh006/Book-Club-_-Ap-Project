@@ -75,6 +75,7 @@ qt_add_qml_module(BookClubClient
         SOURCES src/publisherPanel/bookcardwidget.h src/publisherPanel/bookcardwidget.cpp
         SOURCES src/shared/models.h
         SOURCES src/publisherPanel/addeditbookdialog.h src/publisherPanel/addeditbookdialog.cpp
+        SOURCES src/publisherPanel/setofferdialog.h src/publisherPanel/setofferdialog.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE

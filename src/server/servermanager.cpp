@@ -952,6 +952,34 @@ void ClientHandler::onReadyRead()
                 }
             }
         }
+        else if (action == "publisher_add_discount") {
+            int publisherId = requestObj["publisherId"].toInt();
+            int bookId = requestObj["bookId"].toInt();
+
+            // Verify the book actually belongs to this publisher before allowing a discount on it
+            Book b;
+            QString fetchErr;
+            if (!DatabaseManager::instance().fetchBook(bookId, b, fetchErr) || b.publisherId != publisherId) {
+                responseObj["status"] = "error";
+                responseObj["message"] = "Book not found or not owned by you.";
+            } else {
+                Discount d;
+                d.bookId = bookId;
+                d.type = requestObj["type"].toString();
+                d.value = requestObj["value"].toDouble();
+                d.startDate = QDateTime::fromString(requestObj["startDate"].toString(), Qt::ISODate);
+                d.endDate = QDateTime::fromString(requestObj["endDate"].toString(), Qt::ISODate);
+
+                QString errorMsg;
+                if (DatabaseManager::instance().addDiscount(d, errorMsg)) {
+                    responseObj["status"] = "success";
+                    responseObj["message"] = "Offer set successfully.";
+                } else {
+                    responseObj["status"] = "error";
+                    responseObj["message"] = errorMsg;
+                }
+            }
+        }
         else if (action == "upload_file") {
             QString fileType = requestObj["fileType"].toString(); // "cover" or "pdf"
             QString fileName = requestObj["fileName"].toString();
