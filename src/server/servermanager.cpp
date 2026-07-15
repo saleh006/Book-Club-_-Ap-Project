@@ -308,6 +308,7 @@ void ClientHandler::onReadyRead()
             }
         }
         else if (action == "book_update") {
+            responseObj["action"] = "book_update_response";
             Book b;
             b.id = requestObj["id"].toInt();
             b.title = requestObj["title"].toString();
@@ -342,23 +343,29 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
-        else if (action == "book_fetch") {
+        else if (action == "get_book_details") {
+            responseObj["action"] = "book_details_response";
             int bookId = requestObj["bookId"].toInt();
             Book b;
             QString errorMsg;
+
             if (DatabaseManager::instance().fetchBook(bookId, b, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["title"] = b.title;
-                responseObj["author"] = b.author;
-                responseObj["genre"] = b.genre;
-                responseObj["description"] = b.description;
-                responseObj["price"] = b.price;
-                responseObj["coverImagePath"] = b.coverImagePath;
-                responseObj["pdfPath"] = b.pdfPath;
-                responseObj["averageRating"] = b.averageRating;
+                QJsonObject data;
+                data["id"] = b.id;
+                data["title"] = b.title;
+                data["author"] = b.author;
+                data["genre"] = b.genre;
+                data["description"] = b.description;
+                data["price"] = b.price;
+                data["coverImagePath"] = b.coverImagePath;
+                data["pdfPath"] = b.pdfPath;
+                data["averageRating"] = b.averageRating;
+                data["isActive"] = b.isActive;
+                responseObj["data"] = data;
             } else {
                 responseObj["status"] = "error";
-                responseObj["message"] = errorMsg;
+                responseObj["message"] = errorMsg.isEmpty() ? "Book not found." : errorMsg;
             }
         }
         else if (action == "get_books_list") {
@@ -514,6 +521,93 @@ void ClientHandler::onReadyRead()
                 }
                 responseObj["reviews"] = reviewArray;
             } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
+        }
+        else if (action == "get_all_reviews_admin") {
+            responseObj["action"] = "all_reviews_response";
+            QVector<ReviewAdminSummary> reviews;
+            QString errorMsg;
+
+            if (DatabaseManager::instance().fetchReviewsForAdmin(false, reviews, errorMsg)) {
+                responseObj["status"] = "success";
+                QJsonArray reviewArray;
+                for (const ReviewAdminSummary &r : reviews) {
+                    QJsonObject reviewObj;
+                    reviewObj["id"] = r.review.id;
+                    reviewObj["bookId"] = r.review.bookId;
+                    reviewObj["bookTitle"] = r.bookTitle;
+                    reviewObj["username"] = r.username;
+                    reviewObj["rating"] = r.review.rating;
+                    reviewObj["comment"] = r.review.comment;
+                    reviewObj["date"] = r.review.date.toString("yyyy-MM-dd");
+                    reviewObj["isApproved"] = r.review.isApproved;
+                    reviewArray.append(reviewObj);
+                }
+                responseObj["data"] = reviewArray;
+            } 
+            else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
+        }
+        else if (action == "get_pending_reviews") {
+            responseObj["action"] = "pending_reviews_response";
+            QVector<ReviewAdminSummary> reviews;
+            QString errorMsg;
+
+            if (DatabaseManager::instance().fetchReviewsForAdmin(true, reviews, errorMsg)) {
+                responseObj["status"] = "success";
+                QJsonArray reviewArray;
+                for (const ReviewAdminSummary &r : reviews) {
+                    QJsonObject reviewObj;
+                    reviewObj["id"] = r.review.id;
+                    reviewObj["bookId"] = r.review.bookId;
+                    reviewObj["bookTitle"] = r.bookTitle;
+                    reviewObj["username"] = r.username;
+                    reviewObj["rating"] = r.review.rating;
+                    reviewObj["comment"] = r.review.comment;
+                    reviewObj["date"] = r.review.date.toString("yyyy-MM-dd");
+                    reviewArray.append(reviewObj);
+                }
+        r       esponseObj["data"] = reviewArray;
+            }
+            else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
+        }
+        else if (action == "approve_review") {
+            responseObj["action"] = "approve_review_response";
+            int reviewId = requestObj["reviewId"].toInt();
+            QString errorMsg;
+
+            if (DatabaseManager::instance().approveReview(reviewId, errorMsg)) {
+                responseObj["status"] = "success";
+                responseObj["message"] = "Review approved.";
+                emit databaseUpdated("reviews");
+            } 
+            else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
+        }
+        else if (action == "review_delete") {
+            responseObj["action"] = "review_delete_response";
+            int reviewId = requestObj["reviewId"].toInt();
+            int bookId = requestObj["bookId"].toInt();
+            int authorUserId = requestObj["userId"].toInt();
+            QString bookTitle = requestObj["bookTitle"].toString();
+            QString errorMsg;
+
+            if (DatabaseManager::instance().deleteReview(reviewId, errorMsg)) {
+                responseObj["status"] = "success";
+                responseObj["message"] = "Review removed.";
+                emit databaseUpdated("reviews");
+                emit databaseUpdated("book");
+            }
+            else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
             }
