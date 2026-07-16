@@ -70,6 +70,7 @@ qt_add_qml_module(BookClubClient
         SOURCES src/auth/signupwindow.h src/auth/signupwindow.cpp
         SOURCES src/auth/recoverywindow.h src/auth/recoverywindow.cpp
         SOURCES src/adminPanel/adminpanel.h src/adminPanel/adminpanel.cpp
+        SOURCES src/adminPanel/editbookdialogadmin.h src/adminPanel/editbookdialogadmin.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE

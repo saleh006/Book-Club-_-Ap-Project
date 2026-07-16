@@ -1,8 +1,13 @@
 #include "adminpanel.h"
+#include "src/adminPanel/editbookdialogadmin.h"
+//#include "models.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <QMessageBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QComboBox>
 
 AdminPanel::AdminPanel(QWidget *parent)
     : QWidget(parent)
@@ -236,10 +241,14 @@ QWidget* AdminPanel::createBooksPage()
     m_btnApprove = new QPushButton("✨ Approve Book", page);
     m_btnReject = new QPushButton("❌ Reject", page);
     m_btnDeleteBook = new QPushButton("🗑️ Delete Book", page);
+    m_btnBookDetails = new QPushButton("👁 View Details", page);
+    m_btnEditBook = new QPushButton("✏️ Edit Book", page);
 
     m_btnApprove->setCursor(Qt::PointingHandCursor);
     m_btnReject->setCursor(Qt::PointingHandCursor);
     m_btnDeleteBook->setCursor(Qt::PointingHandCursor);
+    m_btnBookDetails->setCursor(Qt::PointingHandCursor);
+    m_btnEditBook->setCursor(Qt::PointingHandCursor);
 
     m_btnApprove->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #2ECC71; border-radius: 6px; padding: 8px; font-weight: bold; color: #ABEBC6; }"
@@ -253,7 +262,17 @@ QWidget* AdminPanel::createBooksPage()
         "QPushButton { background-color: transparent; border: 1px solid #C0392B; border-radius: 6px; padding: 8px; font-weight: bold; color: #E6B0AA; }"
         "QPushButton:hover { background-color: rgba(192, 57, 43, 50); color: white; }"
         );
+    m_btnBookDetails->setStyleSheet(
+        "QPushButton { background-color: transparent; border: 1px solid #3498DB; border-radius: 6px; padding: 8px; font-weight: bold; color: #AED6F1; }"
+        "QPushButton:hover { background-color: rgba(52, 152, 219, 50); color: white; }"
+        );
+    m_btnEditBook->setStyleSheet(
+        "QPushButton { background-color: transparent; border: 1px solid #E9A23B; border-radius: 6px; padding: 8px; font-weight: bold; color: #F5D7A0; }"
+        "QPushButton:hover { background-color: rgba(233, 162, 59, 50); color: white; }"
+        );
 
+    btnLayout->addWidget(m_btnBookDetails);
+    btnLayout->addWidget(m_btnEditBook);
     btnLayout->addWidget(m_btnDeleteBook);
     btnLayout->addWidget(m_btnReject);
     btnLayout->addWidget(m_btnApprove);
@@ -263,6 +282,8 @@ QWidget* AdminPanel::createBooksPage()
     connect(m_btnApprove,&QPushButton::clicked,this,&AdminPanel::handleApproveBook);
     connect(m_btnReject,&QPushButton::clicked,this,&AdminPanel::handleRejectBook);
     connect(m_btnDeleteBook, &QPushButton::clicked, this, &AdminPanel::handleDeleteBook);
+    connect(m_btnBookDetails, &QPushButton::clicked, this, &AdminPanel::handleViewBookDetails);
+    connect(m_btnEditBook, &QPushButton::clicked, this, &AdminPanel::handleEditBook);
 
     return page;
 }
@@ -455,6 +476,32 @@ void AdminPanel::handleDeleteBook()
         packet["bookId"] = bookId;
         m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
     }
+}
+
+void AdminPanel::handleViewBookDetails()
+{
+    int currentRow = m_booksTable->currentRow();
+    if (currentRow < 0) return;
+    int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
+
+    m_pendingBookDetailPurpose = "view";
+    QJsonObject packet;
+    packet["action"] = "get_book_details";
+    packet["bookId"] = bookId;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void AdminPanel::handleEditBook()
+{
+    int currentRow = m_booksTable->currentRow();
+    if (currentRow < 0) return;
+    int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
+
+    m_pendingBookDetailPurpose = "edit";
+    QJsonObject packet;
+    packet["action"] = "get_book_details";
+    packet["bookId"] = bookId;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
 
 void AdminPanel::filterPublishers(const QString &text)
@@ -702,6 +749,48 @@ void AdminPanel::onReadyRead()
             QMessageBox::information(this, "Success", "Account deleted successfully from the database.");
             refreshUsersTable();
             refreshPublishersTable();
+        }
+        else if (action == "book_details_response" && response["status"].toString() == "success") {
+            QJsonObject data = response["data"].toObject();
+            if (m_pendingBookDetailPurpose == "edit") {
+                Book b;
+                b.id = data["id"].toInt();
+                b.title = data["title"].toString();
+                b.author = data["author"].toString();
+                b.genre = data["genre"].toString();
+                b.description = data["description"].toString();
+                b.price = data["price"].toDouble();
+                b.coverImagePath = data["coverImagePath"].toString();
+                b.pdfPath = data["pdfPath"].toString();
+                b.averageRating = data["averageRating"].toDouble();
+                b.status = data["isActive"].toBool();
+
+                AddEditBookDialog dialog(b, this);
+                if (dialog.exec() == QDialog::Accepted) {
+                    Book updated = dialog.resultBook();
+                    QJsonObject packet;
+                    packet["action"] = "book_update";
+                    packet["id"] = updated.id;
+                    packet["title"] = updated.title;
+                    packet["author"] = updated.author;
+                    packet["genre"] = updated.genre;
+                    packet["description"] = updated.description;
+                    packet["price"] = updated.price;
+                    packet["coverImagePath"] = updated.coverImagePath;
+                    packet["pdfPath"] = updated.pdfPath;
+                    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+                }
+            } else {
+                showBookDetailsDialog(data);
+            }
+        }
+        else if (action == "book_update_response") {
+            if (response["status"].toString() == "success") {
+                QMessageBox::information(this, "Success", "Book information updated successfully.");
+                refreshBooksTable();
+            } else {
+                QMessageBox::warning(this, "Update Failed", response["message"].toString());
+            }
         }
     }
 }
@@ -1092,6 +1181,102 @@ void AdminPanel::showPublisherDetailsDialog(const QJsonObject &data)
     footerLayout->addStretch();
     footerLayout->addWidget(closeBtn);
     mainLayout->addLayout(footerLayout);
+
+    dialog->exec();
+    dialog->deleteLater();
+}
+
+void AdminPanel::showBookDetailsDialog(const QJsonObject &data)
+{
+    QDialog *dialog = new QDialog(this);
+    dialog->setWindowTitle("Book Details");
+    dialog->resize(560, 520);
+    dialog->setStyleSheet("background-color: #09070C; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
+    mainLayout->setContentsMargins(24, 24, 24, 20);
+    mainLayout->setSpacing(14);
+
+    QHBoxLayout *headerLayout = new QHBoxLayout();
+    headerLayout->setSpacing(16);
+
+    QLabel *cover = new QLabel("📖", dialog);
+    cover->setFixedSize(64, 64);
+    cover->setAlignment(Qt::AlignCenter);
+    cover->setStyleSheet("font-size: 30px; background-color: #1F1724; border-radius: 32px;");
+
+    QVBoxLayout *headerTextLayout = new QVBoxLayout();
+    headerTextLayout->setSpacing(2);
+
+    QLabel *titleLabel = new QLabel(data["title"].toString(), dialog);
+    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #FFFFFF;");
+
+    QLabel *authorLabel = new QLabel("by " + data["author"].toString(), dialog);
+    authorLabel->setStyleSheet("font-size: 12px; color: #9A8FA0;");
+
+    bool isActive = data["isActive"].toBool();
+    QLabel *statusBadge = new QLabel(isActive ? "✅ APPROVED" : "🚫 PENDING/REJECTED", dialog);
+    statusBadge->setStyleSheet(
+        QString("background-color: %1; color: white; font-size: 10px; font-weight: bold; "
+                "padding: 3px 10px; border-radius: 8px; letter-spacing: 1px;")
+            .arg(isActive ? "#268730" : "#8d1f1f"));
+    statusBadge->setFixedHeight(20);
+    statusBadge->setMaximumWidth(220);
+
+    headerTextLayout->addWidget(titleLabel);
+    headerTextLayout->addWidget(authorLabel);
+    headerTextLayout->addSpacing(4);
+    headerTextLayout->addWidget(statusBadge);
+
+    headerLayout->addWidget(cover);
+    headerLayout->addLayout(headerTextLayout, 1);
+    mainLayout->addLayout(headerLayout);
+
+    QString cardStyle =
+        "QGroupBox { border: 1px solid #1F1724; border-radius: 10px; margin-top: 8px; padding-top: 16px; "
+        "color: #A594B3; font-weight: bold; background-color: #0F0C12; }"
+        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; }";
+
+    QGroupBox *infoBox = new QGroupBox("Book Information", dialog);
+    infoBox->setStyleSheet(cardStyle);
+    QFormLayout *formLayout = new QFormLayout(infoBox);
+    formLayout->setLabelAlignment(Qt::AlignRight);
+    formLayout->setHorizontalSpacing(16);
+    formLayout->setVerticalSpacing(8);
+
+    QString labelStyle = "color: #9A8FA0; font-size: 13px;";
+    QString valueStyle = "color: #EAEAEA; font-size: 14px; font-weight: bold;";
+
+    auto addRow = [&](const QString &title, const QString &value) {
+        QLabel *lbl = new QLabel(title);
+        lbl->setStyleSheet(labelStyle);
+        QLabel *val = new QLabel(value.isEmpty() ? "—" : value);
+        val->setStyleSheet(valueStyle);
+        val->setWordWrap(true);
+        formLayout->addRow(lbl, val);
+    };
+
+    addRow("Genre:", data["genre"].toString());
+    addRow("Price:", "$" + QString::number(data["price"].toDouble(), 'f', 2));
+    double rating = data["averageRating"].toDouble();
+    addRow("Avg Rating:", rating > 0.0 ? QString::number(rating, 'f', 1) + " ⭐" : "N/A");
+    addRow("Description:", data["description"].toString());
+
+    mainLayout->addWidget(infoBox);
+    mainLayout->addStretch();
+
+    QPushButton *closeDetailsBtn = new QPushButton("Close", dialog);
+    closeDetailsBtn->setCursor(Qt::PointingHandCursor);
+    closeDetailsBtn->setStyleSheet(
+        "QPushButton { background-color: #1F1724; border: none; border-radius: 6px; padding: 10px; color: white; font-weight: bold; }"
+        "QPushButton:hover { background-color: #7C3E66; }"
+        );
+    connect(closeDetailsBtn, &QPushButton::clicked, dialog, &QDialog::accept);
+
+    QHBoxLayout *detailsFooterLayout = new QHBoxLayout();
+    detailsFooterLayout->addStretch();
+    detailsFooterLayout->addWidget(closeDetailsBtn);
+    mainLayout->addLayout(detailsFooterLayout);
 
     dialog->exec();
     dialog->deleteLater();

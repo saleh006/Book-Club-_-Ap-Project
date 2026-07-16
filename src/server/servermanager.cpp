@@ -571,7 +571,7 @@ void ClientHandler::onReadyRead()
                     reviewObj["date"] = r.review.date.toString("yyyy-MM-dd");
                     reviewArray.append(reviewObj);
                 }
-        r       esponseObj["data"] = reviewArray;
+                responseObj["data"] = reviewArray;
             }
             else {
                 responseObj["status"] = "error";
