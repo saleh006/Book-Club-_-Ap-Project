@@ -14,6 +14,7 @@
 #include <QDialog>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QComboBox>
 #include "serverwindow.h"
 
 class AdminPanel : public QWidget
@@ -47,6 +48,12 @@ private slots:
     void handleViewPublisherDetails();
     void handleDeletePublisher();
 
+    void filterReviews(const QString &text);
+    void handleApproveReview();
+    void handleReviewFilterChanged(int index);
+    void handleDeleteReview();
+    void populateReviewsTable(const QJsonArray &reviews, bool pendingOnly);
+
     void onReadyRead();
 
 private:
@@ -59,6 +66,7 @@ private:
     QPushButton *m_btnBooks;
     QPushButton *m_btnLogout;
     QPushButton *m_btnPublishers;
+    QPushButton *m_btnReviews;
 
     QTableWidget *m_usersTable;
     QLineEdit *m_searchEdit;
@@ -86,6 +94,15 @@ private:
     QWidget* createPublishersPage();
     QPushButton *m_btnDeletePublisher;
 
+    QLineEdit *m_reviewSearchEdit;
+    QTableWidget *m_reviewsTable;
+    QPushButton *m_btnDeleteReview;
+    QComboBox *m_reviewFilterCombo;
+    QPushButton *m_btnApproveReview;
+    QWidget* createReviewsPage();
+    bool m_reviewShowPendingOnly = false;
+
+
     void setupUi();
     void updateButtonStyles(int currentIndex);
     void showUserDetailsDialog(const QJsonObject &data);
@@ -94,6 +111,7 @@ private:
     void refreshUsersTable();
     void refreshBooksTable();
     void refreshPublishersTable();
+    void refreshReviewsTable();
 protected:
     void mousePressEvent(QMouseEvent *event) override;
 };

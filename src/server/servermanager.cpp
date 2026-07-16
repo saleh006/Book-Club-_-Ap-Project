@@ -596,16 +596,12 @@ void ClientHandler::onReadyRead()
         else if (action == "review_delete") {
             responseObj["action"] = "review_delete_response";
             int reviewId = requestObj["reviewId"].toInt();
-            int bookId = requestObj["bookId"].toInt();
-            int authorUserId = requestObj["userId"].toInt();
-            QString bookTitle = requestObj["bookTitle"].toString();
             QString errorMsg;
 
             if (DatabaseManager::instance().deleteReview(reviewId, errorMsg)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Review removed.";
                 emit databaseUpdated("reviews");
-                emit databaseUpdated("book");
             }
             else {
                 responseObj["status"] = "error";
