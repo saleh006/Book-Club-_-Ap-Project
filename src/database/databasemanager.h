@@ -191,6 +191,8 @@ public:
     bool setBookOwnership(int bookId, int publisherId, QString &errorMsg);    // reassign/transfer
     bool fetchPublisherProfileForAdmin(const QString &username, PublisherProfileSummary &outProfile, QString &errorMsg);
     bool fetchAllPublisherProfilesForAdmin(QVector<PublisherProfileSummary> &outProfiles, QString &errorMsg);
+    bool fetchPublisherSalesTrend(int publisherId, const QString &granularity,
+                                  QVector<QPair<QString, int>> &outPoints, QString &errorMsg);
 
 
 private:

@@ -8,6 +8,10 @@
 #include <QGridLayout>
 #include <QScrollArea>
 #include <QTcpSocket>
+#include <QtCharts/QChartView>
+#include <QTableWidget>
+#include <QComboBox>
+#include <QMap>
 #include "models.h"
 #include "QLineEdit"
 
@@ -65,6 +69,28 @@ private:
     QLabel *m_usernameLabel;
     QString m_fullName;
     QString m_username;
+
+    QWidget *makeStatCard(const QString &icon, const QString &iconBg,
+                          const QString &title, const QString &subtitle, QLabel *&valueOut);
+    QWidget *makeSectionCard(const QString &icon, const QString &title,
+                             QWidget *content, QWidget *headerRight = nullptr);
+    QTableWidget *makeTopTable();
+    void fillTopTable(QTableWidget *table, const QVector<Book> &books);
+    void updateDashboard();                       // tables + bar/pie charts from m_allBooks
+    void updateSalesTrend(const QJsonArray &pts); // line chart
+    void requestSalesTrend();
+    static void replaceChart(QChartView *view, QChart *chart);
+
+    QLabel *m_welcomeLabel = nullptr;
+    QTableWidget *m_bestTable = nullptr;
+    QTableWidget *m_worstTable = nullptr;
+    QChartView *m_trendView = nullptr;
+    QChartView *m_cmpView = nullptr;
+    QChartView *m_ratingView = nullptr;
+    QChartView *m_pieView = nullptr;
+    QVBoxLayout *m_pieLegendLayout = nullptr;
+    QComboBox *m_trendCombo = nullptr;
+    QMap<int, double> m_incomeByBookId;
 };
 
 #endif

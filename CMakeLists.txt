@@ -3,6 +3,23 @@ project(ap-project LANGUAGES CXX)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
+    Widgets
+    Sql
+    Network
+    QuickWidgets
+    Quick
+    Charts
+)
+
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS
+    Widgets
+    Sql
+    Network
+    QuickWidgets
+    Quick
+    Charts
+)
 
 
 qt_standard_project_setup()
@@ -91,6 +108,7 @@ target_link_libraries(BookClubClient
         Qt::Network
         Qt::QuickWidgets
         Qt::Quick
+        Qt::Charts
 )
 
 install(TARGETS BookClubClient

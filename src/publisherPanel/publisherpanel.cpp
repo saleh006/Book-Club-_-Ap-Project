@@ -8,6 +8,25 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QMessageBox>
+#include <QtCharts/QChart>
+#include <QtCharts/QLineSeries>
+#include <QtCharts/QAreaSeries>
+#include <QtCharts/QBarSeries>
+#include <QtCharts/QBarSet>
+#include <QtCharts/QPieSeries>
+#include <QtCharts/QPieSlice>
+#include <QtCharts/QValueAxis>
+#include <QtCharts/QCategoryAxis>
+#include <QtCharts/QBarCategoryAxis>
+#include <QHeaderView>
+#include <QScrollArea>
+#include <QGridLayout>
+
+static const char *kCardBg     = "#120E14";
+static const char *kCardBorder = "#1F1724";
+static const char *kAccent     = "#A85CF0";
+static const char *kTextDim    = "#9A8FA0";
+static const char *kGrid       = "#2A2233";
 
 PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const QString &username, QWidget *parent)
     : QWidget(parent), m_publisherId(publisherId), m_fullName(fullName), m_username(username)
@@ -131,38 +150,38 @@ void PublisherPanel::setupUi()
     connect(m_btnLogout, &QPushButton::clicked, this, &PublisherPanel::logoutRequested);
 }
 
-QWidget* PublisherPanel::createStatsPage()
-{
-    QWidget *page = new QWidget(this);
-    QVBoxLayout *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(30, 30, 30, 30);
-    layout->setSpacing(16);
+// QWidget* PublisherPanel::createStatsPage()
+// {
+//     QWidget *page = new QWidget(this);
+//     QVBoxLayout *layout = new QVBoxLayout(page);
+//     layout->setContentsMargins(30, 30, 30, 30);
+//     layout->setSpacing(16);
 
-    auto makeStatCard = [page](const QString &title, QLabel *&valueLabelOut) -> QWidget* {
-        QWidget *card = new QWidget(page);
-        card->setStyleSheet("background-color: #120E14; border: 1px solid #1F1724; border-radius: 10px;");
-        QVBoxLayout *cardLayout = new QVBoxLayout(card);
-        QLabel *titleLabel = new QLabel(title, card);
-        titleLabel->setStyleSheet("color: #A594B3; font-size: 12px;");
-        valueLabelOut = new QLabel("—", card);
-        valueLabelOut->setStyleSheet("color: #EAEAEA; font-size: 24px; font-weight: bold;");
-        cardLayout->addWidget(titleLabel);
-        cardLayout->addWidget(valueLabelOut);
-        return card;
-    };
+//     auto makeStatCard = [page](const QString &title, QLabel *&valueLabelOut) -> QWidget* {
+//         QWidget *card = new QWidget(page);
+//         card->setStyleSheet("background-color: #120E14; border: 1px solid #1F1724; border-radius: 10px;");
+//         QVBoxLayout *cardLayout = new QVBoxLayout(card);
+//         QLabel *titleLabel = new QLabel(title, card);
+//         titleLabel->setStyleSheet("color: #A594B3; font-size: 12px;");
+//         valueLabelOut = new QLabel("—", card);
+//         valueLabelOut->setStyleSheet("color: #EAEAEA; font-size: 24px; font-weight: bold;");
+//         cardLayout->addWidget(titleLabel);
+//         cardLayout->addWidget(valueLabelOut);
+//         return card;
+//     };
 
-    QGridLayout *statsGrid = new QGridLayout();
-    statsGrid->setSpacing(16);
-    statsGrid->addWidget(makeStatCard("Total Books", m_statBookCount), 0, 0);
-    statsGrid->addWidget(makeStatCard("Total Sales", m_statTotalSales), 0, 1);
-    statsGrid->addWidget(makeStatCard("Average Rating", m_statAvgRating), 1, 0);
-    statsGrid->addWidget(makeStatCard("Total Income", m_statTotalIncome), 1, 1);
+//     QGridLayout *statsGrid = new QGridLayout();
+//     statsGrid->setSpacing(16);
+//     statsGrid->addWidget(makeStatCard("Total Books", m_statBookCount), 0, 0);
+//     statsGrid->addWidget(makeStatCard("Total Sales", m_statTotalSales), 0, 1);
+//     statsGrid->addWidget(makeStatCard("Average Rating", m_statAvgRating), 1, 0);
+//     statsGrid->addWidget(makeStatCard("Total Income", m_statTotalIncome), 1, 1);
 
-    layout->addLayout(statsGrid);
-    layout->addStretch();
+//     layout->addLayout(statsGrid);
+//     layout->addStretch();
 
-    return page;
-}
+//     return page;
+// }
 
 QWidget* PublisherPanel::createBooksPage()
 {
@@ -374,6 +393,9 @@ void PublisherPanel::onReadyRead()
         }
         m_allBooks = books;
         filterBooks(m_bookSearchEdit->text());
+        m_allBooks = books;
+        filterBooks(m_bookSearchEdit->text());
+        updateDashboard();
     }
     else if (type == "publisher_stats") {
         m_statBookCount->setText(QString::number(responseObj["bookCount"].toInt()));
@@ -389,6 +411,9 @@ void PublisherPanel::onReadyRead()
         } else {
             QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
         }
+    }
+    else if (type == "publisher_sales_trend") {
+        updateSalesTrend(responseObj["points"].toArray());
     }
     else {
         const QString status = responseObj["status"].toString();
@@ -442,3 +467,365 @@ void PublisherPanel::filterBooks(const QString &text)
     }
     populateBooksGrid(filtered);
 }
+
+static void styleAxis(QAbstractAxis *ax)
+{
+    ax->setLabelsBrush(QBrush(QColor(kTextDim)));
+    ax->setGridLineColor(QColor(kGrid));
+    ax->setLinePenColor(QColor(kGrid));
+    QFont f = ax->labelsFont(); f.setPointSize(8); ax->setLabelsFont(f);
+}
+
+static QChart *makeDarkChart()
+{
+    auto *chart = new QChart;
+    chart->setBackgroundBrush(Qt::transparent);
+    chart->legend()->hide();
+    chart->setMargins(QMargins(4, 4, 4, 4));
+    return chart;
+}
+
+void PublisherPanel::replaceChart(QChartView *view, QChart *chart)
+{
+    QChart *old = view->chart();
+    view->setChart(chart);
+    delete old;
+}
+
+QWidget *PublisherPanel::makeStatCard(const QString &icon, const QString &iconBg,
+                                      const QString &title, const QString &subtitle,
+                                      QLabel *&valueOut)
+{
+    auto *card = new QWidget(this);
+    card->setStyleSheet(QString("background-color:%1;border:1px solid %2;border-radius:10px;")
+                            .arg(kCardBg, kCardBorder));
+    auto *h = new QHBoxLayout(card);
+    h->setContentsMargins(16, 14, 16, 14);
+    h->setSpacing(14);
+
+    auto *iconLabel = new QLabel(icon, card);
+    iconLabel->setFixedSize(48, 48);
+    iconLabel->setAlignment(Qt::AlignCenter);
+    iconLabel->setStyleSheet(QString("background-color:%1;border:none;border-radius:10px;font-size:22px;")
+                                 .arg(iconBg));
+
+    auto *v = new QVBoxLayout;
+    v->setSpacing(2);
+    auto *titleLabel = new QLabel(title, card);
+    titleLabel->setStyleSheet("color:#EAEAEA;font-size:12px;font-weight:bold;border:none;background:transparent;");
+    valueOut = new QLabel("—", card);
+    valueOut->setStyleSheet("color:#FFFFFF;font-size:24px;font-weight:bold;border:none;background:transparent;");
+    auto *subLabel = new QLabel(subtitle, card);
+    subLabel->setStyleSheet(QString("color:%1;font-size:10px;border:none;background:transparent;").arg(kTextDim));
+    v->addWidget(titleLabel);
+    v->addWidget(valueOut);
+    v->addWidget(subLabel);
+
+    h->addWidget(iconLabel);
+    h->addLayout(v);
+    h->addStretch();
+    return card;
+}
+
+QWidget *PublisherPanel::makeSectionCard(const QString &icon, const QString &title,
+                                         QWidget *content, QWidget *headerRight)
+{
+    auto *card = new QWidget(this);
+    card->setStyleSheet(QString("QWidget{background-color:%1;border:1px solid %2;border-radius:10px;}")
+                            .arg(kCardBg, kCardBorder));
+    auto *v = new QVBoxLayout(card);
+    v->setContentsMargins(16, 14, 16, 14);
+    v->setSpacing(10);
+
+    auto *header = new QHBoxLayout;
+    auto *titleLabel = new QLabel(icon + "  " + title, card);
+    titleLabel->setStyleSheet("color:#EAEAEA;font-size:13px;font-weight:bold;border:none;background:transparent;");
+    header->addWidget(titleLabel);
+    header->addStretch();
+    if (headerRight) header->addWidget(headerRight);
+    v->addLayout(header);
+    v->addWidget(content);
+    return card;
+}
+
+QTableWidget *PublisherPanel::makeTopTable()
+{
+    auto *t = new QTableWidget(5, 3, this);
+    t->setHorizontalHeaderLabels({"#", "Book Title", "Sales"});
+    t->verticalHeader()->setVisible(false);
+    t->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    t->setSelectionMode(QAbstractItemView::NoSelection);
+    t->setFocusPolicy(Qt::NoFocus);
+    t->setShowGrid(false);
+    t->setFixedHeight(232);
+    t->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    t->setColumnWidth(0, 40);
+    t->setColumnWidth(2, 70);
+    t->setStyleSheet(QString(
+                         "QTableWidget{background:transparent;border:none;color:#EAEAEA;font-size:12px;}"
+                         "QTableWidget::item{border-bottom:1px solid %1;padding:4px;}"
+                         "QHeaderView::section{background-color:#1A141F;color:%2;border:none;padding:6px;font-size:11px;}")
+                         .arg(kCardBorder, kTextDim));
+    return t;
+}
+
+QWidget *PublisherPanel::createStatsPage()
+{
+    auto *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setStyleSheet("QScrollArea{border:none;background:transparent;}");
+
+    auto *page = new QWidget;
+    page->setStyleSheet("background:transparent;");
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 25, 30, 25);
+    layout->setSpacing(18);
+
+    // header
+    m_welcomeLabel = new QLabel(QString("Welcome back, %1!")
+                                    .arg(m_fullName.isEmpty() ? m_username : m_fullName), page);
+    m_welcomeLabel->setStyleSheet("color:#FFFFFF;font-size:22px;font-weight:bold;border:none;");
+    auto *sub = new QLabel("Here's an overview of your books and sales performance.", page);
+    sub->setStyleSheet(QString("color:%1;font-size:12px;border:none;").arg(kTextDim));
+    layout->addWidget(m_welcomeLabel);
+    layout->addWidget(sub);
+
+    // stat cards
+    auto *cardsRow = new QHBoxLayout;
+    cardsRow->setSpacing(16);
+    cardsRow->addWidget(makeStatCard("📚", "#8B5CF6", "Total Books",    "Published books", m_statBookCount));
+    cardsRow->addWidget(makeStatCard("🛒", "#EC4899", "Total Sales",    "Books sold",      m_statTotalSales));
+    cardsRow->addWidget(makeStatCard("💲", "#22C55E", "Total Revenue",  "Total income",    m_statTotalIncome));
+    cardsRow->addWidget(makeStatCard("⭐", "#EAB308", "Average Rating", "Out of 5",        m_statAvgRating));
+    layout->addLayout(cardsRow);
+
+    // chart views
+    auto makeView = [this]() {
+        auto *v = new QChartView(makeDarkChart(), this);
+        v->setRenderHint(QPainter::Antialiasing);
+        v->setStyleSheet("background:transparent;border:none;");
+        v->setMinimumHeight(240);
+        return v;
+    };
+    m_trendView  = makeView();
+    m_cmpView    = makeView();
+    m_ratingView = makeView();
+    m_pieView    = makeView();
+
+    m_bestTable  = makeTopTable();
+    m_worstTable = makeTopTable();
+
+     //(daily / weekly / monthly per the spec)
+    m_trendCombo = new QComboBox(this);
+    m_trendCombo->addItems({"Monthly", "Weekly", "Daily"});
+    m_trendCombo->setStyleSheet(QString(
+                                    "QComboBox{background-color:#1A141F;border:1px solid %1;border-radius:6px;"
+                                    "padding:4px 10px;color:#EAEAEA;font-size:11px;}").arg(kCardBorder));
+    connect(m_trendCombo, &QComboBox::currentTextChanged, this,
+            [this](const QString &) { requestSalesTrend(); });
+    auto *pieRow = new QWidget(this);
+    pieRow->setStyleSheet("background:transparent;border:none;");
+    auto *pieRowLayout = new QHBoxLayout(pieRow);
+    pieRowLayout->setContentsMargins(0, 0, 0, 0);
+    pieRowLayout->addWidget(m_pieView, 3);
+    auto *legendHolder = new QWidget(pieRow);
+    legendHolder->setStyleSheet("background:transparent;border:none;");
+    m_pieLegendLayout = new QVBoxLayout(legendHolder);
+    m_pieLegendLayout->setContentsMargins(0, 20, 0, 20);
+    m_pieLegendLayout->setSpacing(8);
+    m_pieLegendLayout->addStretch();
+    pieRowLayout->addWidget(legendHolder, 2);
+
+    auto *grid = new QGridLayout;
+    grid->setSpacing(18);
+    grid->addWidget(makeSectionCard("🏆", "Top 5 Best Selling Books", m_bestTable),            0, 0);
+    grid->addWidget(makeSectionCard("📈", "Sales Trend", m_trendView, m_trendCombo),           0, 1);
+    grid->addWidget(makeSectionCard("📉", "Top 5 Worst Selling Books", m_worstTable),          1, 0);
+    grid->addWidget(makeSectionCard("📊", "Sales Comparison (Top 5 Books)", m_cmpView),        1, 1);
+    grid->addWidget(makeSectionCard("⭐", "Average Rating per Book", m_ratingView),            2, 0);
+    grid->addWidget(makeSectionCard("🥧", "Revenue Share per Book", pieRow),                   2, 1);
+    grid->setColumnStretch(0, 2);
+    grid->setColumnStretch(1, 3);
+    layout->addLayout(grid);
+    layout->addStretch();
+
+    scroll->setWidget(page);
+    return scroll;
+}
+
+// ---------- data → UI ----------
+
+void PublisherPanel::fillTopTable(QTableWidget *table, const QVector<Book> &books)
+{
+    table->clearContents();
+    table->setRowCount(qMin(5, static_cast<int>(books.size())));
+    for (int i = 0; i < table->rowCount(); ++i) {
+        auto *rank = new QTableWidgetItem(QString::number(i + 1));
+        auto *title = new QTableWidgetItem(books[i].title);
+        auto *sales = new QTableWidgetItem(QString::number(books[i].totalSales));
+        sales->setForeground(QColor(kAccent));
+        sales->setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        table->setItem(i, 0, rank);
+        table->setItem(i, 1, title);
+        table->setItem(i, 2, sales);
+    }
+}
+
+void PublisherPanel::updateDashboard()
+{
+    QVector<Book> books;
+    for (const Book &b : std::as_const(m_allBooks))
+        if (b.status != -1) books.push_back(b);
+    if (books.isEmpty()) return;
+
+    // best / worst tables
+    QVector<Book> sorted = books;
+    std::sort(sorted.begin(), sorted.end(),
+              [](const Book &a, const Book &b) { return a.totalSales > b.totalSales; });
+    fillTopTable(m_bestTable, sorted);
+    QVector<Book> worst = sorted;
+    std::reverse(worst.begin(), worst.end());
+    fillTopTable(m_worstTable, worst);
+
+    const QVector<Book> top5 = sorted.mid(0, 5);
+    auto wrapTitle = [](QString t) { return t.replace(' ', '\n'); };
+
+    {
+        auto *set = new QBarSet("Sales");
+        set->setColor(QColor(kAccent));
+        set->setLabelColor(QColor("#EAEAEA"));
+        QStringList cats;
+        double maxV = 0;
+        for (const Book &b : top5) { *set << b.totalSales; cats << wrapTitle(b.title); maxV = qMax(maxV, double(b.totalSales)); }
+        auto *series = new QBarSeries;
+        series->append(set);
+        series->setLabelsVisible(true);
+        series->setLabelsPosition(QAbstractBarSeries::LabelsOutsideEnd);
+
+        QChart *chart = makeDarkChart();
+        chart->addSeries(series);
+        auto *ax = new QBarCategoryAxis; ax->append(cats); styleAxis(ax);
+        auto *ay = new QValueAxis; ay->setRange(0, maxV * 1.2); ay->setLabelFormat("%d"); styleAxis(ay);
+        chart->addAxis(ax, Qt::AlignBottom); chart->addAxis(ay, Qt::AlignLeft);
+        series->attachAxis(ax); series->attachAxis(ay);
+        replaceChart(m_cmpView, chart);
+    }
+
+    {
+        auto *set = new QBarSet("Rating");
+        set->setColor(QColor(kAccent));
+        set->setLabelColor(QColor("#EAEAEA"));
+        QStringList cats;
+        for (const Book &b : books) { *set << b.averageRating; cats << wrapTitle(b.title); }
+        auto *series = new QBarSeries;
+        series->append(set);
+        series->setLabelsVisible(true);
+        series->setLabelsPosition(QAbstractBarSeries::LabelsOutsideEnd);
+        series->setLabelsFormat("@value");
+
+        QChart *chart = makeDarkChart();
+        chart->addSeries(series);
+        auto *ax = new QBarCategoryAxis; ax->append(cats); styleAxis(ax);
+        auto *ay = new QValueAxis; ay->setRange(0, 5.5); ay->setTickCount(6); ay->setLabelFormat("%d"); styleAxis(ay);
+        chart->addAxis(ax, Qt::AlignBottom); chart->addAxis(ay, Qt::AlignLeft);
+        series->attachAxis(ax); series->attachAxis(ay);
+        replaceChart(m_ratingView, chart);
+    }
+
+    {
+        static const QStringList palette = {"#A85CF0", "#EC4899", "#22C55E", "#EAB308", "#3B82F6"};
+        double total = 0;
+        QVector<QPair<Book, double>> incomes;
+        for (const Book &b : top5) {
+            double income = m_incomeByBookId.value(b.id, b.price * b.totalSales); // fallback if server didn't send it
+            incomes.push_back({b, income});
+            total += income;
+        }
+
+        auto *series = new QPieSeries;
+        // clear old legend rows
+        while (m_pieLegendLayout->count() > 1) {
+            QLayoutItem *it = m_pieLegendLayout->takeAt(0);
+            if (it->widget()) it->widget()->deleteLater();
+            delete it;
+        }
+        for (int i = 0; i < incomes.size(); ++i) {
+            const int pct = total > 0 ? qRound(incomes[i].second / total * 100.0) : 0;
+            QPieSlice *slice = series->append(QString::number(pct) + "%", incomes[i].second);
+            slice->setColor(QColor(palette[i % palette.size()]));
+            slice->setLabelVisible(true);
+            slice->setLabelPosition(QPieSlice::LabelInsideHorizontal);
+            slice->setLabelColor(Qt::white);
+            slice->setBorderWidth(0);
+
+            auto *row = new QLabel(QString(
+                                       "<span style='color:%1;font-size:14px;'>●</span> "
+                                       "<span style='color:#EAEAEA;font-size:12px;'>%2</span> "
+                                       "<span style='color:%3;font-size:12px;'><b>$%4</b> (%5%)</span>")
+                                       .arg(palette[i % palette.size()], incomes[i].first.title,
+                                            kTextDim, QString::number(incomes[i].second, 'f', 2), QString::number(pct)));
+            row->setStyleSheet("border:none;background:transparent;");
+            m_pieLegendLayout->insertWidget(m_pieLegendLayout->count() - 1, row);
+        }
+
+        QChart *chart = makeDarkChart();
+        chart->addSeries(series);
+        replaceChart(m_pieView, chart);
+    }
+}
+
+void PublisherPanel::updateSalesTrend(const QJsonArray &pts)
+{
+    auto *line = new QLineSeries;
+    line->setColor(QColor(kAccent));
+    line->setPointsVisible(true);
+    QPen pen{QColor(kAccent)};
+    pen.setWidth(2);
+    line->setPen(pen);
+
+    auto *axX = new QCategoryAxis;
+    axX->setLabelsPosition(QCategoryAxis::AxisLabelsPositionOnValue);
+    double maxV = 0;
+    for (int i = 0; i < pts.size(); ++i) {
+        const QJsonObject p = pts[i].toObject();
+        const double sales = p["sales"].toDouble();
+        line->append(i, sales);
+        maxV = qMax(maxV, sales);
+
+        QString label = p["period"].toString();               // "2026-07", "2026-W28" or "2026-07-14"
+        const QDate d = QDate::fromString(label + "-01", "yyyy-MM-dd");
+        if (d.isValid()) label = d.toString("MMM");           // monthly → "Jul"
+        axX->append(label, i);
+    }
+    axX->setRange(-0.2, pts.size() - 0.8);
+    styleAxis(axX);
+    auto *base = new QLineSeries;
+    for (int i = 0; i < pts.size(); ++i) base->append(i, 0);
+    auto *area = new QAreaSeries(line, base);
+    QLinearGradient g(QPointF(0, 0), QPointF(0, 1));
+    g.setCoordinateMode(QGradient::ObjectBoundingMode);
+    g.setColorAt(0.0, QColor(168, 92, 240, 140));
+    g.setColorAt(1.0, QColor(168, 92, 240, 10));
+    area->setBrush(g);
+    area->setPen(Qt::NoPen);
+
+    QChart *chart = makeDarkChart();
+    chart->addSeries(area);
+    chart->addSeries(line);
+    auto *axY = new QValueAxis; axY->setRange(0, maxV * 1.15); axY->setLabelFormat("%d"); styleAxis(axY);
+    chart->addAxis(axX, Qt::AlignBottom); chart->addAxis(axY, Qt::AlignLeft);
+    area->attachAxis(axX); area->attachAxis(axY);
+    line->attachAxis(axX); line->attachAxis(axY);
+    replaceChart(m_trendView, chart);
+}
+
+void PublisherPanel::requestSalesTrend()
+{
+    QJsonObject req;
+    req["action"] = "publisher_get_sales_trend";
+    req["publisherId"] = m_publisherId;
+    req["granularity"] = m_trendCombo ? m_trendCombo->currentText().toLower() : "monthly";
+    sendRequest(req);
+}
+

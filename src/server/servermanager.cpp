@@ -1004,6 +1004,22 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = "Failed to save file on server.";
             }
         }
+        else if (action == "publisher_get_sales_trend") {
+            int publisherId = requestObj["publisherId"].toInt();
+            QString granularity = requestObj["granularity"].toString("monthly");
+            QVector<QPair<QString, int>> points;
+            QString errorMsg;
+            DatabaseManager::instance().fetchPublisherSalesTrend(publisherId, granularity, points, errorMsg);
+            QJsonArray arr;
+            for (const auto &p : std::as_const(points)) {
+                QJsonObject o;
+                o["period"] = p.first;
+                o["sales"]  = p.second;
+                arr.append(o);
+            }
+            responseObj["type"] = "publisher_sales_trend";
+            responseObj["points"] = arr;
+        }
         else {
             responseObj["status"] = "error";
             responseObj["message"] = "Invalid action.";
