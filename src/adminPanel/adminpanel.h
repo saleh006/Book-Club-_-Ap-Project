@@ -16,6 +16,8 @@
 #include <QGroupBox>
 #include <QComboBox>
 #include "serverwindow.h"
+#include "usertab.h"
+#include "publisherstab.h"
 
 class AdminPanel : public QWidget
 {
@@ -29,24 +31,12 @@ signals:
 private slots:
     void switchPage(int index);
 
-    void filterUsers(const QString &text);
-    void handleBlockUser();
-    void handleUnblockUser();
-    void handleViewUserDetails();
-    void handleDeleteUser();
-
     void filterBooks(const QString &text);
     void handleApproveBook();
     void handleRejectBook();
     void handleDeleteBook();
     void handleViewBookDetails();
     void handleEditBook();
-
-    void filterPublishers(const QString &text);
-    void handleBlockPublisher();
-    void handleUnblockPublisher();
-    void handleViewPublisherDetails();
-    void handleDeletePublisher();
 
     void filterReviews(const QString &text);
     void handleApproveReview();
@@ -68,13 +58,8 @@ private:
     QPushButton *m_btnPublishers;
     QPushButton *m_btnReviews;
 
-    QTableWidget *m_usersTable;
-    QLineEdit *m_searchEdit;
-    QPushButton *m_btnBlock;
-    QPushButton *m_btnUnblock;
-    QWidget* createUsersPage();
-    QPushButton *m_btnUserDetails;
-    QPushButton *m_btnDeleteUser;
+    UsersTab *m_userTab;
+    PublishersTab *m_publishersTab;
 
     QTableWidget *m_booksTable;
     QLineEdit *m_bookSearchEdit;
@@ -85,14 +70,6 @@ private:
     QString m_pendingBookDetailPurpose;
     QWidget* createBooksPage();
     QPushButton *m_btnDeleteBook;
-
-    QTableWidget *m_publishersTable;
-    QLineEdit *m_publisherSearchEdit;
-    QPushButton *m_btnBlockPublisher;
-    QPushButton *m_btnUnblockPublisher;
-    QPushButton *m_btnPublisherDetails;
-    QWidget* createPublishersPage();
-    QPushButton *m_btnDeletePublisher;
 
     QLineEdit *m_reviewSearchEdit;
     QTableWidget *m_reviewsTable;
@@ -105,12 +82,8 @@ private:
 
     void setupUi();
     void updateButtonStyles(int currentIndex);
-    void showUserDetailsDialog(const QJsonObject &data);
-    void showPublisherDetailsDialog(const QJsonObject &data);
     void showBookDetailsDialog(const QJsonObject &data);
-    void refreshUsersTable();
     void refreshBooksTable();
-    void refreshPublishersTable();
     void refreshReviewsTable();
 protected:
     void mousePressEvent(QMouseEvent *event) override;
