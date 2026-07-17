@@ -17,7 +17,7 @@ UsersTab::UsersTab(QTcpSocket *socket, QWidget *parent)
     outer->addWidget(setupUi());
 }
 
-void setRowDimmed(QTableWidget *table, int row, bool isDimmed)
+void UsersTab::setRowDimmed(QTableWidget *table, int row, bool isDimmed)
 {
     for (int col = 0; col < table->columnCount(); ++col) {
         QTableWidgetItem *item = table->item(row, col);

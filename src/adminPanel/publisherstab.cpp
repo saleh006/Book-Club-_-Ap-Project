@@ -17,7 +17,7 @@ PublishersTab::PublishersTab(QTcpSocket *socket, QWidget *parent)
     outer->addWidget(setupUi());
 }
 
-void setRowDimmed(QTableWidget *table, int row, bool isDimmed)
+void PublishersTab::setRowDimmed(QTableWidget *table, int row, bool isDimmed)
 {
     for (int col = 0; col < table->columnCount(); ++col) {
         QTableWidgetItem *item = table->item(row, col);
@@ -230,7 +230,6 @@ void PublishersTab::handleServerResponse(const QJsonObject &response)
         showPublisherDetailsDialog(response["data"].toObject());
     }
     else if (action == "delete_account_response" && response["status"] == "success") {
-        // UsersTab shows the shared confirmation dialog; this tab just re-syncs.
         refreshTable();
     }
 }
