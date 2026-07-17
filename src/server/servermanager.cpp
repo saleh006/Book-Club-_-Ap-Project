@@ -894,6 +894,14 @@ bool ServerManager::startServer(int port)
     return true;
 }
 
+void ServerManager::stopServer()
+{
+    if (this->isListening()) {
+        this->close();
+        qDebug() << "Server stopped listening on port" << this->serverPort();
+    }
+}
+
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
     ClientHandler *handler = new ClientHandler(socketDescriptor,this);

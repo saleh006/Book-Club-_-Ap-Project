@@ -43,6 +43,7 @@ class ServerManager : public QTcpServer
 public:
     explicit ServerManager(QObject *parent = nullptr);
     bool startServer(int port);
+    void stopServer();
 
 signals:
     void serverLogEvent(const QString &message);

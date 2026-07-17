@@ -23,7 +23,8 @@ qt_add_executable(BookClubServer
     src/database/databasemanager_publisher.cpp
     src/server/servermanager.h
     src/server/servermanager.cpp
-    main_server.cpp
+    src/server/serverui.h
+    src/server/serverui.cpp
 )
 
 target_include_directories(BookClubServer PRIVATE
@@ -33,6 +34,7 @@ target_include_directories(BookClubServer PRIVATE
 
 target_link_libraries(BookClubServer PRIVATE
     Qt::Core
+    Qt::Widgets
     Qt::Sql
     Qt::Network
 )
