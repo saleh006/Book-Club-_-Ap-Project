@@ -282,8 +282,11 @@ void LoginWindow::onReadyRead()
 
     if (status == "success") {
         m_loggedInRole = responseObj["role"].toString();
+        m_loggedInUserId = responseObj["userId"].toInt();       // NEW
+        m_loggedInFullName = responseObj["fullName"].toString(); // NEW
         emit loginSuccessful(m_usernameEdit->text().trimmed());
-    } else {
+    }
+    else {
         m_statusLabel->setText(responseObj["message"].toString());
         m_statusLabel->setVisible(true);
     }
@@ -295,4 +298,14 @@ void LoginWindow::onSocketError(QAbstractSocket::SocketError error)
     m_loginButton->setEnabled(true);
     m_statusLabel->setText("Connection error: " + m_socket->errorString());
     m_statusLabel->setVisible(true);
+}
+
+int LoginWindow::loggedInUserId() const
+{
+    return m_loggedInUserId;
+}
+
+QString LoginWindow::loggedInFullName() const
+{
+    return m_loggedInFullName;
 }

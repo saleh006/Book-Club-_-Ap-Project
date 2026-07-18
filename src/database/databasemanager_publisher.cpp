@@ -29,7 +29,7 @@ bool DatabaseManager::fetchPublishedBooks(int publisherId, QVector<Book> &outBoo
         b.price = query.value("price").toDouble();
         b.coverImagePath = query.value("cover_image_path").toString();
         b.pdfPath = query.value("pdf_path").toString();
-        b.isActive = query.value("is_active").toBool();
+        b.status = query.value("is_active").toInt();
         b.averageRating = query.value("average_rating").toDouble();
         b.totalSales = query.value("total_sales").toInt();
         outBooks.push_back(b);
@@ -164,6 +164,36 @@ bool DatabaseManager::fetchAllPublisherProfilesForAdmin(QVector<PublisherProfile
             qWarning() << "Skipping publisher" << username << "in admin listing:" << profileError;
         }
     }
+    return true;
+}
+
+bool DatabaseManager::fetchPublisherSalesTrend(int publisherId, const QString &granularity, QVector<QPair<QString, int> > &outPoints, QString &errorMsg)
+{
+    // SQLite strftime formats: monthly "2026-07", weekly "2026-W28", daily "2026-07-14"
+    QString fmt = "%Y-%m";
+    if (granularity == "weekly")     fmt = "%Y-W%W";
+    else if (granularity == "daily") fmt = "%Y-%m-%d";
+
+    QSqlQuery query(database());
+    query.prepare(QString(R"(
+        SELECT strftime('%1', p.purchase_date) AS period,
+               SUM(pi.quantity) AS sales
+        FROM purchase_items pi
+        JOIN purchases p ON p.id  = pi.purchase_id
+        JOIN books b     ON b.id  = pi.book_id
+        WHERE b.publisher_id = :pubId
+        GROUP BY period
+        ORDER BY period
+    )").arg(fmt));
+    query.bindValue(":pubId", publisherId);
+
+    if (!query.exec()) {
+        errorMsg = "Failed to fetch sales trend: " + query.lastError().text();
+        return false;
+    }
+    outPoints.clear();
+    while (query.next())
+        outPoints.append({query.value(0).toString(), query.value(1).toInt()});
     return true;
 }
 

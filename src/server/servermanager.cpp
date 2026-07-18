@@ -3,6 +3,10 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QJsonArray>
+#include <QFile>
+#include <QDir>
+#include <QCoreApplication>
+#include <QDateTime>
 #include "databasemanager.h"
 #include "servermanager.h"
 
@@ -94,6 +98,7 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = "Login successful.";
                 responseObj["role"] = loggedInUser.role;
                 responseObj["fullName"] = loggedInUser.fullName;
+                responseObj["userId"] = loggedInUser.id;
                 m_username = username;
             } else {
                 responseObj["status"] = "error";
@@ -109,6 +114,7 @@ void ClientHandler::onReadyRead()
                 responseObj["fullName"] = u.fullName;
                 responseObj["email"] = u.email;
                 responseObj["role"] = u.role;
+                responseObj["type"] = "user_info";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -251,6 +257,38 @@ void ClientHandler::onReadyRead()
             ServerManager *server = qobject_cast<ServerManager*>(parent());
             if (server) {
                 connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
+            }
+        }
+        else if (action == "user_update_profile") {
+            int userId          = requestObj["userId"].toInt();
+            QString newUsername = requestObj["newUsername"].toString();
+            QString fullName    = requestObj["fullName"].toString();
+            QString email       = requestObj["email"].toString();
+            QString errorMsg;
+            responseObj["type"] = "profile_update_result";
+            if (DatabaseManager::instance().updateUserProfile(userId, newUsername, fullName, email, errorMsg)) {
+                responseObj["success"]  = true;
+                responseObj["username"] = newUsername;
+                responseObj["fullName"] = fullName;
+                responseObj["email"]    = email;
+                m_username = newUsername;
+                emit databaseUpdated("users");
+            } else {
+                responseObj["success"] = false;
+                responseObj["message"] = errorMsg;
+            }
+        }
+        else if (action == "user_change_password") {
+            int userId          = requestObj["userId"].toInt();
+            QString oldPassword = requestObj["oldPassword"].toString();
+            QString newPassword = requestObj["newPassword"].toString();
+            QString errorMsg;
+            responseObj["type"] = "password_change_result";
+            if (DatabaseManager::instance().changePassword(userId, oldPassword, newPassword, errorMsg)) {
+                responseObj["success"] = true;
+            } else {
+                responseObj["success"] = false;
+                responseObj["message"] = errorMsg;
             }
         }
         /*else if (action == "delete_account") {
@@ -984,27 +1022,27 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
-        else if (action == "publisher_get_stats") {
-            int publisherId = requestObj["publisherId"].toInt();
-            int bookCount = 0;
-            int totalSales = 0;
-            double averageRating = 0.0;
-            double totalIncome = 0.0;
-            QString errorMsg;
+        // else if (action == "publisher_get_stats") {
+        //     int publisherId = requestObj["publisherId"].toInt();
+        //     int bookCount = 0;
+        //     int totalSales = 0;
+        //     double averageRating = 0.0;
+        //     double totalIncome = 0.0;
+        //     QString errorMsg;
 
-            bool statsSuccess = DatabaseManager::instance().fetchPublisherStats(publisherId, bookCount, totalSales, averageRating, errorMsg);
-            bool incomeSuccess = DatabaseManager::instance().fetchPublisherIncome(publisherId, totalIncome, errorMsg);
-            if (statsSuccess && incomeSuccess) {
-                responseObj["status"] = "success";
-                responseObj["bookCount"] = bookCount;
-                responseObj["totalSales"] = totalSales;
-                responseObj["averageRating"] = averageRating;
-                responseObj["totalIncome"] = totalIncome;
-            } else {
-                responseObj["status"] = "error";
-                responseObj["message"] = errorMsg.isEmpty() ? "Error fetching publisher stats." : errorMsg;
-            }
-        }
+        //     bool statsSuccess = DatabaseManager::instance().fetchPublisherStats(publisherId, bookCount, totalSales, averageRating, errorMsg);
+        //     bool incomeSuccess = DatabaseManager::instance().fetchPublisherIncome(publisherId, totalIncome, errorMsg);
+        //     if (statsSuccess && incomeSuccess) {
+        //         responseObj["status"] = "success";
+        //         responseObj["bookCount"] = bookCount;
+        //         responseObj["totalSales"] = totalSales;
+        //         responseObj["averageRating"] = averageRating;
+        //         responseObj["totalIncome"] = totalIncome;
+        //     } else {
+        //         responseObj["status"] = "error";
+        //         responseObj["message"] = errorMsg.isEmpty() ? "Error fetching publisher stats." : errorMsg;
+        //     }
+        // }
         else if (action == "book_set_ownership") {
             int bookId = requestObj["bookId"].toInt();
             int publisherId = requestObj["publisherId"].toInt();
@@ -1017,6 +1055,208 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
+        else if (action == "publisher_get_books") {
+            int publisherId = requestObj["publisherId"].toInt();
+            QVector<Book> books;
+            QString errorMsg;
+            DatabaseManager::instance().fetchPublishedBooks(publisherId, books, errorMsg, false);
+
+            QJsonArray booksArray;
+            for (const Book &b : std::as_const(books)) {
+                QJsonObject bo;
+                bo["id"] = b.id;
+                bo["title"] = b.title;
+                bo["author"] = b.author;
+                bo["genre"] = b.genre;
+                bo["description"] = b.description;
+                bo["price"] = b.price;
+                bo["coverImagePath"] = b.coverImagePath;
+                bo["pdfPath"] = b.pdfPath;
+                bo["status"] = b.status;
+                bo["averageRating"] = b.averageRating;
+                bo["totalSales"] = b.totalSales;
+                booksArray.append(bo);
+            }
+            responseObj["type"] = "publisher_books_list";
+            responseObj["books"] = booksArray;
+        }
+
+        else if (action == "publisher_get_stats") {
+            int publisherId = requestObj["publisherId"].toInt();
+            int bookCount = 0, totalSales = 0;
+            double avgRating = 0.0, totalIncome = 0.0;
+            QString errorMsg;
+
+            DatabaseManager::instance().fetchPublisherStats(publisherId, bookCount, totalSales, avgRating, errorMsg);
+            DatabaseManager::instance().fetchPublisherIncome(publisherId, totalIncome, errorMsg);
+
+            responseObj["type"] = "publisher_stats";
+            responseObj["bookCount"] = bookCount;
+            responseObj["totalSales"] = totalSales;
+            responseObj["averageRating"] = avgRating;
+            responseObj["totalIncome"] = totalIncome;
+        }
+
+        else if (action == "publisher_add_book") {
+            Book book;
+            book.publisherId = requestObj["publisherId"].toInt();
+            book.title = requestObj["title"].toString();
+            book.author = requestObj["author"].toString();
+            book.genre = requestObj["genre"].toString();
+            book.description = requestObj["description"].toString();
+            book.price = requestObj["price"].toDouble();
+            book.coverImagePath = requestObj["coverImagePath"].toString();
+            book.pdfPath = requestObj["pdfPath"].toString();
+
+            int newBookId = -1;
+            QString errorMsg;
+            if (DatabaseManager::instance().addBook(book, newBookId, errorMsg)) {
+                responseObj["type"] = "action_result";
+                responseObj["success"] = true;
+                responseObj["newBookId"] = newBookId;
+                responseObj["message"] = "Book added.";
+            } else {
+                responseObj["type"] = "action_result";
+                responseObj["success"] = false;
+                responseObj["message"] = errorMsg;
+            }
+        }
+
+        else if (action == "publisher_update_book") {
+            Book book;
+            book.id = requestObj["id"].toInt();
+            book.publisherId = requestObj["publisherId"].toInt();
+            book.title = requestObj["title"].toString();
+            book.author = requestObj["author"].toString();
+            book.genre = requestObj["genre"].toString();
+            book.description = requestObj["description"].toString();
+            book.price = requestObj["price"].toDouble();
+            book.coverImagePath = requestObj["coverImagePath"].toString();
+            book.pdfPath = requestObj["pdfPath"].toString();
+            // remove the "book.isActive = true;" line entirely,
+            // OR if publishers should be able to resubmit for review:
+            book.status = requestObj.contains("status") ? requestObj["status"].toInt() : 1;
+
+            QString errorMsg;
+            bool ok = DatabaseManager::instance().updateBook(book, errorMsg);
+            responseObj["type"] = "action_result";
+            responseObj["success"] = ok;
+            responseObj["message"] = ok ? "Book updated." : errorMsg;
+        }
+
+        else if (action == "publisher_delete_book") {
+            int bookId = requestObj["bookId"].toInt();
+            QString errorMsg;
+            bool ok = DatabaseManager::instance().deleteBook(bookId, errorMsg);
+            responseObj["type"] = "action_result";
+            responseObj["success"] = ok;
+            responseObj["message"] = ok ? "Book removed." : errorMsg;
+        }
+        else if (action == "admin_set_book_status") {
+            int bookId = requestObj["bookId"].toInt();
+            int status = requestObj["status"].toInt(); // 1, 0, or -1
+            QString errorMsg;
+            if (DatabaseManager::instance().setBookStatus(bookId, status, errorMsg)) {
+                responseObj["status"] = "success";
+                responseObj["message"] = "Book status updated.";
+            } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
+        }
+        else if (action == "publisher_set_book_status") {
+            int bookId = requestObj["bookId"].toInt();
+            int publisherId = requestObj["publisherId"].toInt();
+            int status = requestObj["status"].toInt();
+
+            if (status != 0 && status != 1) {
+                responseObj["type"] = "action_result";
+                responseObj["success"] = false;
+                responseObj["message"] = "Publishers can only set active/inactive.";
+            } else {
+                // Verify the book actually belongs to this publisher before touching it
+                Book b;
+                QString fetchErr;
+                if (!DatabaseManager::instance().fetchBook(bookId, b, fetchErr) || b.publisherId != publisherId) {
+                    responseObj["type"] = "action_result";
+                    responseObj["success"] = false;
+                    responseObj["message"] = "Book not found or not owned by you.";
+                } else {
+                    QString errorMsg;
+                    bool ok = DatabaseManager::instance().setBookStatus(bookId, status, errorMsg);
+                    responseObj["type"] = "action_result";
+                    responseObj["success"] = ok;
+                    responseObj["message"] = ok ? "Book status updated." : errorMsg;
+                }
+            }
+        }
+        else if (action == "publisher_add_discount") {
+            int publisherId = requestObj["publisherId"].toInt();
+            int bookId = requestObj["bookId"].toInt();
+
+            // Verify the book actually belongs to this publisher before allowing a discount on it
+            Book b;
+            QString fetchErr;
+            if (!DatabaseManager::instance().fetchBook(bookId, b, fetchErr) || b.publisherId != publisherId) {
+                responseObj["status"] = "error";
+                responseObj["message"] = "Book not found or not owned by you.";
+            } else {
+                Discount d;
+                d.bookId = bookId;
+                d.type = requestObj["type"].toString();
+                d.value = requestObj["value"].toDouble();
+                d.startDate = QDateTime::fromString(requestObj["startDate"].toString(), Qt::ISODate);
+                d.endDate = QDateTime::fromString(requestObj["endDate"].toString(), Qt::ISODate);
+
+                QString errorMsg;
+                if (DatabaseManager::instance().addDiscount(d, errorMsg)) {
+                    responseObj["status"] = "success";
+                    responseObj["message"] = "Offer set successfully.";
+                } else {
+                    responseObj["status"] = "error";
+                    responseObj["message"] = errorMsg;
+                }
+            }
+        }
+        else if (action == "upload_file") {
+            QString fileType = requestObj["fileType"].toString(); // "cover" or "pdf"
+            QString fileName = requestObj["fileName"].toString();
+            QByteArray fileBytes = QByteArray::fromBase64(requestObj["fileData"].toString().toUtf8());
+
+            QString subfolder = (fileType == "cover") ? "covers" : "pdfs";
+            QString storageDir = QCoreApplication::applicationDirPath() + "/uploads/" + subfolder;
+            QDir().mkpath(storageDir); // creates the folder if it doesn't exist yet
+            QString uniqueName = QString::number(QDateTime::currentMSecsSinceEpoch()) + "_" + fileName;
+            QString fullPath = storageDir + "/" + uniqueName;
+
+            QFile outFile(fullPath);
+            if (outFile.open(QIODevice::WriteOnly)) {
+                outFile.write(fileBytes);
+                outFile.close();
+                responseObj["type"] = "upload_result";
+                responseObj["success"] = true;
+                responseObj["serverPath"] = fullPath;
+            } else {
+                responseObj["type"] = "upload_result";
+                responseObj["success"] = false;
+                responseObj["message"] = "Failed to save file on server.";
+            }
+        }
+        else if (action == "publisher_get_sales_trend") {
+            int publisherId = requestObj["publisherId"].toInt();
+            QString granularity = requestObj["granularity"].toString("monthly");
+            QVector<QPair<QString, int>> points;
+            QString errorMsg;
+            DatabaseManager::instance().fetchPublisherSalesTrend(publisherId, granularity, points, errorMsg);
+            QJsonArray arr;
+            for (const auto &p : std::as_const(points)) {
+                QJsonObject o;
+                o["period"] = p.first;
+                o["sales"]  = p.second;
+                arr.append(o);
+            }
+            responseObj["type"] = "publisher_sales_trend";
+            responseObj["points"] = arr;
         else if (action == "get_publishers_list") {
             QVector<PublisherProfileSummary> profiles;
             QString errorMsg;

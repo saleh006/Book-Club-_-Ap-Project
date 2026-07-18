@@ -3,6 +3,23 @@ project(ap-project LANGUAGES CXX)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
+    Widgets
+    Sql
+    Network
+    QuickWidgets
+    Quick
+    Charts
+)
+
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS
+    Widgets
+    Sql
+    Network
+    QuickWidgets
+    Quick
+    Charts
+)
 
 
 qt_standard_project_setup()
@@ -12,6 +29,7 @@ qt_add_resources(RESOURCES
 
 qt_add_executable(BookClubServer
     main_server.cpp
+    src/shared/models.h
     src/database/databasemanager.h
     src/database/databasemanager.cpp
     src/database/databasemanager_core.cpp
@@ -30,6 +48,7 @@ qt_add_executable(BookClubServer
 target_include_directories(BookClubServer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/database
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shared
 )
 
 target_link_libraries(BookClubServer PRIVATE
@@ -71,6 +90,12 @@ qt_add_qml_module(BookClubClient
         SOURCES src/auth/loginwindow.h src/auth/loginwindow.cpp
         SOURCES src/auth/signupwindow.h src/auth/signupwindow.cpp
         SOURCES src/auth/recoverywindow.h src/auth/recoverywindow.cpp
+        SOURCES src/publisherPanel/publisherpanel.h src/publisherPanel/publisherpanel.cpp
+        SOURCES src/publisherPanel/bookcardwidget.h src/publisherPanel/bookcardwidget.cpp
+        SOURCES src/shared/models.h
+        SOURCES src/publisherPanel/addeditbookdialog.h src/publisherPanel/addeditbookdialog.cpp
+        SOURCES src/publisherPanel/setofferdialog.h src/publisherPanel/setofferdialog.cpp
+        SOURCES src/publisherPanel/editprofiledialog.h src/publisherPanel/editprofiledialog.cpp
         SOURCES src/adminPanel/adminpanel.h src/adminPanel/adminpanel.cpp
         SOURCES src/adminPanel/booktab.h src/adminPanel/booktab.cpp
         SOURCES src/adminPanel/usertab.h src/adminPanel/usertab.cpp
@@ -81,6 +106,7 @@ qt_add_qml_module(BookClubClient
 target_include_directories(BookClubClient PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/server
     ${CMAKE_CURRENT_SOURCE_DIR}/src/auth
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shared
 )
 
 target_link_libraries(BookClubClient
@@ -90,6 +116,7 @@ target_link_libraries(BookClubClient
         Qt::Network
         Qt::QuickWidgets
         Qt::Quick
+        Qt::Charts
 )
 
 install(TARGETS BookClubClient

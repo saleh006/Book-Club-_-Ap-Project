@@ -259,3 +259,58 @@ bool DatabaseManager::fetchUser(const QString &username, User &outUser, QString 
     return true;
 }
 
+bool DatabaseManager::updateUserProfile(int userId, const QString &newUsername,
+                                        const QString &fullName, const QString &email,
+                                        QString &errorMsg)
+{
+    const QString newU = newUsername.trimmed();
+    QSqlDatabase db = database();
+
+    // username taken by anyone who is NOT me?
+    QSqlQuery check(db);
+    check.prepare(R"(SELECT id FROM users
+                     WHERE username = :newU COLLATE NOCASE AND id <> :id)");
+    check.bindValue(":newU", newU);
+    check.bindValue(":id", userId);
+    if (!check.exec()) { errorMsg = "Database error: " + check.lastError().text(); return false; }
+    if (check.next())  { errorMsg = "This username is already taken."; return false; }
+
+    QSqlQuery query(db);
+    query.prepare(R"(UPDATE users SET username = :newU, full_name = :name, email = :email
+                     WHERE id = :id)");
+    query.bindValue(":newU", newU);
+    query.bindValue(":name", fullName.trimmed());
+    query.bindValue(":email", email.trimmed());
+    query.bindValue(":id", userId);
+    if (!query.exec()) { errorMsg = "Failed to update profile: " + query.lastError().text(); return false; }
+    if (query.numRowsAffected() == 0) { errorMsg = "User not found."; return false; }
+    return true;
+}
+
+bool DatabaseManager::changePassword(int userId, const QString &oldPassword,
+                                     const QString &newPassword, QString &errorMsg)
+{
+    if (newPassword.length() < 6) { errorMsg = "New password must be at least 6 characters."; return false; }
+
+    QSqlDatabase db = database();
+    QSqlQuery query(db);
+    query.prepare("SELECT password_hash, salt FROM users WHERE id = :id");
+    query.bindValue(":id", userId);
+    if (!query.exec()) { errorMsg = "Database error: " + query.lastError().text(); return false; }
+    if (!query.next()) { errorMsg = "User not found."; return false; }
+
+    if (hashPassword(oldPassword, query.value("salt").toString())
+        != query.value("password_hash").toString()) {
+        errorMsg = "Current password is incorrect.";
+        return false;
+    }
+
+    const QString newSalt = generateSalt();
+    QSqlQuery update(db);
+    update.prepare("UPDATE users SET password_hash = :hash, salt = :salt WHERE id = :id");
+    update.bindValue(":hash", hashPassword(newPassword, newSalt));
+    update.bindValue(":salt", newSalt);
+    update.bindValue(":id", userId);
+    if (!update.exec()) { errorMsg = "Failed to change password: " + update.lastError().text(); return false; }
+    return true;
+}

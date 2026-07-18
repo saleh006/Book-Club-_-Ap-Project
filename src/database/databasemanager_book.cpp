@@ -29,7 +29,7 @@ bool DatabaseManager::addBook(const Book &book, int &newBookId, QString &errorMs
     query.bindValue(":price", book.price);
     query.bindValue(":cover", book.coverImagePath);
     query.bindValue(":pdf", book.pdfPath);
-    query.bindValue(":isActive", book.isActive ? 1 : 0);
+    query.bindValue(":isActive", book.status);
 
     if (!query.exec()) {
         errorMsg = "Failed to add book: " + query.lastError().text();
@@ -66,7 +66,7 @@ bool DatabaseManager::updateBook(const Book &book, QString &errorMsg)
     query.bindValue(":price", book.price);
     query.bindValue(":cover", book.coverImagePath);
     query.bindValue(":pdf", book.pdfPath);
-    query.bindValue(":isActive", book.isActive ? 1 : 0);
+    query.bindValue(":isActive", book.status);
     query.bindValue(":id", book.id);
     query.bindValue(":pubId", book.publisherId);
 
@@ -84,7 +84,7 @@ bool DatabaseManager::updateBook(const Book &book, QString &errorMsg)
 bool DatabaseManager::deleteBook(int bookId, QString &errorMsg)
 {
     QSqlQuery query(database());
-    query.prepare("UPDATE books SET is_active = 0 WHERE id = :id");
+    query.prepare("UPDATE books SET is_active = -1 WHERE id = :id");
     query.bindValue(":id", bookId);
 
     if (!query.exec()) {
@@ -118,7 +118,7 @@ bool DatabaseManager::fetchBook(int bookId, Book &outBook, QString &errorMsg)
     outBook.price = query.value("price").toDouble();
     outBook.coverImagePath = query.value("cover_image_path").toString();
     outBook.pdfPath = query.value("pdf_path").toString();
-    outBook.isActive = query.value("is_active").toBool();
+    outBook.status = query.value("is_active").toInt();
     outBook.averageRating = query.value("average_rating").toDouble();
     outBook.totalSales = query.value("total_sales").toInt();
     return true;
@@ -147,7 +147,7 @@ bool DatabaseManager::fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, 
         b.price = query.value("price").toDouble();
         b.coverImagePath = query.value("cover_image_path").toString();
         b.pdfPath = query.value("pdf_path").toString();
-        b.isActive = query.value("is_active").toBool();
+        b.status = query.value("is_active").toInt();
         b.averageRating = query.value("average_rating").toDouble();
         b.totalSales = query.value("total_sales").toInt();
         outBooks.push_back(b);
@@ -178,10 +178,32 @@ bool DatabaseManager::fetchBooksByGenre(const QString &genre, QVector<Book> &out
         b.price = query.value("price").toDouble();
         b.coverImagePath = query.value("cover_image_path").toString();
         b.pdfPath = query.value("pdf_path").toString();
-        b.isActive = query.value("is_active").toBool();
+        b.status = query.value("is_active").toInt();
         b.averageRating = query.value("average_rating").toDouble();
         b.totalSales = query.value("total_sales").toInt();
         outBooks.push_back(b);
+    }
+    return true;
+}
+
+bool DatabaseManager::setBookStatus(int bookId, int status, QString &errorMsg)
+{
+    if (status != -1 && status != 0 && status != 1) {
+        errorMsg = "Invalid book status value.";
+        return false;
+    }
+    QSqlQuery query(database());
+    query.prepare("UPDATE books SET is_active = :status WHERE id = :id");
+    query.bindValue(":status", status);
+    query.bindValue(":id", bookId);
+
+    if (!query.exec()) {
+        errorMsg = "Failed to update book status: " + query.lastError().text();
+        return false;
+    }
+    if (query.numRowsAffected() == 0) {
+        errorMsg = "Book not found.";
+        return false;
     }
     return true;
 }

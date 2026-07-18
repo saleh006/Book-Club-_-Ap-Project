@@ -20,6 +20,8 @@ public:
         void clearFields();
         void showSuccessMessage(const QString &message);
         QString loggedInRole() const;
+        int loggedInUserId() const;      // NEW
+        QString loggedInFullName() const;
     signals:
         void loginSuccessful(const QString &username);
         void switchToSignUpRequested();
@@ -36,6 +38,8 @@ private :
     QLabel *m_statusLabel;
     QString m_loggedInRole;
     QTcpSocket *m_socket;
+    int m_loggedInUserId = -1;       // NEW
+    QString m_loggedInFullName;
 
 };
 
