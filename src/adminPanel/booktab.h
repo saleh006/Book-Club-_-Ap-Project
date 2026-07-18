@@ -9,21 +9,7 @@
 #include <QTcpSocket>
 #include <QJsonObject>
 #include <QLabel>
-
-struct Book {
-    int id = -1;
-    int publisherId = -1;
-    QString title;
-    QString author;
-    QString genre;
-    QString description;
-    double price = 0.0;
-    QString coverImagePath;
-    QString pdfPath;
-    int status = 1;
-    double averageRating = 0.0;
-    int totalSales = 0;
-};
+#include "models.h"
 
 class QTextEdit;
 class QDoubleSpinBox;

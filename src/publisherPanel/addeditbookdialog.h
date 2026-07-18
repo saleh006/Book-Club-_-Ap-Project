@@ -8,12 +8,12 @@ class QLineEdit;
 class QTextEdit;
 class QDoubleSpinBox;
 
-class AddEditBookDialog : public QDialog
+class AddEditBookDialogPub : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit AddEditBookDialog(const Book &existingBook, QWidget *parent = nullptr);
+    explicit AddEditBookDialogPub(const Book &existingBook, QWidget *parent = nullptr);
     Book resultBook() const;
 
 private:

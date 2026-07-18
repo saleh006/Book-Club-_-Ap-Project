@@ -133,6 +133,7 @@ public:
                           User *outUser = nullptr);
     bool fetchUser(const QString &username, User &outUser, QString &errorMsg);
     bool setUserBlocked(const QString &username, bool blocked, QString &errorMsg);
+    bool deleteUser(const QString &username, QString &errorMsg);
     bool resetPasswordWithRecovery(const QString &username,
                                    const QString &recoveryAnswer,
                                    const QString &newPassword,

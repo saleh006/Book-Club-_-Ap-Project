@@ -36,6 +36,7 @@ struct Review {
     QDateTime date;
     int userId = -1;
     int bookId = -1;
+    bool isApproved = false;
 };
 
 struct Notification {

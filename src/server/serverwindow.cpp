@@ -73,7 +73,7 @@ void ServerWindow::setupUi()
 
     QString cardStyle =
         "QLabel { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
-        "padding: 8px; font-size: 12px; font-weight: bold; ";
+        "padding: 8px; font-size: 14px; font-weight: bold; ";
 
     m_statusLabel->setStyleSheet(cardStyle + "color: #f39c12; }");
     m_clientCountLabel->setStyleSheet(cardStyle + "color: #3498db }");
@@ -98,7 +98,7 @@ void ServerWindow::setupUi()
 
     m_logDisplay = new QTextEdit(this);
     m_logDisplay->setReadOnly(true);
-    m_logDisplay->setStyleSheet("background-color: #0f0f12; color: #a3be8c; border: none; font-family: 'Consolas', monospace; font-size: 11px;");
+    m_logDisplay->setStyleSheet("background-color: #0f0f12; color: #a3be8c; border: none; font-family: 'Consolas', monospace; font-size: 13px;");
 
     logGroupLayout->addWidget(m_logDisplay);
     mainLayout->addWidget(logGroup);

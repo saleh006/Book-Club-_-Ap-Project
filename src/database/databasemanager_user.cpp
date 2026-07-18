@@ -129,6 +129,23 @@ bool DatabaseManager::setUserBlocked(const QString &username, bool blocked, QStr
     return true;
 }
 
+bool DatabaseManager::deleteUser(const QString &username, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("DELETE FROM users WHERE username = :username");
+    query.bindValue(":username", username);
+
+    if (!query.exec()) {
+        errorMsg = "Database error while deleting user: " + query.lastError().text();
+        return false;
+    }
+    if (query.numRowsAffected() == 0) {
+        errorMsg = "User not found.";
+        return false;
+    }
+    return true;
+}
+
 bool DatabaseManager::resetPasswordWithRecovery(const QString &username, const QString &recoveryAnswer, const QString &newPassword, QString &errorMsg)
 {
     if (newPassword.length() < 6) {

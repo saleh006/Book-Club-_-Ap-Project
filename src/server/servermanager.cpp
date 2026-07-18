@@ -291,7 +291,7 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
-        /*else if (action == "delete_account") {
+        else if (action == "delete_account") {
             QString username = requestObj["username"].toString();
             QString errorMsg;
             if (DatabaseManager::instance().deleteUser(username, errorMsg)) {
@@ -312,7 +312,7 @@ void ClientHandler::onReadyRead()
                 response["message"] = errorMsg;
                 sendToClient(response);
             }
-        }*/
+        }
 
         // ========
         // BOOKS
@@ -367,20 +367,6 @@ void ClientHandler::onReadyRead()
                 responseObj["message"] = errorMsg;
             }
         }
-        else if (action == "books_delete") {
-            responseObj["action"] = "delete_book_response";
-            int bookId = requestObj["bookId"].toInt();
-            QString errorMsg;
-            if (DatabaseManager::instance().deleteBook(bookId, errorMsg)) {
-                responseObj["status"] = "success";
-                responseObj["message"] = "Book deleted successfully.";
-                emit logProduced(QString("[SYS] Book ID %1 was deleted.").arg(bookId));
-                emit databaseUpdated("book");
-            } else {
-                responseObj["status"] = "error";
-                responseObj["message"] = errorMsg;
-            }
-        }
         else if (action == "get_book_details") {
             responseObj["action"] = "book_details_response";
             int bookId = requestObj["bookId"].toInt();
@@ -399,7 +385,7 @@ void ClientHandler::onReadyRead()
                 data["coverImagePath"] = b.coverImagePath;
                 data["pdfPath"] = b.pdfPath;
                 data["averageRating"] = b.averageRating;
-                data["isActive"] = b.isActive;
+                data["isActive"] = b.status;
                 responseObj["data"] = data;
             } else {
                 responseObj["status"] = "error";
@@ -418,16 +404,14 @@ void ClientHandler::onReadyRead()
                     bookObj["id"] = book.id;
                     bookObj["title"] = book.title;
                     bookObj["author"] = book.author;
-                    bookObj["isActive"] = book.isActive;
+                    bookObj["isActive"] = book.status;
                     bookObj["price"] = book.price;
 
                     booksArray.append(bookObj);
                 }
 
-                QJsonObject response;
-                response["status"] = "success";
-                response["data"] = booksArray;
-                sendToClient(response);
+                responseObj["status"] = "success";
+                responseObj["data"] = booksArray;
             } else {
                 QJsonObject response;
                 response["status"] = "error";
@@ -435,32 +419,6 @@ void ClientHandler::onReadyRead()
                 sendToClient(response);
             }
         }
-        /*else if (action == "set_book_active_status") {
-            int bookId = requestObj["bookId"].toInt();
-            bool activeStatus = requestObj["active_status"].toBool();
-            QString errorMsg;
-
-            if (DatabaseManager::instance().updateBookActiveStatus(bookId, activeStatus, errorMsg)) {
-                QJsonObject response;
-                response["action"] = "set_book_active_status_response";
-                response["status"] = "success";
-                response["bookId"] = bookId;
-                response["active_status"] = activeStatus;
-                sendToClient(response);
-
-                emit databaseUpdated("book");
-                QString logMsg = QString("[ADMIN] Book ID %1 status updated to: %2")
-                                     .arg(bookId).arg(activeStatus ? "Approved/Active" : "Rejected/Inactive");
-                emit logProduced(logMsg);
-            }
-            else {
-                QJsonObject response;
-                response["action"] = "set_book_active_status_response";
-                response["status"] = "error";
-                response["message"] = errorMsg;
-                sendToClient(response);
-            }
-        }*/
         else if (action == "books_fetch_by_genre") {
             QString genre = requestObj["genre"].toString();
             QVector<Book> books;
@@ -1115,6 +1073,7 @@ void ClientHandler::onReadyRead()
                 responseObj["success"] = true;
                 responseObj["newBookId"] = newBookId;
                 responseObj["message"] = "Book added.";
+                emit databaseUpdated("book");
             } else {
                 responseObj["type"] = "action_result";
                 responseObj["success"] = false;
@@ -1142,6 +1101,7 @@ void ClientHandler::onReadyRead()
             responseObj["type"] = "action_result";
             responseObj["success"] = ok;
             responseObj["message"] = ok ? "Book updated." : errorMsg;
+            emit databaseUpdated("book");
         }
 
         else if (action == "publisher_delete_book") {
@@ -1151,14 +1111,24 @@ void ClientHandler::onReadyRead()
             responseObj["type"] = "action_result";
             responseObj["success"] = ok;
             responseObj["message"] = ok ? "Book removed." : errorMsg;
+            emit databaseUpdated("book");
         }
         else if (action == "admin_set_book_status") {
+            responseObj["action"] = "admin_set_book_status_response";
             int bookId = requestObj["bookId"].toInt();
             int status = requestObj["status"].toInt(); // 1, 0, or -1
             QString errorMsg;
+
             if (DatabaseManager::instance().setBookStatus(bookId, status, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "Book status updated.";
+                responseObj["bookId"] = bookId;
+                responseObj["book_status"] = status;
+
+                QString actionLabel = status == -1 ? "deleted" : (status == 1 ? "approved" : "rejected");
+                responseObj["message"] = QString("Book %1 successfully.").arg(actionLabel);
+
+                emit databaseUpdated("book");
+                emit logProduced(QString("[ADMIN] Book ID %1 was %2.").arg(bookId).arg(actionLabel));
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -1187,6 +1157,7 @@ void ClientHandler::onReadyRead()
                     responseObj["type"] = "action_result";
                     responseObj["success"] = ok;
                     responseObj["message"] = ok ? "Book status updated." : errorMsg;
+                    emit databaseUpdated("book");
                 }
             }
         }
@@ -1257,6 +1228,7 @@ void ClientHandler::onReadyRead()
             }
             responseObj["type"] = "publisher_sales_trend";
             responseObj["points"] = arr;
+        }
         else if (action == "get_publishers_list") {
             QVector<PublisherProfileSummary> profiles;
             QString errorMsg;
@@ -1314,7 +1286,7 @@ void ClientHandler::onReadyRead()
                     o["price"] = b.price;
                     o["totalSales"] = b.totalSales;
                     o["averageRating"] = b.averageRating;
-                    o["isActive"] = b.isActive;
+                    o["isActive"] = b.status;
                     booksArr.append(o);
                 }
                 data["publishedBooks"] = booksArr;

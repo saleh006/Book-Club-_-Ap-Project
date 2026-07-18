@@ -403,9 +403,9 @@ void BookTab::handleApproveBook()
     int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
 
     QJsonObject packet;
-    packet["action"] = "set_book_active_status";
+    packet["action"] = "admin_set_book_status";
     packet["bookId"] = bookId;
-    packet["active_status"] = true;
+    packet["status"] = 1;
     m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
 
@@ -416,9 +416,9 @@ void BookTab::handleRejectBook()
     int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
 
     QJsonObject packet;
-    packet["action"] = "set_book_active_status";
+    packet["action"] = "admin_set_book_status";
     packet["bookId"] = bookId;
-    packet["active_status"] = false;
+    packet["status"] = 0;
     m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
 
@@ -433,8 +433,9 @@ void BookTab::handleDeleteBook()
                                                               QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
         QJsonObject packet;
-        packet["action"] = "books_delete";
+        packet["action"] = "admin_set_book_status";
         packet["bookId"] = bookId;
+        packet["status"] = -1;
         m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
     }
 }
@@ -494,12 +495,26 @@ void BookTab::handleServerResponse(const QJsonObject &response)
             if (!isActive) setRowDimmed(m_booksTable, i, true);
         }
     }
-    else if (action == "delete_book_response" && response["status"] == "success") {
-        int currentRow = m_booksTable->currentRow();
-        if (currentRow >= 0) {
-            m_booksTable->removeRow(currentRow);
+    else if (action == "admin_set_book_status_response") {
+        if (response["status"].toString() == "success") {
+            int bookId = response["bookId"].toInt();
+            int status = response["book_status"].toInt();
+
+            for (int i = 0; i < m_booksTable->rowCount(); ++i) {
+                if (m_booksTable->item(i, 0)->text().toInt() == bookId) {
+                    if (status == -1) {
+                        m_booksTable->removeRow(i);
+                        QMessageBox::information(this, "Success", "Book deleted successfully.");
+                    } else {
+                        m_booksTable->item(i, 3)->setText(status == 1 ? "Approved" : "Pending/Rejected");
+                        setRowDimmed(m_booksTable, i, status != 1);
+                    }
+                    break;
+                }
+            }
+        } else {
+            QMessageBox::warning(this, "Action Failed", response["message"].toString());
         }
-        QMessageBox::information(this, "Success", "Book completely deleted from the database.");
     }
     else if (action == "book_details_response" && response["status"].toString() == "success") {
         QJsonObject data = response["data"].toObject();
@@ -549,91 +564,97 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
 {
     QDialog *dialog = new QDialog(this);
     dialog->setWindowTitle("Book Details");
-    dialog->resize(560, 520);
-    dialog->setStyleSheet("background-color: #09070C; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
+    dialog->resize(550, 520);
+    dialog->setStyleSheet(R"(
+        QDialog {
+            background-color: #120E14;
+            color: #EAEAEA;
+        }
 
-    QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
-    mainLayout->setContentsMargins(24, 24, 24, 20);
-    mainLayout->setSpacing(14);
+        QLabel#fieldLabel {
+            color: #A594B3;
+            background-color: #120E14;
+            padding: 6px 10px;
+            min-width: 90px;
+            qproperty-alignment: 'Qt::AlignCenter';
+        }
 
-    QHBoxLayout *headerLayout = new QHBoxLayout();
-    headerLayout->setSpacing(16);
+        QLabel#valueLabel {
+            background-color: #1F1724;
+            border: 1px solid #5F2E4F;
+            border-radius: 12px;
+            padding: 6px 12px;
+            color: #EAEAEA;
+        }
 
-    QLabel *cover = new QLabel("📖", dialog);
-    cover->setFixedSize(64, 64);
-    cover->setAlignment(Qt::AlignCenter);
-    cover->setStyleSheet("font-size: 30px; background-color: #1F1724; border-radius: 32px;");
+        QPushButton {
+            background-color: #7C3E66;
+            border: none;
+            border-radius: 12px;
+            padding: 8px 20px;
+            color: white;
+            font-weight: bold;
+        }
 
-    QVBoxLayout *headerTextLayout = new QVBoxLayout();
-    headerTextLayout->setSpacing(2);
+        QPushButton:hover {
+            background-color: #5F2E4F;
+        }
+    )");
 
-    QLabel *titleLabel = new QLabel(data["title"].toString(), dialog);
-    titleLabel->setStyleSheet("font-size: 20px; font-weight: bold; color: #FFFFFF;");
-
-    QLabel *authorLabel = new QLabel("by " + data["author"].toString(), dialog);
-    authorLabel->setStyleSheet("font-size: 12px; color: #9A8FA0;");
-
-    bool isActive = data["isActive"].toBool();
-    QLabel *statusBadge = new QLabel(isActive ? "✅ APPROVED" : "🚫 PENDING/REJECTED", dialog);
-    statusBadge->setStyleSheet(
-        QString("background-color: %1; color: white; font-size: 10px; font-weight: bold; "
-                "padding: 3px 10px; border-radius: 8px; letter-spacing: 1px;")
-            .arg(isActive ? "#268730" : "#8d1f1f"));
-    statusBadge->setFixedHeight(20);
-    statusBadge->setMaximumWidth(220);
-
-    headerTextLayout->addWidget(titleLabel);
-    headerTextLayout->addWidget(authorLabel);
-    headerTextLayout->addSpacing(4);
-    headerTextLayout->addWidget(statusBadge);
-
-    headerLayout->addWidget(cover);
-    headerLayout->addLayout(headerTextLayout, 1);
-    mainLayout->addLayout(headerLayout);
-
-    QString cardStyle =
-        "QGroupBox { border: 1px solid #1F1724; border-radius: 10px; margin-top: 8px; padding-top: 16px; "
-        "color: #A594B3; font-weight: bold; background-color: #0F0C12; }"
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 4px; }";
-
-    QGroupBox *infoBox = new QGroupBox("Book Information", dialog);
-    infoBox->setStyleSheet(cardStyle);
-    QFormLayout *formLayout = new QFormLayout(infoBox);
-    formLayout->setLabelAlignment(Qt::AlignRight);
-    formLayout->setHorizontalSpacing(16);
-    formLayout->setVerticalSpacing(8);
-
-    QString labelStyle = "color: #9A8FA0; font-size: 13px;";
-    QString valueStyle = "color: #EAEAEA; font-size: 14px; font-weight: bold;";
-
-    auto addRow = [&](const QString &title, const QString &value) {
-        QLabel *lbl = new QLabel(title);
-        lbl->setStyleSheet(labelStyle);
-        QLabel *val = new QLabel(value.isEmpty() ? "—" : value);
-        val->setStyleSheet(valueStyle);
+    auto makeFieldLabel = [](const QString &text) {
+        QLabel *lbl = new QLabel(text);
+        lbl->setObjectName("fieldLabel");
+        return lbl;
+    };
+    auto makeValueLabel = [](const QString &text) {
+        QLabel *val = new QLabel(text.isEmpty() ? "—" : text);
+        val->setObjectName("valueLabel");
         val->setWordWrap(true);
-        formLayout->addRow(lbl, val);
+        return val;
     };
 
-    addRow("Genre:", data["genre"].toString());
-    addRow("Price:", "$" + QString::number(data["price"].toDouble(), 'f', 2));
-    double rating = data["averageRating"].toDouble();
-    addRow("Avg Rating:", rating > 0.0 ? QString::number(rating, 'f', 1) + " ⭐" : "N/A");
-    addRow("Description:", data["description"].toString());
+    QFormLayout *formLayout = new QFormLayout;
+    formLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    formLayout->setFormAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    formLayout->setLabelAlignment(Qt::AlignCenter);
+    formLayout->setHorizontalSpacing(15);
+    formLayout->setVerticalSpacing(14);
 
-    mainLayout->addWidget(infoBox);
-    mainLayout->addStretch();
+    formLayout->addRow(makeFieldLabel("Title"), makeValueLabel(data["title"].toString()));
+    formLayout->addRow(makeFieldLabel("Price"), makeValueLabel("$" + QString::number(data["price"].toDouble(), 'f', 2)));
+    formLayout->addRow(makeFieldLabel("Author"), makeValueLabel(data["author"].toString()));
+    formLayout->addRow(makeFieldLabel("Genre"), makeValueLabel(data["genre"].toString()));
+
+    QLabel *descLabel = makeValueLabel(data["description"].toString());
+    descLabel->setMinimumHeight(100);
+    descLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    formLayout->addRow(makeFieldLabel("Description"), descLabel);
+
+    formLayout->addRow(makeFieldLabel("Cover Path"), makeValueLabel(data["coverImagePath"].toString()));
+    formLayout->addRow(makeFieldLabel("PDF Path"), makeValueLabel(data["pdfPath"].toString()));
+
+    double rating = data["averageRating"].toDouble();
+    formLayout->addRow(makeFieldLabel("Avg Rating"),
+                       makeValueLabel(rating > 0.0 ? QString::number(rating, 'f', 1) + " ⭐" : "N/A"));
+
+    bool isActive = data["isActive"].toBool();
+    formLayout->addRow(makeFieldLabel("Status"),
+                       makeValueLabel(isActive ? "✅ Approved" : "🚫 Pending/Rejected"));
 
     QPushButton *closeDetailsBtn = new QPushButton("Close", dialog);
     closeDetailsBtn->setCursor(Qt::PointingHandCursor);
-    closeDetailsBtn->setStyleSheet(
-        "QPushButton { background-color: #1F1724; border: none; border-radius: 6px; padding: 10px; color: white; font-weight: bold; }"
-        "QPushButton:hover { background-color: #7C3E66; }"
-        );
-    connect(closeDetailsBtn, &QPushButton::clicked, dialog , &QDialog::accept);
+    connect(closeDetailsBtn, &QPushButton::clicked, dialog, &QDialog::accept);
 
-    QHBoxLayout *detailsFooterLayout = new QHBoxLayout();
-    detailsFooterLayout->addStretch();
-    detailsFooterLayout->addWidget(closeDetailsBtn);
-    mainLayout->addLayout(detailsFooterLayout);
+    QHBoxLayout *footerLayout = new QHBoxLayout();
+    footerLayout->addStretch();
+    footerLayout->addWidget(closeDetailsBtn);
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
+    mainLayout->setContentsMargins(20, 20, 20, 20);
+    mainLayout->setSpacing(15);
+    mainLayout->addLayout(formLayout);
+    mainLayout->addLayout(footerLayout);
+
+    dialog->exec();
+    dialog->deleteLater();
 }

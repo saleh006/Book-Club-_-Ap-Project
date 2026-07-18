@@ -10,6 +10,7 @@
 #include "signupwindow.h"
 #include "recoverywindow.h"
 #include "src/adminPanel/adminpanel.h"
+#include "src/publisherPanel/publisherpanel.h"
 
 int main(int argc, char *argv[])
 {
@@ -89,12 +90,23 @@ int main(int argc, char *argv[])
 
     QObject::connect(loginWin, &LoginWindow::loginSuccessful, [&](const QString &username) {
         const QString role = loginWin->loggedInRole();
+        const int userId = loginWin->loggedInUserId();
+        const QString fullName = loginWin->loggedInFullName();
         qDebug() << "Logged in as" << username << "role:" << role;
         loginWin->clearFields();
         loginWin->hide();
         if (role == "admin") {
             loginWin->hide();
             adminWin->show();
+        }
+        if(role == "publisher"){
+            loginWin->hide();
+            PublisherPanel *publesherWin = new PublisherPanel(userId,fullName,username);
+            publesherWin->show();
+            QObject::connect(publesherWin,&PublisherPanel::logoutRequested,[=]{
+                publesherWin->deleteLater();
+                firstPageWidget->show();
+            });
         }
         else {
             qDebug() << "Redirecting to regular user dashboard...";

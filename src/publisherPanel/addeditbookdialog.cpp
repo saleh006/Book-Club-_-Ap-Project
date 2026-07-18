@@ -68,13 +68,13 @@ static bool uploadFileToServer(const QString &localFilePath, const QString &file
     return true;
 }
 
-AddEditBookDialog::AddEditBookDialog(const Book &existingBook, QWidget *parent)
+AddEditBookDialogPub::AddEditBookDialogPub(const Book &existingBook, QWidget *parent)
     : QDialog(parent), m_book(existingBook)
 {
     setupUi(existingBook.id > 0);
 }
 
-void AddEditBookDialog::setupUi(bool isEditMode)
+void AddEditBookDialogPub::setupUi(bool isEditMode)
 {
     setWindowTitle(isEditMode ? "Edit Book" : "Add Book");
     resize(550, 520);
@@ -244,7 +244,7 @@ void AddEditBookDialog::setupUi(bool isEditMode)
 }
 
 
-Book AddEditBookDialog::resultBook() const
+Book AddEditBookDialogPub::resultBook() const
 {
     Book b = m_book; // preserves id, publisherId if editing
     b.title = m_titleEdit->text().trimmed();

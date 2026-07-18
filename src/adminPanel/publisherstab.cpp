@@ -195,6 +195,13 @@ void PublishersTab::handleServerResponse(const QJsonObject &response)
 {
     QString action = response["action"].toString();
 
+    if (response.contains("type") && response["type"].toString() == "table_refresh_required") {
+        if (response["target_table"].toString() == "publishers") {
+            refreshTable();
+        }
+        return;
+    }
+
     if (action == "publishers_list_response" && response["status"] == "success") {
         QJsonArray publishers = response["data"].toArray();
         m_publishersTable->setRowCount(0);

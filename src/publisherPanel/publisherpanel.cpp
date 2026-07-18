@@ -48,7 +48,7 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
     });
     m_socket->connectToHost("127.0.0.1", 1234);
 
-    switchPage(1); // default to "My Books"
+    switchPage(0); // default to "My Books"
 }
 
 void PublisherPanel::sendRequest(const QJsonObject &requestObj)
@@ -80,6 +80,7 @@ void PublisherPanel::requestStats()
 void PublisherPanel::setupUi()
 {
     setStyleSheet("background-color: #060508; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
+    this->resize(800, 500);
 
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -286,7 +287,7 @@ void PublisherPanel::handleAddBook()
     Book emptyBook;
     emptyBook.publisherId = m_publisherId;
 
-    AddEditBookDialog dialog(emptyBook, this);
+    AddEditBookDialogPub dialog(emptyBook, this);
     if (dialog.exec() == QDialog::Accepted) {
         Book b = dialog.resultBook();
         QJsonObject req;
@@ -309,7 +310,7 @@ void PublisherPanel::handleEditBook(int bookId)
                            [bookId](const Book &b) { return b.id == bookId; });
     if (it == m_currentBooks.end()) return;
 
-    AddEditBookDialog dialog(*it, this);
+    AddEditBookDialogPub dialog(*it, this);
     if (dialog.exec() == QDialog::Accepted) {
         Book b = dialog.resultBook();
         QJsonObject req;

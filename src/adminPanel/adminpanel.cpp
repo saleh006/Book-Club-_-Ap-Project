@@ -14,6 +14,10 @@ AdminPanel::AdminPanel(QWidget *parent)
     m_socket->connectToHost("127.0.0.1" , 1234);
 
     connect(m_socket, &QTcpSocket::connected, this, [this]() {
+        QJsonObject subscribeReq;
+        subscribeReq["action"] = "admin_subscribe";
+        m_socket->write(QJsonDocument(subscribeReq).toJson(QJsonDocument::Compact) + "\n");
+        m_socket->flush();
 
         m_userTab->refreshTable();
         m_booksTab->refreshTable();
