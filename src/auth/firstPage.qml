@@ -57,7 +57,6 @@ Item {
                 NumberAnimation { from: 0.8; to: 0.2; duration: 2000; easing.type: Easing.InOutQuad }
             }
         }
-
         Rectangle {
             width: 6; height: 6; radius: 3; color: "#FFEAD2"
             x: parent.width * 0.5; y: parent.height * 0.8
@@ -67,11 +66,57 @@ Item {
                 NumberAnimation { from: 1.0; to: 0.2; duration: 2000; easing.type: Easing.InOutQuad }
             }
         }
+        Rectangle {
+            width: 3; height: 3; radius: 1.5; color: "#FFEAD2"
+            x: parent.width * 0.15; y: parent.height * 0.15
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.1; to: 0.7; duration: 2500; easing.type: Easing.InOutQuad }
+                NumberAnimation { from: 0.7; to: 0.1; duration: 2500; easing.type: Easing.InOutQuad }
+            }
+        }
+        Rectangle {
+            width: 5; height: 5; radius: 2.5; color: "#A594B3"
+            x: parent.width * 0.20; y: parent.height * 0.70
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.2; to: 0.9; duration: 3000; easing.type: Easing.InOutQuad }
+                NumberAnimation { from: 0.9; to: 0.2; duration: 3000; easing.type: Easing.InOutQuad }
+            }
+        }
+        Rectangle {
+            width: 4; height: 4; radius: 2; color: "#7C3E66"
+            x: parent.width * 0.85; y: parent.height * 0.85
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.1; to: 0.8; duration: 1600; easing.type: Easing.InOutQuad }
+                NumberAnimation { from: 0.8; to: 0.1; duration: 1600; easing.type: Easing.InOutQuad }
+            }
+        }
+        Rectangle {
+            width: 2; height: 2; radius: 1; color: "#FFEAD2"
+            x: parent.width * 0.35; y: parent.height * 0.40
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.1; to: 0.6; duration: 1200; easing.type: Easing.InOutQuad }
+                NumberAnimation { from: 0.6; to: 0.1; duration: 1200; easing.type: Easing.InOutQuad }
+            }
+        }
+        Rectangle {
+            width: 6; height: 6; radius: 3; color: "#A594B3"
+            x: parent.width * 0.90; y: parent.height * 0.10
+            SequentialAnimation on opacity {
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.2; to: 0.7; duration: 2800; easing.type: Easing.InOutQuad }
+                NumberAnimation { from: 0.7; to: 0.2; duration: 2800; easing.type: Easing.InOutQuad }
+            }
+        }
     }
 
     Component.onCompleted: {
         panelAnimation.start()
         contentAnimation.start()
+        dividerAnimation.start()
     }
     ParallelAnimation {
         id: panelAnimation
@@ -82,6 +127,11 @@ Item {
         id: contentAnimation
         NumberAnimation { target: rightSideContent; property: "opacity"; from: 0; to: 1; duration: 1000; easing.type: Easing.OutCubic }
         NumberAnimation { target: rightSideContent; property: "y"; from: (root.height / 2) + 40; to: (root.height / 2); duration: 1000; easing.type: Easing.OutCubic }
+    }
+    SequentialAnimation {
+        id: dividerAnimation
+        PauseAnimation { duration: 500 }
+        NumberAnimation { target: titleDivider; property: "Layout.preferredWidth"; from: 0; to: 45; duration: 500; easing.type: Easing.OutCubic }
     }
 
     RowLayout {
@@ -98,9 +148,17 @@ Item {
                 id: leftPanel
                 anchors.fill: parent
                 radius: 32
+                border.width: 1.5
+                border.color: "#7C3E66"
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: "#1A0F1B" }
                     GradientStop { position: 1.0; color: "#060508" }
+                }
+                SequentialAnimation on border.color {
+                    loops: Animation.Infinite
+                    ColorAnimation { from: "#7C3E66"; to: "#A594B3"; duration: 3000 }
+                    ColorAnimation { from: "#A594B3"; to: "#FFEAD2"; duration: 3000 }
+                    ColorAnimation { from: "#FFEAD2"; to: "#7C3E66"; duration: 3000 }
                 }
                 Rectangle {
                     id: gifMaskContainer
@@ -143,19 +201,65 @@ Item {
                 ColumnLayout {
                     spacing: 12
                     Layout.alignment: Qt.AlignHCenter
-                    Text {
-                        text: "BOOK CLUB"
-                        color: "#FFEAD2"
-                        font.pixelSize: 52
-                        font.bold: true
-                        font.letterSpacing: 6
-                        font.family: "Georgia, serif"
+                    RowLayout {
                         Layout.alignment: Qt.AlignHCenter
-                        layer.enabled: true
+                        spacing: 3
+                        Text {
+                            id: titleText
+                            property string fullText: "BOOK CLUB"
+                            property int charCount: 0
+                            property bool deleting: false
+                            text: fullText.substring(0, charCount)
+                            color: "#FFEAD2"
+                            font.pixelSize: 52
+                            font.bold: true
+                            font.letterSpacing: 6
+                            font.family: "Georgia, serif"
+                            layer.enabled: true
+
+                            Timer {
+                                id: typewriterTimer
+                                interval: 130
+                                running: true
+                                repeat: true
+                                onTriggered: {
+                                    if (!titleText.deleting) {
+                                        if (titleText.charCount < titleText.fullText.length) {
+                                            titleText.charCount++
+                                            interval = 130
+                                        } else {
+                                            titleText.deleting = true
+                                            interval = 2400
+                                        }
+                                    } else {
+                                        if (titleText.charCount > 0) {
+                                            titleText.charCount--
+                                            interval = 55
+                                        } else {
+                                            titleText.deleting = false
+                                            interval = 700
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Rectangle {
+                            id: typewriterCursor
+                            width: 4
+                            height: 42
+                            color: "#FFEAD2"
+                            Layout.alignment: Qt.AlignVCenter
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                NumberAnimation { from: 1.0; to: 0.1; duration: 500; easing.type: Easing.InOutQuad }
+                                NumberAnimation { from: 0.1; to: 1.0; duration: 500; easing.type: Easing.InOutQuad }
+                            }
+                        }
                     }
                     Rectangle {
-                        width: 45
-                        height: 2
+                        id: titleDivider
+                        Layout.preferredWidth: 0
+                        Layout.preferredHeight: 2
                         color: "#7C3E66"
                         Layout.alignment: Qt.AlignHCenter
                     }
@@ -188,11 +292,19 @@ Item {
                                 id: hoverHandler
                                 cursorShape: Qt.PointingHandCursor
                             }
-                            scale: controlBtn.hovered ? 1.02 : 1.0
-                            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            scale: controlBtn.hovered ? 0.97 : (controlBtn.hovered ? 1.02 : 1.0)
+                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+
+                            onHoveredChanged: {
+                                if (controlBtn.hovered) {
+                                    shimmerAnim.restart()
+                                }
+                            }
+
                             background: Rectangle {
                                 id: btnBackground
                                 radius: 16
+                                clip: true
                                 color: model.isPrimary
                                     ? (controlBtn.pressed ? "#5F2E4F" : (controlBtn.hovered ? "#954B7B" : "#7C3E66"))
                                     : (controlBtn.pressed ? "#0D1117" : (controlBtn.hovered ? "#1F1724" : "#120E14"))
@@ -206,6 +318,31 @@ Item {
                                     shadowVerticalOffset: 8
                                     shadowBlur: 0.8
                                     shadowColor: controlBtn.hovered ? "#507C3E66" : "#257C3E66"
+                                }
+
+                                Rectangle {
+                                    id: shimmer
+                                    width: 15   // Thinner line
+                                    height: btnBackground.height * 1.5
+                                    y: -btnBackground.height * 0.25
+                                    rotation: 15
+                                    x: -width-20
+                                    opacity: model.isPrimary ? 0.6 : 0.25
+                                    gradient: Gradient {
+                                        orientation: Gradient.Horizontal
+                                        GradientStop { position: 0.0; color: "#00FFFFFF" }
+                                        GradientStop { position: 0.5; color: "#55FFFFFF" }
+                                        GradientStop { position: 1.0; color: "#00FFFFFF" }
+                                    }
+                                }
+                                NumberAnimation {
+                                    id: shimmerAnim
+                                    target: shimmer
+                                    property: "x"
+                                    from: -shimmer.width - 20
+                                    to: btnBackground.width + 20
+                                    duration: 450 // Faster
+                                    easing.type: Easing.OutSine
                                 }
                             }
                             contentItem: Text {
@@ -240,6 +377,8 @@ Item {
     function showNotification(message) {
         notificationText.text = message
         notificationToast.opacity = 1.0
+        toastProgress.width = notificationToast.width - 4
+        progressAnim.restart()
         notificationTimer.restart()
     }
     Rectangle {
@@ -259,6 +398,9 @@ Item {
         Behavior on opacity {
             NumberAnimation { duration: 300 }
         }
+        Behavior on anchors.bottomMargin {
+            NumberAnimation { duration: 350; easing.type: Easing.OutBack }
+        }
 
         RowLayout {
             anchors.centerIn: parent
@@ -276,6 +418,25 @@ Item {
                 font.pixelSize: 14
                 font.bold: true
             }
+        }
+        Rectangle {
+            id: toastProgress
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: 2
+            anchors.bottomMargin: 2
+            height: 3
+            radius: 1.5
+            color: "#2ECC71"
+            width: parent.width - 4
+        }
+        NumberAnimation {
+            id: progressAnim
+            target: toastProgress
+            property: "width"
+            to: 0
+            duration: 3000
+            easing.type: Easing.Linear
         }
     }
     Timer {
