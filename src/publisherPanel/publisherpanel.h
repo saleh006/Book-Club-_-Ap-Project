@@ -35,6 +35,7 @@ private slots:
     void handleToggleActive(int bookId, int newStatus);
     void handleSetOffer(int bookId);
     void filterBooks(const QString &text);
+    void handleEditProfile();
 
 private:
     void setupUi();
@@ -69,6 +70,7 @@ private:
     QLabel *m_usernameLabel;
     QString m_fullName;
     QString m_username;
+    QString m_email;
 
     QWidget *makeStatCard(const QString &icon, const QString &iconBg,
                           const QString &title, const QString &subtitle, QLabel *&valueOut);

@@ -2,6 +2,7 @@
 #include "bookcardwidget.h"
 #include "addeditbookdialog.h"
 #include "setofferdialog.h"
+#include "editprofiledialog.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QJsonObject>
@@ -39,6 +40,11 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
     connect(m_socket, &QTcpSocket::connected, this, [this]() {
         requestBooks();
         requestStats();
+        requestSalesTrend();
+        QJsonObject req;
+        req["action"] = "user_fetch";
+        req["username"] = m_username;
+        sendRequest(req);
     });
     m_socket->connectToHost("127.0.0.1", 1234);
 
@@ -87,9 +93,28 @@ void PublisherPanel::setupUi()
     sidebarLayout->setContentsMargins(15, 25, 15, 25);
     sidebarLayout->setSpacing(12);
 
-    QLabel *avatarLabel = new QLabel("📖", sidebar);
+    QWidget *avatarRow = new QWidget(sidebar);
+    avatarRow->setStyleSheet("background: transparent; border: none;");
+    QHBoxLayout *avatarRowLayout = new QHBoxLayout(avatarRow);
+    avatarRowLayout->setContentsMargins(0, 0, 0, 0);
+    avatarRowLayout->setSpacing(8);
+
+    QLabel *avatarLabel = new QLabel("📖", avatarRow);
     avatarLabel->setStyleSheet("font-size: 40px; border: none; background: transparent;");
-    avatarLabel->setAlignment(Qt::AlignCenter);
+
+    QPushButton *editProfileBtn = new QPushButton("✏️", avatarRow);
+    editProfileBtn->setFixedSize(30, 30);
+    editProfileBtn->setCursor(Qt::PointingHandCursor);
+    editProfileBtn->setToolTip("Edit profile");
+    editProfileBtn->setStyleSheet(
+        "QPushButton { background-color: #1F1724; border: 1px solid #2A2233; border-radius: 8px; font-size: 13px; }"
+        "QPushButton:hover { background-color: #7C3E66; border-color: #B06B96; }");
+    connect(editProfileBtn, &QPushButton::clicked, this, &PublisherPanel::handleEditProfile);
+
+    avatarRowLayout->addStretch();
+    avatarRowLayout->addWidget(avatarLabel);
+    avatarRowLayout->addWidget(editProfileBtn);
+    avatarRowLayout->addStretch();
 
     QLabel *roleLabel = new QLabel("Publisher", sidebar);
     roleLabel->setStyleSheet("font-size: 13px; font-weight: bold; color: #FFEAD2; border: none; background: transparent;");
@@ -104,13 +129,10 @@ void PublisherPanel::setupUi()
     m_usernameLabel->setStyleSheet("font-size: 11px; color: #9A8FA0; border: none; background: transparent;");
     m_usernameLabel->setAlignment(Qt::AlignCenter);
 
-    sidebarLayout->addWidget(avatarLabel);
-    sidebarLayout->addWidget(roleLabel);
-    sidebarLayout->addSpacing(8);
     sidebarLayout->addWidget(m_nameLabel);
     sidebarLayout->addWidget(m_usernameLabel);
-    sidebarLayout->addSpacing(15);
-    sidebarLayout->addWidget(avatarLabel);
+    sidebarLayout->addSpacing(8);
+    sidebarLayout->addWidget(avatarRow);
     sidebarLayout->addWidget(roleLabel);
     sidebarLayout->addSpacing(15);
 
@@ -415,11 +437,39 @@ void PublisherPanel::onReadyRead()
     else if (type == "publisher_sales_trend") {
         updateSalesTrend(responseObj["points"].toArray());
     }
+    else if (type == "user_info") {
+        m_fullName = responseObj["fullName"].toString();
+        m_email    = responseObj["email"].toString();
+        m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
+    }
+    else if (type == "profile_update_result") {
+        if (responseObj["success"].toBool()) {
+            m_fullName = responseObj["fullName"].toString();
+            m_email    = responseObj["email"].toString();
+            const QString newU = responseObj["username"].toString();
+            if (!newU.isEmpty()) {
+                m_username = newU;
+                m_usernameLabel->setText("@" + m_username);
+            }
+            m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
+            if (m_welcomeLabel) m_welcomeLabel->setText(QString("Welcome back, %1!").arg(m_fullName));
+            QMessageBox::information(this, "Profile", "Profile updated successfully.");
+        } else {
+            QMessageBox::warning(this, "Profile", responseObj["message"].toString());
+        }
+    }
+    else if (type == "password_change_result") {
+        if (responseObj["success"].toBool())
+            QMessageBox::information(this, "Password", "Password changed successfully.");
+        else
+            QMessageBox::warning(this, "Password", responseObj["message"].toString());
+    }
     else {
         const QString status = responseObj["status"].toString();
         if (status == "success") {
             requestBooks();
             requestStats();
+
         } else if (status == "error") {
             QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
         }
@@ -829,3 +879,31 @@ void PublisherPanel::requestSalesTrend()
     sendRequest(req);
 }
 
+void PublisherPanel::handleEditProfile()
+{
+    EditProfileDialog dialog(m_username, m_fullName, m_email, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    // empty field = keep current value
+    const QString newUsername = dialog.username().isEmpty() ? m_username : dialog.username();
+    const QString newFullName = dialog.fullName().isEmpty() ? m_fullName : dialog.fullName();
+    const QString newEmail    = dialog.email().isEmpty()    ? m_email    : dialog.email();
+    if (newUsername != m_username || newFullName != m_fullName || newEmail != m_email) {
+        QJsonObject req;
+        req["action"]      = "user_update_profile";
+        req["userId"]      = m_publisherId;        // <-- ID, not username
+        req["newUsername"] = newUsername;
+        req["fullName"]    = newFullName;
+        req["email"]       = newEmail;
+        sendRequest(req);
+    }
+    if (dialog.wantsPasswordChange()) {
+        QJsonObject req;
+        req["action"]      = "user_change_password";
+        req["userId"]      = m_publisherId;        // <-- ID here too
+        req["oldPassword"] = dialog.oldPassword();
+        req["newPassword"] = dialog.newPassword();
+        sendRequest(req);
+    }
+}

@@ -114,6 +114,7 @@ void ClientHandler::onReadyRead()
                 responseObj["fullName"] = u.fullName;
                 responseObj["email"] = u.email;
                 responseObj["role"] = u.role;
+                responseObj["type"] = "user_info";
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -197,6 +198,38 @@ void ClientHandler::onReadyRead()
             ServerManager *server = qobject_cast<ServerManager*>(parent());
             if (server) {
                 connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
+            }
+        }
+        else if (action == "user_update_profile") {
+            int userId          = requestObj["userId"].toInt();
+            QString newUsername = requestObj["newUsername"].toString();
+            QString fullName    = requestObj["fullName"].toString();
+            QString email       = requestObj["email"].toString();
+            QString errorMsg;
+            responseObj["type"] = "profile_update_result";
+            if (DatabaseManager::instance().updateUserProfile(userId, newUsername, fullName, email, errorMsg)) {
+                responseObj["success"]  = true;
+                responseObj["username"] = newUsername;
+                responseObj["fullName"] = fullName;
+                responseObj["email"]    = email;
+                m_username = newUsername;
+                emit databaseUpdated("users");
+            } else {
+                responseObj["success"] = false;
+                responseObj["message"] = errorMsg;
+            }
+        }
+        else if (action == "user_change_password") {
+            int userId          = requestObj["userId"].toInt();
+            QString oldPassword = requestObj["oldPassword"].toString();
+            QString newPassword = requestObj["newPassword"].toString();
+            QString errorMsg;
+            responseObj["type"] = "password_change_result";
+            if (DatabaseManager::instance().changePassword(userId, oldPassword, newPassword, errorMsg)) {
+                responseObj["success"] = true;
+            } else {
+                responseObj["success"] = false;
+                responseObj["message"] = errorMsg;
             }
         }
 

@@ -133,6 +133,12 @@ public:
                                    QString &errorMsg);
     bool fetchUserProfileForAdmin(const QString &username, UserProfileSummary &outProfile, QString &errorMsg);
     bool fetchAllUsersProfilesForAdmin(QVector<UserProfileSummary>& outProfiles , QString &errorMsg);
+    bool updateUserProfile(const QString &username, const QString &fullName,
+                           const QString &email, QString &errorMsg);
+    bool updateUserProfile(int userId, const QString &newUsername,
+                           const QString &fullName, const QString &email, QString &errorMsg);
+    bool changePassword(int userId, const QString &oldPassword,
+                        const QString &newPassword, QString &errorMsg);
 
     //book
 
