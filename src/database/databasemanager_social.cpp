@@ -84,13 +84,13 @@ bool DatabaseManager::addReview(const Review &review, QString &errorMsg)
         errorMsg = "Failed to add review: " + query.lastError().text();
         return false;
     }
-    return recalculateAverageRating(review.bookId, errorMsg);
+    return true;
 }
 
 bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReviews, QString &errorMsg)
 {
     QSqlQuery query(database());
-    query.prepare("SELECT id, user_id, comment, rating, date FROM reviews WHERE book_id = :bid ORDER BY date DESC");
+    query.prepare("SELECT id, user_id, comment, rating, date, is_approved FROM reviews WHERE book_id = :bid AND is_approved = 1 ORDER BY date DESC");
     query.bindValue(":bid", bookId);
     if (!query.exec()) {
         errorMsg = "Database error while fetching reviews: " + query.lastError().text();
@@ -105,6 +105,7 @@ bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReview
         r.comment = query.value("comment").toString();
         r.rating = query.value("rating").toInt();
         r.date = query.value("date").toDateTime();
+        r.isApproved = query.value("is_approved").toBool();
         outReviews.push_back(r);
     }
     return true;
@@ -113,13 +114,78 @@ bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReview
 bool DatabaseManager::recalculateAverageRating(int bookId, QString &errorMsg)
 {
     QSqlQuery query(database());
-    query.prepare("UPDATE books SET average_rating = (SELECT AVG(rating) FROM reviews WHERE book_id = :bid) WHERE id = :bid2");
+    query.prepare("UPDATE books SET average_rating = (SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE book_id = :bid AND is_approved = 1) WHERE id = :bid2");
     query.bindValue(":bid", bookId);
     query.bindValue(":bid2", bookId);
     if (!query.exec()) {
         errorMsg = "Failed to update average rating: " + query.lastError().text();
         return false;
     }
+    return true;
+}
+
+bool DatabaseManager::fetchReviewsForAdmin(bool pendingOnly, QVector<ReviewAdminSummary> &outReviews, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    QString sql =
+        "SELECT r.id, r.user_id, r.book_id, r.comment, r.rating, r.date, r.is_approved, "
+        "b.title AS book_title, u.username AS username "
+        "FROM reviews r "
+        "JOIN books b ON r.book_id = b.id "
+        "JOIN users u ON r.user_id = u.id ";
+    if (pendingOnly) {
+        sql += "WHERE r.is_approved = 0 ";
+    }
+    sql += "ORDER BY r.date DESC";
+
+    query.prepare(sql);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching reviews: " + query.lastError().text();
+        return false;
+    }
+
+    outReviews.clear();
+    while (query.next()) {
+        ReviewAdminSummary summary;
+        summary.review.id = query.value("id").toInt();
+        summary.review.userId = query.value("user_id").toInt();
+        summary.review.bookId = query.value("book_id").toInt();
+        summary.review.comment = query.value("comment").toString();
+        summary.review.rating = query.value("rating").toInt();
+        summary.review.date = query.value("date").toDateTime();
+        summary.review.isApproved = query.value("is_approved").toBool();
+        summary.bookTitle = query.value("book_title").toString();
+        summary.username = query.value("username").toString();
+        outReviews.push_back(summary);
+    }
+    return true;
+}
+
+bool DatabaseManager::approveReview(int reviewId, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("UPDATE reviews SET is_approved = 1 WHERE id = :id");
+    query.bindValue(":id", reviewId);
+    
+    if (!query.exec()) {
+        errorMsg = "Failed to approve review: " + query.lastError().text();
+        return false;
+    }
+
+    return true;
+}
+
+bool DatabaseManager::deleteReview(int reviewId, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("DELETE FROM reviews WHERE id = :id");
+    query.bindValue(":id", reviewId);
+    
+    if (!query.exec()) {
+        errorMsg = "Failed to delete review: " + query.lastError().text();
+        return false;
+    }
+    
     return true;
 }
 

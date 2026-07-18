@@ -170,6 +170,7 @@ bool DatabaseManager::createTableForReviews()
             comment   TEXT,
             rating    INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
             date      DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_approved INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (book_id) REFERENCES books(id)
         )

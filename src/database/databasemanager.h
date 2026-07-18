@@ -106,6 +106,12 @@ struct PublisherProfileSummary {
     double averageRating = 0.0;
 };
 
+struct ReviewAdminSummary {
+    Review review;
+    QString bookTitle;
+    QString username;
+};
+
 class DatabaseManager
 {
 public:
@@ -159,6 +165,9 @@ public:
     bool addReview(const Review &review, QString &errorMsg);
     bool fetchReviewsForBook(int bookId, QVector<Review> &outReviews, QString &errorMsg);
     bool recalculateAverageRating(int bookId, QString &errorMsg);
+    bool fetchReviewsForAdmin(bool pendingOnly, QVector<ReviewAdminSummary> &outReviews, QString &errorMsg);
+    bool approveReview(int reviewId, QString &errorMsg);
+    bool deleteReview(int reviewId, QString &errorMsg);
 
     // Notifications
     bool addNotification(int userId, const QString &title, const QString &message, QString &errorMsg);

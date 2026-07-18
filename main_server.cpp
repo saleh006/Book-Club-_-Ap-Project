@@ -1,22 +1,12 @@
-#include <QCoreApplication>
-#include <QDebug>
-#include "servermanager.h"
-#include "databasemanager.h"
+#include <QApplication>
+#include "serverui.h"
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication a(argc, argv);
-    if (!DatabaseManager::instance().initialize("bookclub.db")) {
-        qCritical() << "Failed to initialize database on Server!";
-        return -1;
-    }
+    QApplication a(argc, argv);
 
-    ServerManager *server = new ServerManager();
-    if (!server->startServer(1234)) {
-        qCritical() << "Server could not start on port 1234!";
-        return -1;
-    }
+    ServerUi w;
+    w.show();
 
-    qDebug() << "Server is successfully running and listening on port 1234...";
     return a.exec();
 }

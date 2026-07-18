@@ -41,7 +41,8 @@ qt_add_executable(BookClubServer
     src/database/databasemanager_publisher.cpp
     src/server/servermanager.h
     src/server/servermanager.cpp
-    main_server.cpp
+    src/server/serverui.h
+    src/server/serverui.cpp
 )
 
 target_include_directories(BookClubServer PRIVATE
@@ -52,6 +53,7 @@ target_include_directories(BookClubServer PRIVATE
 
 target_link_libraries(BookClubServer PRIVATE
     Qt::Core
+    Qt::Widgets
     Qt::Sql
     Qt::Network
 )
@@ -94,6 +96,11 @@ qt_add_qml_module(BookClubClient
         SOURCES src/publisherPanel/addeditbookdialog.h src/publisherPanel/addeditbookdialog.cpp
         SOURCES src/publisherPanel/setofferdialog.h src/publisherPanel/setofferdialog.cpp
         SOURCES src/publisherPanel/editprofiledialog.h src/publisherPanel/editprofiledialog.cpp
+        SOURCES src/adminPanel/adminpanel.h src/adminPanel/adminpanel.cpp
+        SOURCES src/adminPanel/booktab.h src/adminPanel/booktab.cpp
+        SOURCES src/adminPanel/usertab.h src/adminPanel/usertab.cpp
+        SOURCES src/adminPanel/publisherstab.h src/adminPanel/publisherstab.cpp
+        SOURCES src/adminPanel/reviewstab.h src/adminPanel/reviewstab.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE
