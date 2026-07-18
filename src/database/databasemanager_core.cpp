@@ -278,6 +278,24 @@ bool DatabaseManager::createTableForWishlist()
     return true;
 }
 
+bool DatabaseManager::createTableForUserGenres()
+{
+    QSqlQuery query(m_db);
+    const QString sql = R"(
+        CREATE TABLE IF NOT EXISTS user_favorite_genres (
+            user_id  INTEGER NOT NULL,
+            genre    TEXT NOT NULL,
+            PRIMARY KEY (user_id, genre),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    )";
+    if (!query.exec(sql)) {
+        qWarning() << "Failed to create user_favorite_genres table:" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
 bool DatabaseManager::createAllTables()
 {
     return createTableForUser()
@@ -289,7 +307,8 @@ bool DatabaseManager::createAllTables()
         && createTableForReadingProgress()
         && createTableForReviews()
         && createTableForDiscounts()
-        && createTableForNotifications();
+        && createTableForNotifications()
+        && createTableForUserGenres();
 }
 
 // QSqlDatabase DatabaseManager::database() const

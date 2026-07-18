@@ -331,3 +331,52 @@ bool DatabaseManager::changePassword(int userId, const QString &oldPassword,
     if (!update.exec()) { errorMsg = "Failed to change password: " + update.lastError().text(); return false; }
     return true;
 }
+
+bool DatabaseManager::setUserFavoriteGenres(int userId, const QStringList &genres, QString &errorMsg)
+{
+    QSqlDatabase db = database();
+    if (!db.transaction()) {
+        errorMsg = "Failed to start transaction: " + db.lastError().text();
+        return false;
+    }
+    QSqlQuery del(db);
+    del.prepare("DELETE FROM user_favorite_genres WHERE user_id = :uid");
+    del.bindValue(":uid", userId);
+    if (!del.exec()) {
+        errorMsg = "Failed to clear old genres: " + del.lastError().text();
+        db.rollback();
+        return false;
+    }
+    for (const QString &g : genres) {
+        QSqlQuery ins(db);
+        ins.prepare("INSERT INTO user_favorite_genres (user_id, genre) VALUES (:uid, :genre)");
+        ins.bindValue(":uid", userId);
+        ins.bindValue(":genre", g);
+        if (!ins.exec()) {
+            errorMsg = "Failed to save genre: " + ins.lastError().text();
+            db.rollback();
+            return false;
+        }
+    }
+    if (!db.commit()) {
+        errorMsg = "Failed to save genres: " + db.lastError().text();
+        db.rollback();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::fetchUserFavoriteGenres(int userId, QStringList &outGenres, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("SELECT genre FROM user_favorite_genres WHERE user_id = :uid");
+    query.bindValue(":uid", userId);
+    if (!query.exec()) {
+        errorMsg = "Failed to fetch favorite genres: " + query.lastError().text();
+        return false;
+    }
+    outGenres.clear();
+    while (query.next())
+        outGenres << query.value(0).toString();
+    return true;
+}

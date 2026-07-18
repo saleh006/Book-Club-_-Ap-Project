@@ -146,6 +146,8 @@ public:
                            const QString &fullName, const QString &email, QString &errorMsg);
     bool changePassword(int userId, const QString &oldPassword,
                         const QString &newPassword, QString &errorMsg);
+    bool setUserFavoriteGenres(int userId, const QStringList &genres, QString &errorMsg);
+    bool fetchUserFavoriteGenres(int userId, QStringList &outGenres, QString &errorMsg);
 
     //book
 
@@ -223,6 +225,7 @@ private:
     bool createTableForWishlist();
     bool createTableForCart();
     bool createTableForPurchases();
+    bool createTableForUserGenres();
     bool createAllTables();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;
