@@ -5,5 +5,21 @@
         <file>bookclublogo.png</file>
         <file>gif.gif</file>
 	<file>resetpass.png</file>
+	<file>genres/scifi.jpg</file>
+        <file>genres/fantasy.jpg</file>
+        <file>genres/mystery.jpg</file>
+        <file>genres/romance.jpg</file>
+        <file>genres/horror.jpg</file>
+        <file>genres/history.jpg</file>
+        <file>genres/technology.jpg</file>
+        <file>genres/business.jpg</file>
+        <file>genres/psychology.jpg</file>
+        <file>genres/art.jpg</file>
+        <file>genres/cooking.jpg</file>
+        <file>genres/health.jpg</file>
+        <file>genres/children.jpg</file>
+        <file>genres/poetry.jpg</file>
+        <file>genres/travel.jpg</file>
+        <file>genres/biography.jpg</file>
     </qresource>
 </RCC>

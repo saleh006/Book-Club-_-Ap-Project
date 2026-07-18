@@ -101,6 +101,7 @@ qt_add_qml_module(BookClubClient
         SOURCES src/adminPanel/usertab.h src/adminPanel/usertab.cpp
         SOURCES src/adminPanel/publisherstab.h src/adminPanel/publisherstab.cpp
         SOURCES src/adminPanel/reviewstab.h src/adminPanel/reviewstab.cpp
+        SOURCES src/userPanel/genreselectiondialog.h src/userPanel/genreselectiondialog.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE
