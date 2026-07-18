@@ -313,7 +313,33 @@ void ClientHandler::onReadyRead()
                 sendToClient(response);
             }
         }
-
+        else if (action == "user_get_favorite_genres") {
+            int userId = requestObj["userId"].toInt();
+            QStringList genres;
+            QString errorMsg;
+            responseObj["type"] = "favorite_genres";
+            if (DatabaseManager::instance().fetchUserFavoriteGenres(userId, genres, errorMsg)) {
+                responseObj["success"] = true;
+                responseObj["genres"] = QJsonArray::fromStringList(genres);
+            } else {
+                responseObj["success"] = false;
+                responseObj["message"] = errorMsg;
+            }
+        }
+        else if (action == "user_set_favorite_genres") {
+            int userId = requestObj["userId"].toInt();
+            QStringList genres;
+            for (const QJsonValue &v : requestObj["genres"].toArray())
+                genres << v.toString();
+            QString errorMsg;
+            responseObj["type"] = "favorite_genres_saved";
+            if (DatabaseManager::instance().setUserFavoriteGenres(userId, genres, errorMsg)) {
+                responseObj["success"] = true;
+            } else {
+                responseObj["success"] = false;
+                responseObj["message"] = errorMsg;
+            }
+        }
         // ========
         // BOOKS
         // ========
