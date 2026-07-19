@@ -4,6 +4,7 @@
         <file>RUBSTAMP.TTF</file>
         <file>bookclublogo.png</file>
         <file>gif.gif</file>
+	<file>heroback.png</file>
 	<file>resetpass.png</file>
 	<file>genres/scifi.jpg</file>
         <file>genres/fantasy.jpg</file>
@@ -21,5 +22,8 @@
         <file>genres/poetry.jpg</file>
         <file>genres/travel.jpg</file>
         <file>genres/biography.jpg</file>
+	<file>heroback1.jpg</file>
+	<file>heroback2.jpg</file>
+	<file>heroback3.jpg</file>
     </qresource>
 </RCC>

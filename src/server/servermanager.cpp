@@ -445,6 +445,32 @@ void ClientHandler::onReadyRead()
                 sendToClient(response);
             }
         }
+        else if (action == "books_fetch_all") {
+            QVector<Book> books;
+            QString errorMsg;
+            bool activeOnly = requestObj["activeOnly"].toBool(true);
+            if (DatabaseManager::instance().fetchAllBooks(books, errorMsg, activeOnly)) {
+                responseObj["status"] = "success";
+                QJsonArray bookArray;
+                for (const Book &b : books) {
+                    QJsonObject bookObj;
+                    bookObj["id"] = b.id;
+                    bookObj["title"] = b.title;
+                    bookObj["author"] = b.author;
+                    bookObj["genre"] = b.genre;
+                    bookObj["price"] = b.price;
+                    bookObj["averageRating"] = b.averageRating;
+                    bookObj["description"] = b.description;        // <-- add
+                    bookObj["coverImagePath"] = b.coverImagePath;  // <-- add
+                    bookObj["totalSales"] = b.totalSales;
+                    bookArray.append(bookObj);
+                }
+                responseObj["books"] = bookArray;
+            } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
+        }
         else if (action == "books_fetch_by_genre") {
             QString genre = requestObj["genre"].toString();
             QVector<Book> books;
