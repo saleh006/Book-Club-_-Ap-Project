@@ -18,6 +18,7 @@ struct Book {
     int status = 1;
     double averageRating = 0.0;
     int totalSales = 0;
+    QString publisherName;
 };
 
 struct Discount {

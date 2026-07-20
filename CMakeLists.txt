@@ -103,6 +103,7 @@ qt_add_qml_module(BookClubClient
         SOURCES src/adminPanel/reviewstab.h src/adminPanel/reviewstab.cpp
         SOURCES src/userPanel/genreselectiondialog.h src/userPanel/genreselectiondialog.cpp
         SOURCES src/userPanel/shoppingcarttab.h src/userPanel/shoppingcarttab.cpp
+        SOURCES src/userPanel/userpanel.h src/userPanel/userpanel.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE
