@@ -11,6 +11,7 @@
 #include "recoverywindow.h"
 #include "src/adminPanel/adminpanel.h"
 #include "src/publisherPanel/publisherpanel.h"
+#include "src/userPanel/userpanel.h"
 
 int main(int argc, char *argv[])
 {
@@ -99,12 +100,21 @@ int main(int argc, char *argv[])
             loginWin->hide();
             adminWin->show();
         }
-        if(role == "publisher"){
+        else if(role == "publisher"){
             loginWin->hide();
             PublisherPanel *publesherWin = new PublisherPanel(userId,fullName,username);
             publesherWin->show();
             QObject::connect(publesherWin,&PublisherPanel::logoutRequested,[=]{
                 publesherWin->deleteLater();
+                firstPageWidget->show();
+            });
+        }
+        else if(role == "user"){
+            loginWin->hide();
+            UserPanel * userWin = new UserPanel(userId,fullName,username);
+            userWin->show();
+            QObject::connect(userWin,&UserPanel::logoutRequested,[=]{
+                userWin->deleteLater();
                 firstPageWidget->show();
             });
         }

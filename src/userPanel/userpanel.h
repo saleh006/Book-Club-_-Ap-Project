@@ -18,6 +18,7 @@
 #include <QTimer>
 #include <QGridLayout>
 #include "models.h"
+#include "shoppingcarttab.h"
 
 class UserPanel : public QWidget
 {
@@ -67,6 +68,9 @@ private:
     QLabel *m_usernameLabel = nullptr;
     QPushButton *m_btnHome = nullptr;
     QPushButton *m_btnLogout = nullptr;
+    QPushButton *m_btnCart = nullptr;
+    QPushButton *m_heroCartBtn = nullptr;
+    ShoppingCartPage *m_cartPage = nullptr;
     QStackedWidget *m_stackedWidget = nullptr;
 
     // Store State Containers

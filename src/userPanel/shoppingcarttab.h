@@ -17,14 +17,14 @@ class QScrollArea;
 
 struct CartDisplayItem
 {
-    int     bookId        = -1;
+    int bookId = -1;
     QString title;
     QString author;
-    QString format         = QStringLiteral("PDF/EPUB");
-    int     quantity       = 1;
-    double  originalPrice  = 0.0;
-    double  price          = 0.0;
-    bool    favorite       = false;
+    QString format = QStringLiteral("PDF/EPUB");
+    int quantity = 1;
+    double originalPrice = 0.0;
+    double price = 0.0;
+    bool favorite= false;
     QPixmap cover;
 
     double discount() const { return originalPrice - price; }
@@ -79,9 +79,16 @@ public:
     explicit ShoppingCartPage(QTcpSocket *socket,int userId, QWidget *parent = nullptr);
     void refreshCart();
     void handleServerResponse(const QJsonObject &response);
+    bool containsBook(int bookId) const {
+        for (const auto &item : m_items) {
+            if (item.bookId == bookId) return true;
+        }
+        return false;
+    }
 
 signals:
     void checkoutCompleted(int purchaseId);
+    void cartUpdated();
 
 private:
     void buildUi();

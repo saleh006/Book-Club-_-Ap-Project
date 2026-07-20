@@ -1,4 +1,5 @@
 #include "userpanel.h"
+#include "genreselectiondialog.h"
 #include <QMessageBox>
 #include <QPainter>
 #include <QFrame>
@@ -30,13 +31,14 @@ static QPixmap makeCoverPixmap(const Book &b, const QSize &size)
 UserPanel::UserPanel(int userId, const QString &fullName, const QString &username, QWidget *parent)
     : QWidget(parent), m_userId(userId), m_fullName(fullName), m_username(username)
 {
+    m_socket = new QTcpSocket(this);
     setupUi();
 
-    m_socket = new QTcpSocket(this);
     connect(m_socket, &QTcpSocket::readyRead, this, &UserPanel::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &UserPanel::onSocketError);
     connect(m_socket, &QTcpSocket::connected, this, [this]() {
         requestAllBooks();
+        m_cartPage->refreshCart();
 
         // Fetch User profile info & favorite genres
         QJsonObject reqUser;
@@ -138,8 +140,15 @@ void UserPanel::setupUi()
         "QPushButton:hover { background-color: #1F1724; color: #EAEAEA; }";
     m_btnHome->setStyleSheet(menuBtnStyle);
     m_btnHome->setCursor(Qt::PointingHandCursor);
+
+    m_btnCart = new QPushButton("🛒 Shopping Cart", sidebar);
+    m_btnCart->setStyleSheet(menuBtnStyle);
+    m_btnCart->setCursor(Qt::PointingHandCursor);
+
     connect(m_btnHome, &QPushButton::clicked, this, [this]() { switchPage(0); });
     sidebarLayout->addWidget(m_btnHome);
+    connect(m_btnCart, &QPushButton::clicked, this, [this]() { switchPage(1); });
+    sidebarLayout->addWidget(m_btnCart);
 
     sidebarLayout->addStretch();
 
@@ -154,7 +163,12 @@ void UserPanel::setupUi()
 
     // Main Area View Control Stack
     m_stackedWidget = new QStackedWidget(this);
-    m_stackedWidget->addWidget(createHomePage()); // Index 0
+    m_stackedWidget->addWidget(createHomePage());
+
+    m_cartPage = new ShoppingCartPage(m_socket, m_userId, this);
+    connect(m_cartPage, &ShoppingCartPage::cartUpdated, this, &UserPanel::updateHero);
+
+    m_stackedWidget->addWidget(m_cartPage);
 
     mainLayout->addWidget(sidebar);
     mainLayout->addWidget(m_stackedWidget);
@@ -170,6 +184,11 @@ void UserPanel::switchPage(int index)
         "QPushButton { background-color: #7C3E66; border: none; border-radius: 8px; padding: 10px; font-size: 13px; font-weight: bold; color: #FFFFFF; text-align: left; padding-left: 12px; }";
 
     m_btnHome->setStyleSheet(index == 0 ? activeStyle : normalStyle);
+    m_btnCart->setStyleSheet(index == 1 ? activeStyle : normalStyle);
+
+    if (index == 1) {
+        m_cartPage->refreshCart();
+    }
 }
 
 QWidget *UserPanel::createHomePage()
@@ -283,20 +302,27 @@ QWidget *UserPanel::createHomePage()
         "QPushButton{background:transparent;border:1px solid #3A3244;border-radius:8px;"
         "padding:10px 20px;color:#EAEAEA;font-size:13px;}"
         "QPushButton:hover{border-color:#7C3E66;background-color:#1A141F;}");
-    auto *cartBtn = new QPushButton("Add to Cart", hero);
-    cartBtn->setStyleSheet(QString(
+    m_heroCartBtn = new QPushButton("Add to Cart", hero);
+    m_heroCartBtn->setStyleSheet(QString(
                                "QPushButton{background-color:%1;border:none;border-radius:8px;"
                                "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}"
                                "QPushButton:hover{background-color:#B06B96;}").arg(kAccent));
     viewBtn->setCursor(Qt::PointingHandCursor);
-    cartBtn->setCursor(Qt::PointingHandCursor);
-    heroBtns->addWidget(viewBtn); heroBtns->addWidget(cartBtn); heroBtns->addStretch();
+    m_heroCartBtn->setCursor(Qt::PointingHandCursor);
+    heroBtns->addWidget(viewBtn); heroBtns->addWidget(m_heroCartBtn); heroBtns->addStretch();
 
     connect(viewBtn, &QPushButton::clicked, this, [this] {
         if (!m_heroBooks.isEmpty()) openBookDetails(m_heroBooks[m_heroIndex].id);
     });
-    connect(cartBtn, &QPushButton::clicked, this, [this] {
-        if (!m_heroBooks.isEmpty()) addToCart(m_heroBooks[m_heroIndex].id);
+    connect(m_heroCartBtn, &QPushButton::clicked, this, [this] {
+        if (!m_heroBooks.isEmpty()) {
+            int id = m_heroBooks[m_heroIndex].id;
+            if (m_cartPage && m_cartPage->containsBook(id)) {
+                switchPage(1);
+            } else {
+                addToCart(id);
+            }
+        }
     });
     connect(prevBtn, &QPushButton::clicked, this, [this] {
         if (m_heroBooks.isEmpty()) return;
@@ -567,6 +593,10 @@ void UserPanel::onReadyRead()
         QJsonObject responseObj = doc.object();
         QString type = responseObj["type"].toString();
 
+        if (responseObj.contains("action")) {
+            m_cartPage->handleServerResponse(responseObj);
+        }
+
         if (responseObj.contains("books") && responseObj["status"].toString() == "success") {
             m_storeBooks.clear();
             for (const QJsonValue &val : responseObj["books"].toArray()) {
@@ -591,6 +621,25 @@ void UserPanel::onReadyRead()
             for (const QJsonValue &v : responseObj["genres"].toArray()) {
                 m_favoriteGenres << v.toString();
             }
+
+            if (m_favoriteGenres.isEmpty()) {
+                GenreSelectionDialog dialog(this);
+                if (dialog.exec() == QDialog::Accepted) {
+                    m_favoriteGenres = dialog.selectedGenres();
+
+                    QJsonObject req;
+                    req["action"] = "user_set_favorite_genres";
+                    req["userId"] = m_userId;
+
+                    QJsonArray arr;
+                    for (const QString &genre : m_favoriteGenres) {
+                        arr.append(genre);
+                    }
+                    req["genres"] = arr;
+                    sendRequest(req);
+                }
+            }
+
             rebuildHomeSections();
         }
         else if (type == "favorite_genres_saved" && responseObj["success"].toBool()) {
@@ -686,6 +735,19 @@ void UserPanel::updateHero()
     m_heroAuthor->setText(b.author);
     m_heroRating->setText(QString("⭐ %1").arg(QString::number(b.averageRating, 'f', 1)));
     m_heroDesc->setText(b.description);
+
+    if (m_cartPage && m_cartPage->containsBook(b.id)) {
+        m_heroCartBtn->setText("✓ In Cart");
+        m_heroCartBtn->setStyleSheet(
+            "QPushButton{background-color:#2A4D3B;border:none;border-radius:8px;"
+            "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}");
+    } else {
+        m_heroCartBtn->setText("Add to Cart");
+        m_heroCartBtn->setStyleSheet(QString(
+                                         "QPushButton{background-color:%1;border:none;border-radius:8px;"
+                                         "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}"
+                                         "QPushButton:hover{background-color:#B06B96;}").arg(kAccent));
+    }
 }
 
 void UserPanel::setupSearch()
@@ -751,5 +813,15 @@ void UserPanel::runSearch(const QString &text)
 }
 
 void UserPanel::openBookDetails(int bookId) { qDebug() << "details" << bookId; }
-void UserPanel::addToCart(int bookId)       { qDebug() << "cart" << bookId; }
+void UserPanel::addToCart(int bookId)       {
+    QJsonObject req;
+    req["action"] = "add_to_cart";
+    req["userId"] = m_userId;
+    req["bookId"] = bookId;
+    req["quantity"] = 1;
+
+    sendRequest(req);
+
+    QMessageBox::information(this, "Added to Cart", "Book successfully added to your cart!");
+}
 void UserPanel::openGenre(const QString &g) { qDebug() << "genre" << g; }

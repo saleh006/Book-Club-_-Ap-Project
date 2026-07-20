@@ -364,6 +364,7 @@ void ShoppingCartPage::setItems(const QList<CartDisplayItem> &items) {
     m_items = items;
     rebuildItemList();
     refreshSummaryAndHeader();
+    emit cartUpdated();
 }
 void ShoppingCartPage::rebuildItemList() {
     const auto oldCards = m_scrollArea->widget()->findChildren<CartItemWidget *>(
