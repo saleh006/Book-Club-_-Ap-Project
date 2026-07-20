@@ -272,8 +272,135 @@ void ShoppingCartPage::buildUi()
 
     pageLayout->addLayout(bodyLayout, 1);
 }
-/////////////////////////////////////////
-void ShoppingCartPage::refreshCart() {}
-void ShoppingCartPage::setItems(const QList<CartDisplayItem> &items) {}
-void ShoppingCartPage::rebuildItemList() {}
-void ShoppingCartPage::refreshSummaryAndHeader() {}
+
+void ShoppingCartPage::sendRequest(const QString &action, const QJsonObject &extra)
+{
+    if (!m_socket)
+        return;
+
+    QJsonObject packet = extra;
+    packet["action"] = action;
+    packet["userId"] = m_userId;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+    m_socket->flush();
+}
+
+void ShoppingCartPage::refreshCart() {
+    sendRequest("cart_fetch");
+}
+
+void ShoppingCartPage::handleServerResponse(const QJsonObject &response)
+{
+    const QString action = response["action"].toString();
+
+    if (action == "cart_fetch_response") {
+        handleCartFetchResponse(response);
+    } else if (action == "checkout_response") {
+        handleCheckoutResponse(response);
+    } else if (action == "add_to_cart_response"
+               || action == "remove_from_cart_response"
+               || action == "cart_clear_response"
+               || action == "wishlist_add_response"
+               || action == "wishlist_remove_response") {
+        handleMutationResponse(response);
+    }
+}
+
+void ShoppingCartPage::handleCartFetchResponse(const QJsonObject &response)
+{
+    if (response["status"].toString() != "success") {
+        QMessageBox::warning(this, tr("Cart"), response["message"].toString());
+        return;
+    }
+
+    QList<CartDisplayItem> items;
+    const QJsonArray rawItems = response["items"].toArray();
+    for (const QJsonValue &value : rawItems) {
+        const QJsonObject o = value.toObject();
+        CartDisplayItem item;
+        item.bookId = o["bookId"].toInt();
+        item.title = o["title"].toString();
+        item.author = o["author"].toString();
+        item.quantity = qMax(1, o["quantity"].toInt(1));
+        item.originalPrice = o["originalPrice"].toDouble();
+        item.price = o["price"].toDouble();
+        item.favorite = o["favorite"].toBool();
+
+        const QString coverPath = o["coverImagePath"].toString();
+        if (!coverPath.isEmpty()) {
+            QPixmap pm(coverPath);
+            if (!pm.isNull())
+                item.cover = pm;
+        }
+        items.append(item);
+    }
+
+    setItems(items);
+}
+
+void ShoppingCartPage::handleMutationResponse(const QJsonObject &response)
+{
+    if (response["status"].toString() != "success") {
+        QMessageBox::warning(this, tr("Cart"), response["message"].toString());
+        return;
+    }
+    refreshCart();
+}
+
+void ShoppingCartPage::handleCheckoutResponse(const QJsonObject &response)
+{
+    if (response["status"].toString() != "success") {
+        QMessageBox::warning(this, tr("Checkout"), response["message"].toString());
+        return;
+    }
+
+    const int purchaseId = response["purchaseId"].toInt();
+    QMessageBox::information(this, tr("Checkout"), tr("Purchase completed successfully!"));
+    emit checkoutCompleted(purchaseId);
+    refreshCart();
+}
+
+void ShoppingCartPage::setItems(const QList<CartDisplayItem> &items) {
+    m_items = items;
+    rebuildItemList();
+    refreshSummaryAndHeader();
+}
+void ShoppingCartPage::rebuildItemList() {
+    const auto oldCards = m_scrollArea->widget()->findChildren<CartItemWidget *>(
+        QString(), Qt::FindDirectChildrenOnly);
+    for (CartItemWidget *card : oldCards)
+        card->deleteLater();
+
+    int insertIndex = m_itemsLayout->indexOf(m_emptyLabel);
+    for (const CartDisplayItem &item : m_items) {
+        auto *card = new CartItemWidget(item, m_scrollArea->widget());
+        connect(card, &CartItemWidget::removeRequested, this,
+                [this](int bookId) { sendRequest("remove_from_cart", {{"bookId", bookId}}); });
+        connect(card, &CartItemWidget::saveForLaterRequested, this,
+                [this](int bookId) {
+                    // Move the book to the wishlist and take it out of the cart.
+                    sendRequest("wishlist_add", {{"bookId", bookId}});
+                    sendRequest("remove_from_cart", {{"bookId", bookId}});
+                });
+        connect(card, &CartItemWidget::favoriteToggled, this,
+                [this](int bookId, bool fav) {
+                    sendRequest(fav ? "wishlist_add" : "wishlist_remove", {{"bookId", bookId}});
+                });
+        m_itemsLayout->insertWidget(insertIndex++, card);
+    }
+
+    m_emptyLabel->setVisible(m_items.isEmpty());
+}
+void ShoppingCartPage::refreshSummaryAndHeader() {
+    double itemsTotal = 0.0;
+    double discount = 0.0;
+    for (const CartDisplayItem &item : m_items) {
+        itemsTotal += item.originalPrice * item.quantity;
+        discount += item.discount() * item.quantity;
+    }
+
+    m_headerLabel->setText(tr("🛒  Shopping Cart (%1 %2)")
+                               .arg(m_items.size())
+                               .arg(m_items.size() == 1 ? tr("Item") : tr("Items")));
+    m_summaryWidget->updateSummary(m_items.size(), itemsTotal, discount);
+}

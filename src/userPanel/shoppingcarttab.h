@@ -85,9 +85,13 @@ signals:
 
 private:
     void buildUi();
+    void sendRequest(const QString &action, const QJsonObject &extra = {});
     void setItems(const QList<CartDisplayItem> &items);
     void rebuildItemList();
     void refreshSummaryAndHeader();
+    void handleCartFetchResponse(const QJsonObject &response);
+    void handleMutationResponse(const QJsonObject &response);
+    void handleCheckoutResponse(const QJsonObject &response);
 
     QTcpSocket *m_socket = nullptr;
     int m_userId = -1;
