@@ -800,30 +800,35 @@ void ClientHandler::onReadyRead()
         // WISHLIST)
         // ===========
         else if (action == "wishlist_add") {
+            responseObj["action"] = "wishlist_add_response";
             int userId = requestObj["userId"].toInt();
             int bookId = requestObj["bookId"].toInt();
             QString errorMsg;
             if (DatabaseManager::instance().addToWishlist(userId, bookId, errorMsg)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Added to wishlist.";
+                responseObj["bookId"] = bookId;
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
             }
         }
         else if (action == "wishlist_remove") {
+            responseObj["action"] = "wishlist_remove_response";
             int userId = requestObj["userId"].toInt();
             int bookId = requestObj["bookId"].toInt();
             QString errorMsg;
             if (DatabaseManager::instance().removeFromWishlist(userId, bookId, errorMsg)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Removed from wishlist.";
+                responseObj["bookId"] = bookId;
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
             }
         }
         else if (action == "wishlist_fetch") {
+            responseObj["action"] = "wishlist_fetch_response";
             int userId = requestObj["userId"].toInt();
             QVector<Book> books;
             QString errorMsg;
@@ -848,6 +853,7 @@ void ClientHandler::onReadyRead()
         // SHOPPING CART
         // ================
         else if (action == "add_to_cart") {
+            responseObj["action"] = "add_to_cart_response";
             int userId = requestObj["userId"].toInt();
             int bookId = requestObj["bookId"].toInt();
             int quantity = requestObj["quantity"].toInt(1);
@@ -867,6 +873,7 @@ void ClientHandler::onReadyRead()
             }
         }
         else if (action == "remove_from_cart") {
+            responseObj["action"] = "remove_from_cart_response";
             int userId = requestObj["userId"].toInt();
             int bookId = requestObj["bookId"].toInt();
             QString errorMsg;
@@ -879,6 +886,7 @@ void ClientHandler::onReadyRead()
             }
         }
         else if (action == "cart_clear") {
+            responseObj["action"] = "cart_clear_response";
             int userId = requestObj["userId"].toInt();
             QString errorMsg;
             if (DatabaseManager::instance().clearCart(userId, errorMsg)) {
@@ -890,6 +898,7 @@ void ClientHandler::onReadyRead()
             }
         }
         else if (action == "cart_fetch") {
+            responseObj["action"] = "cart_fetch_response";
             int userId = requestObj["userId"].toInt();
             QVector<CartItem> items;
             double totalPrice = 0.0;
@@ -903,6 +912,25 @@ void ClientHandler::onReadyRead()
                     itemObj["bookId"] = item.bookId;
                     itemObj["quantity"] = item.quantity;
                     itemObj["price"] = item.price;
+                    Book book;
+                    QString bookErr;
+                    if (DatabaseManager::instance().fetchBook(item.bookId, book, bookErr)) {
+                        itemObj["title"] = book.title;
+                        itemObj["author"] = book.author;
+                        itemObj["coverImagePath"] = book.coverImagePath;
+                        itemObj["originalPrice"] = book.price;
+                        itemObj["genre"] = book.genre;
+
+                        QVector<Book> wishlist;
+                        QString wishErr;
+                        bool inWishlist = false;
+                        if (DatabaseManager::instance().fetchWishlist(userId, wishlist, wishErr)) {
+                            for (const Book &w : wishlist) {
+                                if (w.id == item.bookId) { inWishlist = true; break; }
+                            }
+                        }
+                        itemObj["favorite"] = inWishlist;
+                    }
                     cartArray.append(itemObj);
                 }
                 responseObj["items"] = cartArray;
@@ -916,6 +944,7 @@ void ClientHandler::onReadyRead()
         // PURCHASES
         // ============
         else if (action == "checkout") {
+            responseObj["action"] = "checkout_response";
             int userId = requestObj["userId"].toInt();
             QString errorMsg;
             int purchaseId = -1;
@@ -929,6 +958,7 @@ void ClientHandler::onReadyRead()
             }
         }
         else if (action == "purchase_fetch_history") {
+            responseObj["action"] = "purchase_fetch_history_response";
             int userId = requestObj["userId"].toInt();
             QVector<Purchase> purchases;
             QString errorMsg;
