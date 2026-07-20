@@ -105,6 +105,7 @@ qt_add_qml_module(BookClubClient
         SOURCES src/userPanel/shoppingcarttab.h src/userPanel/shoppingcarttab.cpp
         SOURCES src/userPanel/userpanel.h src/userPanel/userpanel.cpp
         SOURCES src/userPanel/bookdetailspage.h src/userPanel/bookdetailspage.cpp
+        SOURCES src/userPanel/wishlistpage.h src/userPanel/wishlistpage.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE
