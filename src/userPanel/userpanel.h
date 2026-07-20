@@ -19,6 +19,7 @@
 #include <QGridLayout>
 #include "models.h"
 #include "shoppingcarttab.h"
+#include "bookdetailspage.h"
 
 class UserPanel : public QWidget
 {
@@ -101,6 +102,8 @@ private:
     QGridLayout *m_searchResultsGrid = nullptr;
     QLabel *m_searchResultsLabel = nullptr;
     QTimer *m_searchTimer = nullptr;
+
+    BookDetailsPage *m_detailsPage = nullptr;
 };
 
 #endif // USERPANEL_H

@@ -161,15 +161,26 @@ void UserPanel::setupUi()
     connect(m_btnLogout, &QPushButton::clicked, this, &UserPanel::logoutRequested);
     sidebarLayout->addWidget(m_btnLogout);
 
-    // Main Area View Control Stack
     m_stackedWidget = new QStackedWidget(this);
-    m_stackedWidget->addWidget(createHomePage());
+    m_stackedWidget->addWidget(createHomePage());    // index 0: home
 
     m_cartPage = new ShoppingCartPage(m_socket, m_userId, this);
     connect(m_cartPage, &ShoppingCartPage::cartUpdated, this, &UserPanel::updateHero);
+    m_stackedWidget->addWidget(m_cartPage);           // index 1: cart
 
-    m_stackedWidget->addWidget(m_cartPage);
+    m_detailsPage = new BookDetailsPage(this);
+    m_stackedWidget->addWidget(m_detailsPage);        // index 2: details
 
+    connect(m_detailsPage, &BookDetailsPage::backRequested, this, [this] { switchPage(0); });
+    connect(m_detailsPage, &BookDetailsPage::addToCartRequested, this, &UserPanel::addToCart);
+    connect(m_detailsPage, &BookDetailsPage::wishlistToggleRequested, this,
+            [this](int id) { qDebug() << "wishlist toggle" << id; });
+    connect(m_detailsPage, &BookDetailsPage::openBookRequested, this,
+            [this](int id) { qDebug() << "open book" << id; });
+    connect(m_detailsPage, &BookDetailsPage::reviewSubmitted, this,
+            [this](int id, int rating, const QString &text) {
+                qDebug() << "review" << id << rating << text;
+            });
     mainLayout->addWidget(sidebar);
     mainLayout->addWidget(m_stackedWidget);
 }
@@ -812,7 +823,7 @@ void UserPanel::runSearch(const QString &text)
     m_searchResultsPanel->show();
 }
 
-void UserPanel::openBookDetails(int bookId) { qDebug() << "details" << bookId; }
+
 void UserPanel::addToCart(int bookId)       {
     QJsonObject req;
     req["action"] = "add_to_cart";
@@ -824,4 +835,16 @@ void UserPanel::addToCart(int bookId)       {
 
     QMessageBox::information(this, "Added to Cart", "Book successfully added to your cart!");
 }
+
+void UserPanel::openBookDetails(int bookId)
+{
+    for (const Book &b : std::as_const(m_storeBooks)) {
+        if (b.id == bookId) {
+            m_detailsPage->setBook(b);
+            switchPage(2);   // check this is 2, not 1
+            return;
+        }
+    }
+}
+
 void UserPanel::openGenre(const QString &g) { qDebug() << "genre" << g; }
