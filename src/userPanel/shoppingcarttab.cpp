@@ -12,14 +12,205 @@
 
 
 CartItemWidget::CartItemWidget(const CartDisplayItem &item, QWidget *parent)
-    : QFrame(parent), m_item(item) {}
-void CartItemWidget::buildUi() {}
-void CartItemWidget::updateFavoriteButton() {}
+    : QFrame(parent), m_item(item)
+{
+    buildUi();
+}
+void CartItemWidget::buildUi() {
+    setObjectName("cartItemCard");
+    setStyleSheet(
+        "QFrame#cartItemCard { background-color: #1d1a21; border: 1px solid #2c2731; border-radius: 12px; }"
+        "QFrame#cartItemCard:hover { border-color: #3a3341; }"
+        "QLabel { background: transparent; border: none; }");
 
-OrderSummaryWidget::OrderSummaryWidget(QWidget *parent) : QFrame(parent) {}
-QLabel *OrderSummaryWidget::makeRowLabel(const QString &text, const QString &color, QWidget *parent) { return nullptr; }
-void OrderSummaryWidget::buildUi() {}
-void OrderSummaryWidget::updateSummary(int itemCount, double itemsTotal, double discount) {}
+    auto *rootLayout = new QHBoxLayout(this);
+    rootLayout->setContentsMargins(16, 16, 16, 16);
+    rootLayout->setSpacing(18);
+
+    auto *coverContainer  = new QWidget(this);
+    coverContainer->setFixedSize(84, 112);
+
+    auto *cover = new QLabel(coverContainer);
+    cover->setGeometry(0,0,84, 112);
+    cover->setAlignment(Qt::AlignCenter);
+    cover->setWordWrap(true);
+    cover->setStyleSheet(
+        "background-color: #2e2735; border-radius: 8px; color: #9d94a6; font-size: 11px; padding: 4px;");
+    if (!m_item.cover.isNull())
+        cover->setPixmap(m_item.cover.scaled(cover->size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation));
+    else
+        cover->setText(m_item.title);
+
+    m_favoriteButton = new QPushButton(coverContainer);
+    m_favoriteButton->setCursor(Qt::PointingHandCursor);
+    m_favoriteButton->setFixedSize(24, 24);
+    m_favoriteButton->move(coverContainer->width() - m_favoriteButton->width() - 4, 4);
+    m_favoriteButton->raise();
+    connect(m_favoriteButton, &QPushButton::clicked, this, [this] {
+        m_item.favorite = !m_item.favorite;
+        updateFavoriteButton();
+        emit favoriteToggled(m_item.bookId, m_item.favorite);
+    });
+    updateFavoriteButton();
+    rootLayout->addWidget(coverContainer, 0, Qt::AlignTop);
+
+    auto *infoLayout = new QVBoxLayout;
+    infoLayout->setContentsMargins(0, 2, 0, 2);
+    infoLayout->setSpacing(3);
+
+    auto *titleLabel = new QLabel(m_item.title, this);
+    titleLabel->setStyleSheet("color: #f4f1f6; font-size: 19px; font-weight: 700;");
+    infoLayout->addWidget(titleLabel);
+
+    auto *authorLabel = new QLabel(m_item.author, this);
+    authorLabel->setStyleSheet("color: #9d94a6; font-size: 13px;");
+    infoLayout->addWidget(authorLabel);
+
+    auto *formatLabel = new QLabel(tr("Format: %1").arg(m_item.format), this);
+    formatLabel->setStyleSheet("color: #9d94a6; font-size: 13px;");
+    infoLayout->addWidget(formatLabel);
+
+    if (m_item.quantity > 1) {
+        auto *qtyLabel = new QLabel(tr("Quantity: %1").arg(m_item.quantity), this);
+        qtyLabel->setStyleSheet("color: #9d94a6; font-size: 13px;");
+        infoLayout->addWidget(qtyLabel);
+    }
+
+    auto *priceRow = new QHBoxLayout;
+    priceRow->setContentsMargins(0, 6, 0, 0);
+    priceRow->setSpacing(8);
+    if (m_item.originalPrice > m_item.price) {
+        auto *oldPrice = new QLabel(QStringLiteral("$%1").arg(m_item.originalPrice, 0, 'f', 2), this);
+        oldPrice->setStyleSheet("color: #7f7689; font-size: 14px; text-decoration: line-through;");
+        priceRow->addWidget(oldPrice);
+    }
+    auto *price = new QLabel(QStringLiteral("$%1").arg(m_item.price, 0, 'f', 2), this);
+    price->setStyleSheet("color: #d97fc4; font-size: 18px; font-weight: 700;");
+    priceRow->addWidget(price);
+    priceRow->addStretch();
+    infoLayout->addLayout(priceRow);
+
+    auto *actionRow = new QHBoxLayout;
+    actionRow->setContentsMargins(0, 8, 0, 0);
+    actionRow->setSpacing(10);
+
+    auto *removeBtn = new QPushButton(tr("🗑  Remove"), this);
+    removeBtn->setCursor(Qt::PointingHandCursor);
+    removeBtn->setStyleSheet(
+        "QPushButton { color: #e46060; background: transparent; border: 1px solid rgba(228, 96, 96, 0.55);"
+        " border-radius: 6px; padding: 6px 14px; font-size: 13px; }"
+        "QPushButton:hover { background-color: rgba(228, 96, 96, 0.12); }");
+    connect(removeBtn, &QPushButton::clicked, this, [this] { emit removeRequested(m_item.bookId); });
+
+    auto *saveBtn = new QPushButton(tr("♡  Save for Later"), this);
+    saveBtn->setCursor(Qt::PointingHandCursor);
+    saveBtn->setStyleSheet(
+        "QPushButton { color: #c9c2d1; background: transparent; border: 1px solid #453f4d;"
+        " border-radius: 6px; padding: 6px 14px; font-size: 13px; }"
+        "QPushButton:hover { background-color: rgba(201, 194, 209, 0.08); }");
+    connect(saveBtn, &QPushButton::clicked, this, [this] { emit saveForLaterRequested(m_item.bookId); });
+
+    actionRow->addWidget(removeBtn);
+    actionRow->addWidget(saveBtn);
+    actionRow->addStretch();
+    infoLayout->addLayout(actionRow);
+
+    rootLayout->addLayout(infoLayout, 1);
+}
+void CartItemWidget::updateFavoriteButton() {
+    m_favoriteButton->setText(m_item.favorite ? QStringLiteral("♥") : QStringLiteral("♡"));
+    m_favoriteButton->setStyleSheet(QString(
+                                        "QPushButton { border: none; border-radius: 12px; font-size: 15px; color: %1;"
+                                        " background-color: rgba(176, 73, 143, 40); }"
+                                        "QPushButton:hover { background-color: rgba(176, 73, 143, 90); }")
+                                        .arg(m_item.favorite ? "#d9a8e0" : "#9d94a6"));
+}
+
+OrderSummaryWidget::OrderSummaryWidget(QWidget *parent)
+    : QFrame(parent)
+{
+    buildUi();
+}
+QLabel *OrderSummaryWidget::makeRowLabel(const QString &text, const QString &color, QWidget *parent) {
+    auto *label = new QLabel(text, parent);
+    label->setStyleSheet(QString("color: %1; font-size: 14px;").arg(color));
+    return label;
+}
+void OrderSummaryWidget::buildUi() {
+    setObjectName("orderSummaryCard");
+    setFixedWidth(300);
+    setStyleSheet(
+        "QFrame#orderSummaryCard { background-color: #1d1a21; border: 1px solid #2c2731; border-radius: 12px; }"
+        "QLabel { background: transparent; border: none; }");
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(22, 22, 22, 22);
+    layout->setSpacing(14);
+
+    auto *titleLabel = new QLabel(tr("📒  Order Summary"), this);
+    titleLabel->setStyleSheet("color: #f4f1f6; font-size: 19px; font-weight: 700;");
+    layout->addWidget(titleLabel);
+
+    auto *rows = new QGridLayout;
+    rows->setContentsMargins(0, 4, 0, 4);
+    rows->setHorizontalSpacing(12);
+    rows->setVerticalSpacing(12);
+    rows->setColumnStretch(0, 1);
+
+    m_itemsCaption  = makeRowLabel(tr("Items (0):"), "#9d94a6", this);
+    m_itemsValue    = makeRowLabel("$0.00", "#f4f1f6", this);
+    m_discountValue = makeRowLabel("-$0.00", "#e46060", this);
+    m_subtotalValue = makeRowLabel("$0.00", "#f4f1f6", this);
+
+    rows->addWidget(m_itemsCaption, 0, 0);
+    rows->addWidget(m_itemsValue, 0, 1, Qt::AlignRight);
+    rows->addWidget(makeRowLabel(tr("Discount:"), "#9d94a6", this), 1, 0);
+    rows->addWidget(m_discountValue, 1, 1, Qt::AlignRight);
+    rows->addWidget(makeRowLabel(tr("Subtotal:"), "#9d94a6", this), 2, 0);
+    rows->addWidget(m_subtotalValue, 2, 1, Qt::AlignRight);
+    layout->addLayout(rows);
+
+    auto *divider = new QFrame(this);
+    divider->setFrameShape(QFrame::HLine);
+    divider->setFixedHeight(1);
+    divider->setStyleSheet("background-color: #2c2731; border: none;");
+    layout->addWidget(divider);
+
+    auto *totalRow = new QHBoxLayout;
+    auto *totalCaption = new QLabel(tr("Total Payable:"), this);
+    totalCaption->setStyleSheet("color: #f4f1f6; font-size: 16px; font-weight: 700;");
+    m_totalValue = new QLabel("$0.00", this);
+    m_totalValue->setStyleSheet("color: #f4f1f6; font-size: 22px; font-weight: 800;");
+    totalRow->addWidget(totalCaption);
+    totalRow->addStretch();
+    totalRow->addWidget(m_totalValue);
+    layout->addLayout(totalRow);
+
+    m_checkoutButton = new QPushButton(tr("💳  Proceed to Checkout"), this);
+    m_checkoutButton->setCursor(Qt::PointingHandCursor);
+    m_checkoutButton->setMinimumHeight(46);
+    m_checkoutButton->setStyleSheet(
+        "QPushButton { color: #ffffff; background-color: #b0498f; border: none; border-radius: 8px;"
+        " font-size: 15px; font-weight: 700; }"
+        "QPushButton:hover { background-color: #c25aa2; }"
+        "QPushButton:pressed { background-color: #93407a; }"
+        "QPushButton:disabled { background-color: #2c2731; color: #7f7689; }");
+
+    // connect(m_checkoutButton, &QPushButton::clicked, this, &OrderSummaryWidget::checkoutRequested);
+
+    layout->addSpacing(4);
+    layout->addWidget(m_checkoutButton);
+}
+void OrderSummaryWidget::updateSummary(int itemCount, double itemsTotal, double discount) {
+    const double subtotal = itemsTotal - discount;
+
+    m_itemsCaption->setText(tr("Items (%1):").arg(itemCount));
+    m_itemsValue->setText(QStringLiteral("$%1").arg(itemsTotal, 0, 'f', 2));
+    m_discountValue->setText(QStringLiteral("-$%1").arg(discount, 0, 'f', 2));
+    m_subtotalValue->setText(QStringLiteral("$%1").arg(subtotal, 0, 'f', 2));
+    m_totalValue->setText(QStringLiteral("$%1").arg(subtotal, 0, 'f', 2));
+    m_checkoutButton->setEnabled(itemCount > 0);
+}
 
 
 ShoppingCartPage::ShoppingCartPage(QTcpSocket *socket, int userId, QWidget *parent)
