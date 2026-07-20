@@ -10,6 +10,9 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QResizeEvent>
+#include <QMessageBox>
+#include <QJsonDocument>
+#include <QTcpSocket>
 
 WishlistItemWidget::WishlistItemWidget(const WishlistDisplayItem &item, bool listMode, QWidget *parent)
     : QFrame(parent), m_item(item), m_listMode(listMode)
@@ -422,6 +425,36 @@ QWidget *WishlistPage::makeDiscoverCard()
     return card;
 }
 
+void WishlistPage::setCatalog(const QVector<Book> &books) {
+    m_catalog = books;
+    for (WishlistDisplayItem &item : m_items)
+        enrichFromCatalog(item);
+    rebuildGrid();
+}
+
+void WishlistPage::enrichFromCatalog(WishlistDisplayItem &item) const
+{
+    for (const Book &b : m_catalog) {
+        if (b.id != item.bookId)
+            continue;
+        item.price = b.price;
+        item.genre = b.genre;
+        if (item.cover.isNull() && !b.coverImagePath.isEmpty()) {
+            QPixmap pm(b.coverImagePath);
+            if (!pm.isNull())
+                item.cover = pm;
+        }
+        break;
+    }
+}
+
+void WishlistPage::setItems(const QList<WishlistDisplayItem> &items)
+{
+    m_items = items;
+    rebuildGrid();
+    emit wishlistUpdated();
+}
+
 void WishlistPage::removeItemLocally(int bookId)
 {
     for (int i = 0; i < m_items.size(); ++i) {
@@ -508,9 +541,11 @@ void WishlistPage::rebuildGrid()
     for (const WishlistDisplayItem &item : visible) {
         auto *card = new WishlistItemWidget(item, m_listMode, m_scrollArea->widget());
         connect(card, &WishlistItemWidget::removeRequested, this, [this](int bookId) {
-            removeItemLocally(bookId); // Only UI update for Phase 2
+            removeItemLocally(bookId);
+            sendRequest("wishlist_remove", {{"bookId", bookId}});
         });
         connect(card, &WishlistItemWidget::addToCartRequested, this, [this](int bookId) {
+            sendRequest("add_to_cart", {{"bookId", bookId}, {"quantity", 1}});
             emit addToCartRequested(bookId);
         });
         connect(card, &WishlistItemWidget::detailsRequested, this, &WishlistPage::bookDetailsRequested);
@@ -544,4 +579,75 @@ void WishlistPage::updateEmptyLabel(int visibleCount)
     else
         m_emptyLabel->setText(tr("No wishlist items match your search."));
     m_emptyLabel->setVisible(visibleCount == 0);
+}
+
+void WishlistPage::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    if (gridColumnCount() != m_columns)
+        rebuildGrid();
+}
+
+void WishlistPage::sendRequest(const QString &action, const QJsonObject &extra)
+{
+    if (!m_socket)
+        return;
+
+    QJsonObject packet = extra;
+    packet["action"] = action;
+    packet["userId"] = m_userId;
+    m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+    m_socket->flush();
+}
+
+void WishlistPage::refreshWishlist() {
+    sendRequest("wishlist_fetch");
+}
+
+void WishlistPage::handleServerResponse(const QJsonObject &response)
+{
+    const QString action = response["action"].toString();
+
+    if (action == "wishlist_fetch_response") {
+        handleWishlistFetchResponse(response);
+    } else if (action == "wishlist_add_response"
+               || action == "wishlist_remove_response") {
+        handleMutationResponse(response);
+    }
+}
+
+void WishlistPage::handleWishlistFetchResponse(const QJsonObject &response)
+{
+    if (response["status"].toString() != "success") {
+        QMessageBox::warning(this, tr("Wishlist"), response["message"].toString());
+        return;
+    }
+
+    QList<WishlistDisplayItem> items;
+    const QJsonArray rawBooks = response["books"].toArray();
+    for (const QJsonValue &value : rawBooks) {
+        const QJsonObject o = value.toObject();
+        WishlistDisplayItem item;
+        item.bookId = o["id"].toInt();
+        item.title = o["title"].toString();
+        item.author = o["author"].toString();
+        enrichFromCatalog(item);
+        items.append(item);
+    }
+
+    if (!items.isEmpty())
+        items.last().isNew = true;
+
+    setItems(items);
+}
+
+void WishlistPage::handleMutationResponse(const QJsonObject &response)
+{
+    if (response["status"].toString() != "success") {
+        QMessageBox::warning(this, tr("Wishlist"), response["message"].toString());
+        refreshWishlist();
+        return;
+    }
+    if (response["action"].toString() == "wishlist_add_response")
+        refreshWishlist();
 }

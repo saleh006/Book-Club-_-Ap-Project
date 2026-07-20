@@ -8,6 +8,8 @@
 #include <QList>
 #include <QVector>
 #include "models.h"
+#include <QJsonObject>
+#include <QJsonArray>
 
 class QTcpSocket;
 class QLineEdit;
@@ -62,6 +64,9 @@ class WishlistPage : public QWidget
     Q_OBJECT
 public:
     explicit WishlistPage(QTcpSocket *socket, int userId, QWidget *parent = nullptr);
+    void refreshWishlist();
+    void handleServerResponse(const QJsonObject &response);
+    void setCatalog(const QVector<Book> &books);
     bool containsBook(int bookId) const {
         for (const auto &item : m_items) {
             if (item.bookId == bookId) return true;
@@ -75,9 +80,17 @@ signals:
     void exploreBooksRequested();
     void wishlistUpdated();
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     void buildUi();
+    void sendRequest(const QString &action, const QJsonObject &extra = {});
+    void handleWishlistFetchResponse(const QJsonObject &response);
+    void handleMutationResponse(const QJsonObject &response);
     void removeItemLocally(int bookId);
+    void setItems(const QList<WishlistDisplayItem> &items);
+    void enrichFromCatalog(WishlistDisplayItem &item) const;
     QList<WishlistDisplayItem> filteredSortedItems() const;
     void rebuildGrid();
     void refreshCountLabel();
