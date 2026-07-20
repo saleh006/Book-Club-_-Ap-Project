@@ -15,6 +15,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QDebug>
+#include <QTimer>
+#include <QGridLayout>
 #include "models.h"
 
 class UserPanel : public QWidget
@@ -87,6 +89,14 @@ private:
     QHBoxLayout *m_rowBestsellers = nullptr;
     QHBoxLayout *m_rowFree = nullptr;
     QLineEdit *m_searchEdit = nullptr;
+
+    void setupSearch();
+    void runSearch(const QString &text);
+    QWidget *m_homeSections = nullptr;     // wraps hero + categories + rows
+    QWidget *m_searchResultsPanel = nullptr;
+    QGridLayout *m_searchResultsGrid = nullptr;
+    QLabel *m_searchResultsLabel = nullptr;
+    QTimer *m_searchTimer = nullptr;
 };
 
 #endif // USERPANEL_H

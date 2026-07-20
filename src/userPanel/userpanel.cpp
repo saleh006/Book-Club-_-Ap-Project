@@ -195,6 +195,29 @@ QWidget *UserPanel::createHomePage()
                                     "QLineEdit:focus{border:1px solid %3;background-color:#1A141F;}")
                                     .arg(kCardBg, kCardBorder, kAccent));
     layout->addWidget(m_searchEdit);
+    // ---- search results panel (hidden until user types) ----
+    m_searchResultsPanel = new QWidget(page);
+    m_searchResultsPanel->setStyleSheet("background:transparent;border:none;");
+    auto *srLayout = new QVBoxLayout(m_searchResultsPanel);
+    srLayout->setContentsMargins(0, 0, 0, 0);
+    srLayout->setSpacing(12);
+    m_searchResultsLabel = new QLabel(m_searchResultsPanel);
+    m_searchResultsLabel->setStyleSheet("color:#FFFFFF;font-size:16px;font-weight:bold;border:none;background:transparent;");
+    srLayout->addWidget(m_searchResultsLabel);
+    m_searchResultsGrid = new QGridLayout;
+    m_searchResultsGrid->setSpacing(16);
+    srLayout->addLayout(m_searchResultsGrid);
+    srLayout->addStretch();
+    m_searchResultsPanel->hide();
+    layout->addWidget(m_searchResultsPanel);
+
+    // ---- home sections wrapper ----
+    m_homeSections = new QWidget(page);
+    m_homeSections->setStyleSheet("background:transparent;border:none;");
+    auto *homeLayout = new QVBoxLayout(m_homeSections);
+    homeLayout->setContentsMargins(0, 0, 0, 0);
+    homeLayout->setSpacing(24);
+    layout->addWidget(m_homeSections);
 
     // ---------- hero banner (unchanged, already good) ----------
     auto *hero = new QWidget(page);
@@ -391,6 +414,7 @@ QWidget *UserPanel::createHomePage()
 
     layout->addStretch();
     scroll->setWidget(page);
+    setupSearch();
     return scroll;
 }
 
@@ -557,6 +581,7 @@ void UserPanel::onReadyRead()
                 b.coverImagePath = bo["coverImagePath"].toString();
                 b.averageRating = bo["averageRating"].toDouble();
                 b.totalSales = bo["totalSales"].toInt();
+                b.publisherName = bo["publisherName"].toString();
                 m_storeBooks.push_back(b);
             }
             rebuildHomeSections();
@@ -661,6 +686,68 @@ void UserPanel::updateHero()
     m_heroAuthor->setText(b.author);
     m_heroRating->setText(QString("⭐ %1").arg(QString::number(b.averageRating, 'f', 1)));
     m_heroDesc->setText(b.description);
+}
+
+void UserPanel::setupSearch()
+{
+    m_searchTimer = new QTimer(this);
+    m_searchTimer->setSingleShot(true);
+    m_searchTimer->setInterval(300);   // debounce: search 300ms after typing stops
+
+    connect(m_searchEdit, &QLineEdit::textChanged, this, [this] {
+        m_searchTimer->start();
+    });
+    connect(m_searchTimer, &QTimer::timeout, this, [this] {
+        runSearch(m_searchEdit->text());
+    });
+    // Enter searches immediately
+    connect(m_searchEdit, &QLineEdit::returnPressed, this, [this] {
+        m_searchTimer->stop();
+        runSearch(m_searchEdit->text());
+    });
+}
+
+void UserPanel::runSearch(const QString &text)
+{
+    const QString q = text.trimmed();
+
+    // empty query → back to normal home page
+    if (q.isEmpty()) {
+        m_searchResultsPanel->hide();
+        m_homeSections->show();
+        return;
+    }
+
+    // match title OR author OR publisher, case-insensitive
+    QVector<Book> results;
+    for (const Book &b : std::as_const(m_storeBooks)) {
+        if (b.title.contains(q, Qt::CaseInsensitive)
+            || b.author.contains(q, Qt::CaseInsensitive)
+            || b.publisherName.contains(q, Qt::CaseInsensitive)) {
+            results.push_back(b);
+        }
+    }
+
+    // clear old grid
+    while (QLayoutItem *it = m_searchResultsGrid->takeAt(0)) {
+        if (it->widget()) it->widget()->deleteLater();
+        delete it;
+    }
+
+    m_searchResultsLabel->setText(
+        results.isEmpty()
+            ? QString("No results for \"%1\"").arg(q)
+            : QString("Results for \"%1\"  (%2 found)").arg(q).arg(results.size()));
+
+    const int columns = 5;
+    int row = 0, col = 0;
+    for (const Book &b : std::as_const(results)) {
+        m_searchResultsGrid->addWidget(makeBookCard(b), row, col);
+        if (++col >= columns) { col = 0; ++row; }
+    }
+
+    m_homeSections->hide();
+    m_searchResultsPanel->show();
 }
 
 void UserPanel::openBookDetails(int bookId) { qDebug() << "details" << bookId; }
