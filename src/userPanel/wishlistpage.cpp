@@ -13,6 +13,7 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QTcpSocket>
+#include <QSet>
 
 WishlistItemWidget::WishlistItemWidget(const WishlistDisplayItem &item, bool listMode, QWidget *parent)
     : QFrame(parent), m_item(item), m_listMode(listMode)
@@ -545,7 +546,8 @@ void WishlistPage::rebuildGrid()
             sendRequest("wishlist_remove", {{"bookId", bookId}});
         });
         connect(card, &WishlistItemWidget::addToCartRequested, this, [this](int bookId) {
-            sendRequest("add_to_cart", {{"bookId", bookId}, {"quantity", 1}});
+            removeItemLocally(bookId);
+            sendRequest("wishlist_remove", {{"bookId", bookId}});
             emit addToCartRequested(bookId);
         });
         connect(card, &WishlistItemWidget::detailsRequested, this, &WishlistPage::bookDetailsRequested);
@@ -623,6 +625,10 @@ void WishlistPage::handleWishlistFetchResponse(const QJsonObject &response)
         return;
     }
 
+    QSet<int> previousIds;
+    for (const WishlistDisplayItem &existing : std::as_const(m_items))
+        previousIds.insert(existing.bookId);
+
     QList<WishlistDisplayItem> items;
     const QJsonArray rawBooks = response["books"].toArray();
     for (const QJsonValue &value : rawBooks) {
@@ -632,12 +638,9 @@ void WishlistPage::handleWishlistFetchResponse(const QJsonObject &response)
         item.title = o["title"].toString();
         item.author = o["author"].toString();
         enrichFromCatalog(item);
+        item.isNew = !previousIds.contains(item.bookId);
         items.append(item);
     }
-
-    if (!items.isEmpty())
-        items.last().isNew = true;
-
     setItems(items);
 }
 

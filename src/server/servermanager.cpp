@@ -446,6 +446,7 @@ void ClientHandler::onReadyRead()
             }
         }
         else if (action == "books_fetch_all") {
+            responseObj["action"] = "books_fetch_all_response";
             QVector<Book> books;
             QString errorMsg;
             bool activeOnly = requestObj["activeOnly"].toBool(true);

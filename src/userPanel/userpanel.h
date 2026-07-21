@@ -20,6 +20,7 @@
 #include "models.h"
 #include "shoppingcarttab.h"
 #include "bookdetailspage.h"
+#include "wishlistpage.h"
 
 class UserPanel : public QWidget
 {
@@ -55,6 +56,7 @@ private:
     // Functional Actions / Stubs
     void openBookDetails(int bookId);
     void addToCart(int bookId);
+    void toggleWishlist(int bookId);
     void openGenre(const QString &g);
 
     // User Session Fields
@@ -71,7 +73,10 @@ private:
     QPushButton *m_btnLogout = nullptr;
     QPushButton *m_btnCart = nullptr;
     QPushButton *m_heroCartBtn = nullptr;
+    QPushButton *m_heroWishlistBtn = nullptr;
+    QPushButton *m_btnWishlist = nullptr;
     ShoppingCartPage *m_cartPage = nullptr;
+    WishlistPage *m_wishlistPage = nullptr;
     QStackedWidget *m_stackedWidget = nullptr;
 
     // Store State Containers
