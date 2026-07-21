@@ -102,6 +102,9 @@ private:
 
     void setupSearch();
     void runSearch(const QString &text);
+    QPushButton *m_searchResultsCloseBtn = nullptr;
+    void showResultsGrid(const QString &headerText, const QVector<Book> &results);
+    void closeResultsView();
     QWidget *m_homeSections = nullptr;     // wraps hero + categories + rows
     QWidget *m_searchResultsPanel = nullptr;
     QGridLayout *m_searchResultsGrid = nullptr;

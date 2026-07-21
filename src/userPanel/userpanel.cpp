@@ -248,19 +248,42 @@ QWidget *UserPanel::createHomePage()
                                     "QLineEdit:focus{border:1px solid %3;background-color:#1A141F;}")
                                     .arg(kCardBg, kCardBorder, kAccent));
     layout->addWidget(m_searchEdit);
+
     // ---- search results panel (hidden until user types) ----
     m_searchResultsPanel = new QWidget(page);
     m_searchResultsPanel->setStyleSheet("background:transparent;border:none;");
+
     auto *srLayout = new QVBoxLayout(m_searchResultsPanel);
     srLayout->setContentsMargins(0, 0, 0, 0);
     srLayout->setSpacing(12);
-    m_searchResultsLabel = new QLabel(m_searchResultsPanel);
+
+    auto *resultsHeaderRow = new QWidget(m_searchResultsPanel);
+    resultsHeaderRow->setStyleSheet("background:transparent;border:none;");
+    auto *resultsHeaderLayout = new QHBoxLayout(resultsHeaderRow);
+    resultsHeaderLayout->setContentsMargins(0, 0, 0, 0);
+    resultsHeaderLayout->setSpacing(10);
+
+    m_searchResultsLabel = new QLabel(resultsHeaderRow);
     m_searchResultsLabel->setStyleSheet("color:#FFFFFF;font-size:16px;font-weight:bold;border:none;background:transparent;");
-    srLayout->addWidget(m_searchResultsLabel);
+
+    m_searchResultsCloseBtn = new QPushButton("✕ Close", resultsHeaderRow);
+    m_searchResultsCloseBtn->setCursor(Qt::PointingHandCursor);
+    m_searchResultsCloseBtn->setStyleSheet(
+        "QPushButton{background:transparent;border:1px solid #3A3244;border-radius:8px;"
+        "padding:6px 14px;color:#9A8FA0;font-size:12px;}"
+        "QPushButton:hover{border-color:#7C3E66;color:#EAEAEA;background-color:#1A141F;}");
+    connect(m_searchResultsCloseBtn, &QPushButton::clicked, this, &UserPanel::closeResultsView);
+
+    resultsHeaderLayout->addWidget(m_searchResultsLabel);
+    resultsHeaderLayout->addStretch();
+    resultsHeaderLayout->addWidget(m_searchResultsCloseBtn);
+    srLayout->addWidget(resultsHeaderRow);
+
     m_searchResultsGrid = new QGridLayout;
     m_searchResultsGrid->setSpacing(16);
     srLayout->addLayout(m_searchResultsGrid);
     srLayout->addStretch();
+
     m_searchResultsPanel->hide();
     layout->addWidget(m_searchResultsPanel);
 
@@ -338,9 +361,9 @@ QWidget *UserPanel::createHomePage()
         "QPushButton:hover{border-color:#7C3E66;background-color:#1A141F;}");
     m_heroCartBtn = new QPushButton("Add to Cart", hero);
     m_heroCartBtn->setStyleSheet(QString(
-                               "QPushButton{background-color:%1;border:none;border-radius:8px;"
-                               "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}"
-                               "QPushButton:hover{background-color:#B06B96;}").arg(kAccent));
+                                     "QPushButton{background-color:%1;border:none;border-radius:8px;"
+                                     "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}"
+                                     "QPushButton:hover{background-color:#B06B96;}").arg(kAccent));
 
     m_heroWishlistBtn = new QPushButton("♡", hero);
     m_heroWishlistBtn->setFixedSize(40, 40);
@@ -853,44 +876,25 @@ void UserPanel::setupSearch()
 void UserPanel::runSearch(const QString &text)
 {
     const QString q = text.trimmed();
-
-    // empty query → back to normal home page
     if (q.isEmpty()) {
         m_searchResultsPanel->hide();
         m_homeSections->show();
         return;
     }
 
-    // match title OR author OR publisher, case-insensitive
     QVector<Book> results;
     for (const Book &b : std::as_const(m_storeBooks)) {
-        if (b.title.contains(q, Qt::CaseInsensitive)
-            || b.author.contains(q, Qt::CaseInsensitive)
-            || b.publisherName.contains(q, Qt::CaseInsensitive)) {
+        if (b.title.contains(q, Qt::CaseInsensitive) ||
+            b.author.contains(q, Qt::CaseInsensitive) ||
+            b.publisherName.contains(q, Qt::CaseInsensitive)) {
             results.push_back(b);
         }
     }
 
-    // clear old grid
-    while (QLayoutItem *it = m_searchResultsGrid->takeAt(0)) {
-        if (it->widget()) it->widget()->deleteLater();
-        delete it;
-    }
-
-    m_searchResultsLabel->setText(
-        results.isEmpty()
-            ? QString("No results for \"%1\"").arg(q)
-            : QString("Results for \"%1\"  (%2 found)").arg(q).arg(results.size()));
-
-    const int columns = 5;
-    int row = 0, col = 0;
-    for (const Book &b : std::as_const(results)) {
-        m_searchResultsGrid->addWidget(makeBookCard(b), row, col);
-        if (++col >= columns) { col = 0; ++row; }
-    }
-
-    m_homeSections->hide();
-    m_searchResultsPanel->show();
+    showResultsGrid(
+        results.isEmpty() ? QString("No results for \"%1\"").arg(q)
+                          : QString("Results for \"%1\" (%2 found)").arg(q).arg(results.size()),
+        results);
 }
 
 
@@ -917,7 +921,26 @@ void UserPanel::openBookDetails(int bookId)
     }
 }
 
-void UserPanel::openGenre(const QString &g) { qDebug() << "genre" << g; }
+void UserPanel::openGenre(const QString &g)
+{
+    if (m_searchTimer) m_searchTimer->stop();
+    if (m_searchEdit) {
+        m_searchEdit->blockSignals(true);
+        m_searchEdit->clear();
+        m_searchEdit->blockSignals(false);
+    }
+
+    QVector<Book> results;
+    for (const Book &b : std::as_const(m_storeBooks)) {
+        if (b.genre.compare(g, Qt::CaseInsensitive) == 0)
+            results.push_back(b);
+    }
+
+    showResultsGrid(
+        results.isEmpty() ? QString("No books found in \"%1\"").arg(g)
+                          : QString("%1 (%2 books)").arg(g).arg(results.size()),
+        results);
+}
 
 void UserPanel::toggleWishlist(int bookId)
 {
@@ -929,3 +952,36 @@ void UserPanel::toggleWishlist(int bookId)
     req["bookId"] = bookId;
     sendRequest(req);
 }
+
+void UserPanel::showResultsGrid(const QString &headerText, const QVector<Book> &results)
+{
+    while (QLayoutItem *it = m_searchResultsGrid->takeAt(0)) {
+        if (it->widget()) it->widget()->deleteLater();
+        delete it;
+    }
+
+    m_searchResultsLabel->setText(headerText);
+
+    const int columns = 5;
+    int row = 0, col = 0;
+    for (const Book &b : std::as_const(results)) {
+        m_searchResultsGrid->addWidget(makeBookCard(b), row, col);
+        if (++col >= columns) { col = 0; ++row; }
+    }
+
+    m_homeSections->hide();
+    m_searchResultsPanel->show();
+}
+
+void UserPanel::closeResultsView()
+{
+    if (m_searchTimer) m_searchTimer->stop();
+    if (m_searchEdit) {
+        m_searchEdit->blockSignals(true);
+        m_searchEdit->clear();
+        m_searchEdit->blockSignals(false);
+    }
+    m_searchResultsPanel->hide();
+    m_homeSections->show();
+}
+
