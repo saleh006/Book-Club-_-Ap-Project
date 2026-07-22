@@ -43,6 +43,10 @@ qt_add_executable(BookClubServer
     src/server/servermanager.cpp
     src/server/serverui.h
     src/server/serverui.cpp
+    src/server/clienthandler.h src/server/clienthandler.cpp
+    src/server/clienthandler_users.cpp
+    src/server/clienthandler_publisher.cpp
+    src/server/clienthandler_books.cpp
 )
 
 target_include_directories(BookClubServer PRIVATE
