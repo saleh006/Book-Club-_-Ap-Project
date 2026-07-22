@@ -1,4 +1,10 @@
 #include <QJsonArray>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QTcpSocket>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include "databasemanager.h"
 #include "servermanager.h"
 #include "clienthandler.h"
@@ -274,6 +280,24 @@ bool ClientHandler::handleUserActions(const QString &action, const QJsonObject &
         } else {
             responseObj["success"] = false;
             responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "download_file") {
+        QString serverFilePath = requestObj["filePath"].toString();
+        QFile file(serverFilePath);
+
+        if (file.open(QIODevice::ReadOnly)) {
+            QByteArray fileBytes = file.readAll();
+            file.close();
+
+            responseObj["type"] = "download_result";
+            responseObj["success"] = true;
+            responseObj["filePath"] = serverFilePath;
+            responseObj["fileData"] = QString(fileBytes.toBase64());
+        } else {
+            responseObj["type"] = "download_result";
+            responseObj["success"] = false;
+            responseObj["message"] = "File not found or could not be opened on server.";
         }
     }
     else {

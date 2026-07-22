@@ -3,6 +3,8 @@
 #include <QMessageBox>
 #include <QPainter>
 #include <QFrame>
+#include <QCoreApplication>
+#include <QFileInfo>
 
 static const char *kCardBg     = "#120E14";
 static const char *kCardBorder = "#1F1724";
@@ -11,11 +13,22 @@ static const char *kTextDim    = "#9A8FA0";
 
 static QPixmap makeCoverPixmap(const Book &b, const QSize &size)
 {
-    QPixmap img(b.coverImagePath);
-    if (!img.isNull())
-        return img.scaled(size, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation)
-            .copy(0, 0, size.width(), size.height());
+    if (!b.coverImagePath.isEmpty()) {
+        QFileInfo info(b.coverImagePath);
+        // Cache path on user client side
+        QString localCachePath = QCoreApplication::applicationDirPath() + "/cache/covers/" + info.fileName();
+        QString errorMsg;
 
+        if (downloadFileFromServer(b.coverImagePath, localCachePath, errorMsg)) {
+            QPixmap img(localCachePath);
+            if (!img.isNull()) {
+                return img.scaled(size, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation)
+                .copy(0, 0, size.width(), size.height());
+            }
+        }
+    }
+
+    // Fallback placeholder rendering (original logic)
     QPixmap canvas(size);
     static const QStringList colors = {"#3B2A4D", "#4D2A3E", "#2A3E4D", "#2A4D3B", "#4D3B2A"};
     canvas.fill(QColor(colors[qAbs(b.id) % colors.size()]));

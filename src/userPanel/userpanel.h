@@ -18,6 +18,12 @@
 #include <QTimer>
 #include <QGridLayout>
 #include <functional>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QTcpSocket>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include "models.h"
 #include "shoppingcarttab.h"
 #include "bookdetailspage.h"
@@ -122,5 +128,67 @@ private:
 
     void showFullList(const QString &title, const QVector<Book> &books);
 };
+
+static bool downloadFileFromServer(const QString &serverFilePath, const QString &localSavePath, QString &errorMsg)
+{
+    // If we already downloaded and cached this file, no need to redownload
+    if (QFile::exists(localSavePath)) {
+        return true;
+    }
+
+    if (serverFilePath.isEmpty()) {
+        errorMsg = "Server file path is empty.";
+        return false;
+    }
+
+    QJsonObject req;
+    req["action"] = "download_file";
+    req["filePath"] = serverFilePath;
+
+    QTcpSocket socket;
+    socket.connectToHost("127.0.0.1", 1234);
+    if (!socket.waitForConnected(3000)) {
+        errorMsg = "Could not connect to server for download.";
+        return false;
+    }
+
+    socket.write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
+
+    if (!socket.waitForReadyRead(10000)) {
+        errorMsg = "Server did not respond to download request.";
+        socket.disconnectFromHost();
+        return false;
+    }
+
+    QByteArray responseData = socket.readAll();
+    while (socket.waitForReadyRead(500)) {
+        responseData += socket.readAll();
+    }
+    socket.disconnectFromHost();
+
+    QJsonDocument doc = QJsonDocument::fromJson(responseData);
+    if (!doc.isObject()) return false;
+    QJsonObject obj = doc.object();
+
+    if (obj["type"].toString() == "download_result" && obj["success"].toBool()) {
+        QByteArray fileBytes = QByteArray::fromBase64(obj["fileData"].toString().toUtf8());
+
+        QFileInfo info(localSavePath);
+        QDir().mkpath(info.absolutePath()); // Ensure local folders exist
+
+        QFile outFile(localSavePath);
+        if (outFile.open(QIODevice::WriteOnly)) {
+            outFile.write(fileBytes);
+            outFile.close();
+            return true;
+        } else {
+            errorMsg = "Failed to save file on client local path.";
+            return false;
+        }
+    } else {
+        errorMsg = obj["message"].toString();
+        return false;
+    }
+}
 
 #endif // USERPANEL_H
