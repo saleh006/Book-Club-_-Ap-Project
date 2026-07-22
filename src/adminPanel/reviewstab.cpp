@@ -5,10 +5,13 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QColor>
+#include <QTimer>
 
 ReviewsTab::ReviewsTab(QTcpSocket *socket, QWidget *parent)
     : QWidget(parent), m_socket(socket)
 {
+    m_reviewShowPendingOnly = false;
+
     QVBoxLayout *outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
     outer->addWidget(setupUi());
@@ -85,7 +88,7 @@ QWidget* ReviewsTab::setupUi()
     layout->addLayout(reviewBtnLayout);
 
     connect(m_reviewSearchEdit, &QLineEdit::textChanged, this, &ReviewsTab::filterReviews);
-    connect(m_reviewFilterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ReviewsTab::handleReviewFilterChanged);
+    connect(m_reviewFilterCombo, QOverload<int>::of(&QComboBox::activated), this, &ReviewsTab::handleReviewFilterChanged);
     connect(m_btnApproveReview, &QPushButton::clicked, this, &ReviewsTab::handleApproveReview);
     connect(m_btnDeleteReview, &QPushButton::clicked, this, &ReviewsTab::handleDeleteReview);
 
@@ -108,7 +111,9 @@ void ReviewsTab::clearTableSelection()
 void ReviewsTab::handleReviewFilterChanged(int index)
 {
     m_reviewShowPendingOnly = (index == 1);
-    refreshTable();
+    QTimer::singleShot(50, this, [this]() {
+        refreshTable();
+    });
 }
 
 void ReviewsTab::filterReviews(const QString &text)
@@ -124,10 +129,9 @@ void ReviewsTab::filterReviews(const QString &text)
 
 void ReviewsTab::populateReviewsTable(const QJsonArray &reviews, bool pendingOnly)
 {
-    m_reviewsTable->setRowCount(0);
+    m_reviewsTable->setRowCount(reviews.size());
     for (int i = 0; i < reviews.size(); ++i) {
         QJsonObject r = reviews[i].toObject();
-        m_reviewsTable->insertRow(i);
 
         m_reviewsTable->setItem(i, 0, new QTableWidgetItem(QString::number(r["id"].toInt())));
         m_reviewsTable->setItem(i, 1, new QTableWidgetItem(r["bookTitle"].toString()));
@@ -185,9 +189,11 @@ void ReviewsTab::handleServerResponse(const QJsonObject &response)
     QString action = response["action"].toString();
 
     if (action == "all_reviews_response" && response["status"].toString() == "success") {
+        if (m_reviewShowPendingOnly) return;
         populateReviewsTable(response["data"].toArray(), false);
     }
     else if (action == "pending_reviews_response" && response["status"].toString() == "success") {
+        if (!m_reviewShowPendingOnly) return;
         populateReviewsTable(response["data"].toArray(), true);
     }
     else if (action == "approve_review_response") {

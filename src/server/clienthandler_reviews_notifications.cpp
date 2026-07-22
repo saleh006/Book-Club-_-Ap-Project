@@ -5,13 +5,13 @@
 
 bool ClientHandler::handleReviewAndNotificationActions(const QString &action, const QJsonObject &requestObj, QJsonObject &responseObj)
 {
-    if (action == "review_add") {
+    if (action == "submit_review") {
+        responseObj["action"] = "submit_review_response";
         Review r;
         r.userId = requestObj["userId"].toInt();
         r.bookId = requestObj["bookId"].toInt();
         r.rating = requestObj["rating"].toInt();
         r.comment = requestObj["comment"].toString();
-        r.date = QDateTime::currentDateTime();
 
         if (r.rating < 1 || r.rating > 5) {
             responseObj["status"] = "error";
@@ -20,85 +20,63 @@ bool ClientHandler::handleReviewAndNotificationActions(const QString &action, co
             QString errorMsg;
             if (DatabaseManager::instance().addReview(r, errorMsg)) {
                 responseObj["status"] = "success";
-                responseObj["message"] = "Review and rating submitted successfully.";
-                DatabaseManager::instance().recalculateAverageRating(r.bookId, errorMsg);
+                responseObj["message"] = "Review submitted and awaiting approval.";
+                emit databaseUpdated("reviews");
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
             }
         }
     }
-    else if (action == "review_fetch_for_book") {
+    else if (action == "get_book_reviews") {
+        responseObj["action"] = "book_reviews_response";
         int bookId = requestObj["bookId"].toInt();
         QVector<Review> reviews;
         QString errorMsg;
         if (DatabaseManager::instance().fetchReviewsForBook(bookId, reviews, errorMsg)) {
             responseObj["status"] = "success";
-            QJsonArray reviewArray;
+            QJsonArray arr;
             for (const Review &r : reviews) {
-                QJsonObject reviewObj;
-                reviewObj["id"] = r.id;
-                reviewObj["userId"] = r.userId;
-                reviewObj["rating"] = r.rating;
-                reviewObj["comment"] = r.comment;
-                reviewObj["date"] = r.date.toString(Qt::ISODate);
-                reviewArray.append(reviewObj);
+                QJsonObject rObj;
+                rObj["id"] = r.id;
+                rObj["bookId"] = r.bookId;
+                rObj["userId"] = r.userId;
+                rObj["username"] = r.username;
+                rObj["rating"] = r.rating;
+                rObj["comment"] = r.comment;
+                rObj["date"] = r.date.toString(Qt::ISODate);
+                rObj["isApproved"] = r.isApproved;
+                arr.append(rObj);
             }
-            responseObj["reviews"] = reviewArray;
+            responseObj["data"] = arr;
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;
         }
     }
-    else if (action == "get_all_reviews_admin") {
-        responseObj["action"] = "all_reviews_response";
+    else if (action == "get_all_reviews_admin" || action == "get_pending_reviews") {
+        bool pendingOnly = (action == "get_pending_reviews");
+        responseObj["action"] = pendingOnly ? "pending_reviews_response" : "all_reviews_response";
         QVector<ReviewAdminSummary> reviews;
         QString errorMsg;
-
-        if (DatabaseManager::instance().fetchReviewsForAdmin(false, reviews, errorMsg)) {
+        if (DatabaseManager::instance().fetchReviewsForAdmin(pendingOnly, reviews, errorMsg)) {
             responseObj["status"] = "success";
-            QJsonArray reviewArray;
-            for (const ReviewAdminSummary &r : reviews) {
-                QJsonObject reviewObj;
-                reviewObj["id"] = r.review.id;
-                reviewObj["bookId"] = r.review.bookId;
-                reviewObj["bookTitle"] = r.bookTitle;
-                reviewObj["username"] = r.username;
-                reviewObj["rating"] = r.review.rating;
-                reviewObj["comment"] = r.review.comment;
-                reviewObj["date"] = r.review.date.toString("yyyy-MM-dd");
-                reviewObj["isApproved"] = r.review.isApproved;
-                reviewArray.append(reviewObj);
+            QJsonArray arr;
+            for (const ReviewAdminSummary &s : reviews) {
+                QJsonObject rObj;
+                rObj["id"] = s.review.id;
+                rObj["bookId"] = s.review.bookId;
+                rObj["bookTitle"] = s.bookTitle;
+                rObj["userId"] = s.review.userId;
+                rObj["username"] = s.username;
+                rObj["rating"] = s.review.rating;
+                rObj["comment"] = s.review.comment;
+                rObj["date"] = s.review.date.toString(Qt::ISODate);
+                rObj["isApproved"] = s.review.isApproved;
+                arr.append(rObj);
             }
-            responseObj["data"] = reviewArray;
-        }
-        else {
-            responseObj["status"] = "error";
-            responseObj["message"] = errorMsg;
-        }
-    }
-    else if (action == "get_pending_reviews") {
-        responseObj["action"] = "pending_reviews_response";
-        QVector<ReviewAdminSummary> reviews;
-        QString errorMsg;
-
-        if (DatabaseManager::instance().fetchReviewsForAdmin(true, reviews, errorMsg)) {
-            responseObj["status"] = "success";
-            QJsonArray reviewArray;
-            for (const ReviewAdminSummary &r : reviews) {
-                QJsonObject reviewObj;
-                reviewObj["id"] = r.review.id;
-                reviewObj["bookId"] = r.review.bookId;
-                reviewObj["bookTitle"] = r.bookTitle;
-                reviewObj["username"] = r.username;
-                reviewObj["rating"] = r.review.rating;
-                reviewObj["comment"] = r.review.comment;
-                reviewObj["date"] = r.review.date.toString("yyyy-MM-dd");
-                reviewArray.append(reviewObj);
-            }
-            responseObj["data"] = reviewArray;
-        }
-        else {
+            responseObj["data"] = arr;
+        } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;
         }

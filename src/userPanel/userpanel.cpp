@@ -217,12 +217,23 @@ void UserPanel::setupUi()
         req["bookId"] = id;
         sendRequest(req);
     });
-    connect(m_detailsPage, &BookDetailsPage::openBookRequested, this,
-            [this](int id) { qDebug() << "open book" << id; });
-    connect(m_detailsPage, &BookDetailsPage::reviewSubmitted, this,
-            [this](int id, int rating, const QString &text) {
-                qDebug() << "review" << id << rating << text;
-            });
+    connect(m_detailsPage, &BookDetailsPage::openBookRequested, this,[this](int id) {
+        qDebug() << "open book" << id;
+    });
+    connect(m_detailsPage, &BookDetailsPage::reviewSubmitted, this,[this](int id, int rating, const QString &text) {
+        if (rating <= 0) {
+            QMessageBox::warning(this, "Rating Required",
+                                 "Please select a star rating before submitting your review.");
+            return;
+        }
+        QJsonObject req;
+        req["action"] = "submit_review";
+        req["userId"] = m_userId;
+        req["bookId"] = id;
+        req["rating"] = rating;
+        req["comment"] = text;
+        sendRequest(req);
+    });
 
     m_wishlistPage = new WishlistPage(m_socket, m_userId, this);
     connect(m_wishlistPage, &WishlistPage::addToCartRequested, this, &UserPanel::addToCart);
@@ -782,6 +793,30 @@ void UserPanel::onReadyRead()
             m_email = responseObj["email"].toString();
             m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
         }
+        else if (action == "book_reviews_response" && responseObj["status"].toString() == "success") {
+            QVector<Review> reviews;
+            for (const QJsonValue &val : responseObj["data"].toArray()) {
+                QJsonObject ro = val.toObject();
+                if (!ro["isApproved"].toBool()) continue;   // never show unapproved reviews
+                Review r;
+                r.id = ro["id"].toInt();
+                r.username = ro["username"].toString();
+                r.rating = ro["rating"].toInt();
+                r.comment = ro["comment"].toString();
+                r.date = QDateTime::fromString(ro["date"].toString(), Qt::ISODate);
+                reviews.push_back(r);
+            }
+            m_detailsPage->showReviews(reviews);
+        }
+        else if (action == "submit_review_response") {
+            if (responseObj["status"].toString() == "success") {
+                QMessageBox::information(this, "Review Submitted",
+                                         "Thanks! Your review has been submitted and is awaiting admin approval.");
+                m_detailsPage->clearReviewForm();
+            } else {
+                QMessageBox::warning(this, "Submission Failed", responseObj["message"].toString());
+            }
+        }
     }
 }
 
@@ -995,6 +1030,11 @@ void UserPanel::openBookDetails(int bookId)
             m_detailsPage->setBook(b);
             m_detailsPage->setWishlisted(m_wishlistPage && m_wishlistPage->containsBook(bookId));
             switchPage(2);   // check this is 2, not 1
+
+            QJsonObject req;
+            req["action"] = "get_book_reviews";
+            req["bookId"] = bookId;
+            sendRequest(req);
             return;
         }
     }

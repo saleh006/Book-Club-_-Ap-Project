@@ -387,16 +387,26 @@ void BookDetailsPage::showReviews(const QVector<Review> &reviews)
         auto *rv = new QVBoxLayout(row);
         rv->setContentsMargins(16, 12, 16, 12);
         rv->setSpacing(5);
+
+        auto *headerLayout = new QHBoxLayout;
+
         auto *stars = new QLabel(QString("<span style=\"color:%1;\">%2</span>")
                                      .arg(kGold, QString("★").repeated(r.rating) + QString("☆").repeated(5 - r.rating)), row);
         stars->setTextFormat(Qt::RichText);
         stars->setStyleSheet("font-size:13px;border:none;background:transparent;");
+        auto *userLabel = new QLabel(r.username.isEmpty() ? "Unknown User" : "@" + r.username, row);
+        userLabel->setStyleSheet(QString("color:%1;font-size:12px;font-weight:bold;border:none;background:transparent;").arg(kTextDim));
+
+        headerLayout->addWidget(stars);
+        headerLayout->addStretch();
+        headerLayout->addWidget(userLabel);
+
         auto *comment = new QLabel(r.comment, row);
         comment->setStyleSheet(QString("color:%1;font-size:12px;border:none;background:transparent;").arg(kTextPrimary));
         comment->setWordWrap(true);
         auto *date = new QLabel(r.date.toString("MMM d, yyyy"), row);
         date->setStyleSheet(QString("color:%1;font-size:10px;border:none;background:transparent;").arg(kTextFaint));
-        rv->addWidget(stars);
+        rv->addLayout(headerLayout);
         rv->addWidget(comment);
         rv->addWidget(date);
         m_reviewsLayout->addWidget(row);

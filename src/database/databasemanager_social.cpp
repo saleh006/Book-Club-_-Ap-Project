@@ -90,7 +90,13 @@ bool DatabaseManager::addReview(const Review &review, QString &errorMsg)
 bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReviews, QString &errorMsg)
 {
     QSqlQuery query(database());
-    query.prepare("SELECT id, user_id, comment, rating, date, is_approved FROM reviews WHERE book_id = :bid AND is_approved = 1 ORDER BY date DESC");
+    query.prepare(R"(
+        SELECT r.id, r.user_id, r.comment, r.rating, r.date, r.is_approved, u.username
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.book_id = :bid AND r.is_approved = 1
+        ORDER BY r.date DESC
+    )");
     query.bindValue(":bid", bookId);
     if (!query.exec()) {
         errorMsg = "Database error while fetching reviews: " + query.lastError().text();
@@ -102,6 +108,7 @@ bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReview
         r.id = query.value("id").toInt();
         r.userId = query.value("user_id").toInt();
         r.bookId = bookId;
+        r.username = query.value("username").toString();
         r.comment = query.value("comment").toString();
         r.rating = query.value("rating").toInt();
         r.date = query.value("date").toDateTime();
@@ -164,11 +171,24 @@ bool DatabaseManager::fetchReviewsForAdmin(bool pendingOnly, QVector<ReviewAdmin
 bool DatabaseManager::approveReview(int reviewId, QString &errorMsg)
 {
     QSqlQuery query(database());
+    query.prepare("SELECT book_id FROM reviews WHERE id = :id");
+    query.bindValue(":id", reviewId);
+
+    if (!query.exec() || !query.next()) {
+        errorMsg = "Failed to find review or book ID: " + query.lastError().text();
+        return false;
+    }
+    int bookId = query.value(0).toInt();
+
     query.prepare("UPDATE reviews SET is_approved = 1 WHERE id = :id");
     query.bindValue(":id", reviewId);
-    
+
     if (!query.exec()) {
         errorMsg = "Failed to approve review: " + query.lastError().text();
+        return false;
+    }
+
+    if (!recalculateAverageRating(bookId, errorMsg)) {
         return false;
     }
 
@@ -178,12 +198,23 @@ bool DatabaseManager::approveReview(int reviewId, QString &errorMsg)
 bool DatabaseManager::deleteReview(int reviewId, QString &errorMsg)
 {
     QSqlQuery query(database());
+    query.prepare("SELECT book_id FROM reviews WHERE id = :id");
+    query.bindValue(":id", reviewId);
+    int bookId = -1;
+    if (query.exec() && query.next()) {
+        bookId = query.value(0).toInt();
+    }
+
     query.prepare("DELETE FROM reviews WHERE id = :id");
     query.bindValue(":id", reviewId);
-    
+
     if (!query.exec()) {
         errorMsg = "Failed to delete review: " + query.lastError().text();
         return false;
+    }
+
+    if (bookId != -1) {
+        recalculateAverageRating(bookId, errorMsg);
     }
     
     return true;

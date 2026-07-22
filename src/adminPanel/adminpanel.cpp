@@ -18,11 +18,6 @@ AdminPanel::AdminPanel(QWidget *parent)
         subscribeReq["action"] = "admin_subscribe";
         m_socket->write(QJsonDocument(subscribeReq).toJson(QJsonDocument::Compact) + "\n");
         m_socket->flush();
-
-        m_userTab->refreshTable();
-        m_booksTab->refreshTable();
-        m_publishersTab->refreshTable();
-        m_reviewsTab->refreshTable();
     });
 }
 
@@ -127,6 +122,14 @@ void AdminPanel::switchPage(int index)
 {
     m_stackedWidget->setCurrentIndex(index);
     updateButtonStyles(index);
+
+    switch (index) {
+    case 1: m_userTab->refreshTable(); break;
+    case 2: m_publishersTab->refreshTable(); break;
+    case 3: m_booksTab->refreshTable(); break;
+    case 4: m_reviewsTab->refreshTable(); break;
+    default: break;
+    }
 }
 
 void AdminPanel::updateButtonStyles(int currentIndex)

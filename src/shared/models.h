@@ -37,6 +37,7 @@ struct Review {
     QDateTime date;
     int userId = -1;
     int bookId = -1;
+    QString username;
     bool isApproved = false;
 };
 
