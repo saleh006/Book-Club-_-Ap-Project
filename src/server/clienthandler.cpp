@@ -61,12 +61,9 @@ void ClientHandler::onReadyRead()
 
         bool handled = handleUserActions(action, requestObj, responseObj)
                        || handleBookActions(action, requestObj, responseObj)
-                       || handleDiscountAndWishlistActions(action, requestObj, responseObj)
-                       || handleReviewActions(action, requestObj, responseObj)
-                       || handleNotificationActions(action, requestObj, responseObj)
-                       || handleShelfAndProgressActions(action, requestObj, responseObj)
-                       || handleCartActions(action, requestObj, responseObj)
-                       || handlePurchaseActions(action, requestObj, responseObj)
+                       || handleDiscount_Wishlist_ReviewsActions(action, requestObj, responseObj)
+                       || handleReviewAndNotificationActions(action, requestObj, responseObj)
+                       || handleCart_PurchaseActions(action, requestObj, responseObj)
                        || handlePublisherActions(action, requestObj, responseObj);
 
         if (!handled) {

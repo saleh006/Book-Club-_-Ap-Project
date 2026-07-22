@@ -47,6 +47,9 @@ qt_add_executable(BookClubServer
     src/server/clienthandler_users.cpp
     src/server/clienthandler_publisher.cpp
     src/server/clienthandler_books.cpp
+    src/server/clienthandler_cart_and_purchases.cpp
+    src/server/clienthandler_discounts_wishlist_reviews.cpp
+    src/server/clienthandler_reviews_notifications.cpp
 )
 
 target_include_directories(BookClubServer PRIVATE
@@ -78,9 +81,9 @@ install(SCRIPT ${deploy_script_server})
 qt_add_executable(BookClubClient
     WIN32 MACOSX_BUNDLE
     main_client.cpp
-    src/server/serverwindow.h
-    src/server/serverwindow.cpp
-    src/server/serverwindow.ui
+    src/adminPanel/serverwindow.h
+    src/adminPanel/serverwindow.cpp
+    src/adminPanel/serverwindow.ui
     ${RESOURCES}
 )
 
