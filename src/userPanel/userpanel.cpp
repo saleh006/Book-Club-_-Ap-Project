@@ -503,10 +503,14 @@ QWidget *UserPanel::createHomePage()
     layout->addWidget(catContainer);
 
     // ---------- horizontal scrolling book rows ----------
-    layout->addWidget(makeHorizontalScrollRow("Recommended for You", m_rowRecommended));
-    layout->addWidget(makeHorizontalScrollRow("New Releases", m_rowNewReleases));
-    layout->addWidget(makeHorizontalScrollRow("Bestsellers", m_rowBestsellers));
-    layout->addWidget(makeHorizontalScrollRow("Free Books", m_rowFree));
+    layout->addWidget(makeHorizontalScrollRow("Recommended for You", m_rowRecommended,
+                                              [this] { return m_recommendedBooks; }));
+    layout->addWidget(makeHorizontalScrollRow("New Releases", m_rowNewReleases,
+                                              [this] { return m_newestBooks; }));
+    layout->addWidget(makeHorizontalScrollRow("Bestsellers", m_rowBestsellers,
+                                              [this] { return m_bestsellerBooks; }));
+    layout->addWidget(makeHorizontalScrollRow("Free Books", m_rowFree,
+                                              [this] { return m_freeBooks; }));
 
     layout->addStretch();
     scroll->setWidget(page);
@@ -633,6 +637,7 @@ void UserPanel::fillBookRow(QHBoxLayout *rowLayout,
 
     qDebug() << "Cards shown =" << shown;
 }
+
 void UserPanel::rebuildHomeSections()
 {
     QVector<Book> byRating = m_storeBooks;
@@ -647,30 +652,26 @@ void UserPanel::rebuildHomeSections()
         if (m_favoriteGenres.contains(b.genre, Qt::CaseInsensitive))
             recommended.push_back(b);
     if (recommended.isEmpty()) recommended = byRating;
-    fillBookRow(m_rowRecommended, recommended);
+    m_recommendedBooks = recommended;
+    fillBookRow(m_rowRecommended, m_recommendedBooks);
 
     QVector<Book> newest = m_storeBooks;
     std::sort(newest.begin(), newest.end(),
               [](const Book &a, const Book &b) { return a.id > b.id; });
-    fillBookRow(m_rowNewReleases, newest);
+    m_newestBooks = newest;
+    fillBookRow(m_rowNewReleases, m_newestBooks);
 
     QVector<Book> best = m_storeBooks;
     std::sort(best.begin(), best.end(),
               [](const Book &a, const Book &b) { return a.totalSales > b.totalSales; });
-    fillBookRow(m_rowBestsellers, best);
+    m_bestsellerBooks = best;
+    fillBookRow(m_rowBestsellers, m_bestsellerBooks);
 
     QVector<Book> free;
     for (const Book &b : std::as_const(m_storeBooks))
         if (b.price <= 0.0) free.push_back(b);
-    qDebug() << "Free books found:" << free.size() << "| Total store books:" << m_storeBooks.size();
-    fillBookRow(m_rowFree, free);
-    qDebug() << "Books received:" << m_storeBooks.size();
-
-    for (const Book &b : m_storeBooks)
-    {
-        qDebug() << b.id << b.title;
-    }
-
+    m_freeBooks = free;
+    fillBookRow(m_rowFree, m_freeBooks);
 }
 
 void UserPanel::onReadyRead()
@@ -706,6 +707,7 @@ void UserPanel::onReadyRead()
                 b.averageRating = bo["averageRating"].toDouble();
                 b.totalSales = bo["totalSales"].toInt();
                 b.publisherName = bo["publisherName"].toString();
+                qDebug() << b.title << "-> publisher:" << b.publisherName;
                 m_storeBooks.push_back(b);
             }
             rebuildHomeSections();
@@ -758,7 +760,8 @@ void UserPanel::handleEditProfile()
     qDebug() << "Open profile update UI workspace window dialog context.";
 }
 
-QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut)
+QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut,
+                                            std::function<QVector<Book>()> getFullList)
 {
     auto *container = new QWidget(this);
     container->setStyleSheet("background:transparent;border:none;");
@@ -777,9 +780,8 @@ QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&
     seeAllBtn->setStyleSheet(
         "QPushButton{color:#7C3E66;font-size:12px;border:none;background:transparent;padding:4px 8px;}"
         "QPushButton:hover{color:#B06B96;text-decoration:underline;}");
-    connect(seeAllBtn, &QPushButton::clicked, this, [this, title]() {
-        qDebug() << "See all:" << title;
-        // TODO: open full grid page for this category
+    connect(seeAllBtn, &QPushButton::clicked, this, [this, title, getFullList]() {
+        showFullList(title, getFullList());
     });
 
     headerLayout->addWidget(titleLabel);
@@ -789,11 +791,11 @@ QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&
 
     // Horizontal scroll area
     auto *scrollArea = new QScrollArea(container);
-    scrollArea->setWidgetResizable(true);  // critical for horizontal
+    scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setFrameShape(QFrame::NoFrame);
-    scrollArea->setFixedHeight(260);  // card height + padding
+    scrollArea->setFixedHeight(260);
     scrollArea->setStyleSheet(
         "QScrollArea{border:none;background:transparent;}"
         "QScrollBar:horizontal{height:8px;background:#1A141F;border-radius:4px;margin:0;}"
@@ -805,13 +807,10 @@ QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&
     auto *scrollContent = new QWidget;
     scrollContent->setStyleSheet("background:transparent;border:none;");
     rowLayoutOut = new QHBoxLayout(scrollContent);
-    rowLayoutOut->setContentsMargins(0, 0, 0, 0);
-    rowLayoutOut->setSpacing(16);
-    scrollContent->setMinimumHeight(250);
-
     rowLayoutOut->setContentsMargins(10, 10, 10, 10);
     rowLayoutOut->setSpacing(16);
     rowLayoutOut->setAlignment(Qt::AlignLeft);
+    scrollContent->setMinimumHeight(250);
 
     scrollArea->setWidget(scrollContent);
     vLayout->addWidget(scrollArea);
@@ -923,23 +922,12 @@ void UserPanel::openBookDetails(int bookId)
 
 void UserPanel::openGenre(const QString &g)
 {
-    if (m_searchTimer) m_searchTimer->stop();
-    if (m_searchEdit) {
-        m_searchEdit->blockSignals(true);
-        m_searchEdit->clear();
-        m_searchEdit->blockSignals(false);
-    }
-
     QVector<Book> results;
-    for (const Book &b : std::as_const(m_storeBooks)) {
+    for (const Book &b : std::as_const(m_storeBooks))
         if (b.genre.compare(g, Qt::CaseInsensitive) == 0)
             results.push_back(b);
-    }
 
-    showResultsGrid(
-        results.isEmpty() ? QString("No books found in \"%1\"").arg(g)
-                          : QString("%1 (%2 books)").arg(g).arg(results.size()),
-        results);
+    showFullList(g, results);
 }
 
 void UserPanel::toggleWishlist(int bookId)
@@ -983,5 +971,20 @@ void UserPanel::closeResultsView()
     }
     m_searchResultsPanel->hide();
     m_homeSections->show();
+}
+
+void UserPanel::showFullList(const QString &title, const QVector<Book> &books)
+{
+    if (m_searchTimer) m_searchTimer->stop();
+    if (m_searchEdit) {
+        m_searchEdit->blockSignals(true);
+        m_searchEdit->clear();
+        m_searchEdit->blockSignals(false);
+    }
+
+    showResultsGrid(
+        books.isEmpty() ? QString("No books found in \"%1\"").arg(title)
+                        : QString("%1 (%2 books)").arg(title).arg(books.size()),
+        books);
 }
 

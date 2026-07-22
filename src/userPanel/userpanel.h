@@ -17,6 +17,7 @@
 #include <QDebug>
 #include <QTimer>
 #include <QGridLayout>
+#include <functional>
 #include "models.h"
 #include "shoppingcarttab.h"
 #include "bookdetailspage.h"
@@ -43,7 +44,8 @@ private:
     void switchPage(int index);
     void updateHero();
     void rebuildHomeSections();
-    QWidget *makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut);
+    QWidget *makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut,
+                                     std::function<QVector<Book>()> getFullList);
 
 
     // Home Page Layout & Mechanics
@@ -112,6 +114,13 @@ private:
     QTimer *m_searchTimer = nullptr;
 
     BookDetailsPage *m_detailsPage = nullptr;
+
+    QVector<Book> m_recommendedBooks;
+    QVector<Book> m_newestBooks;
+    QVector<Book> m_bestsellerBooks;
+    QVector<Book> m_freeBooks;
+
+    void showFullList(const QString &title, const QVector<Book> &books);
 };
 
 #endif // USERPANEL_H
