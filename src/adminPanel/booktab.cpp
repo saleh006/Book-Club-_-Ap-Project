@@ -489,7 +489,7 @@ void BookTab::handleServerResponse(const QJsonObject &response)
             m_booksTable->setItem(i, 1, new QTableWidgetItem(b["title"].toString()));
             m_booksTable->setItem(i, 2, new QTableWidgetItem(b["author"].toString()));
 
-            bool isActive = b["isActive"].toBool();
+            bool isActive = b["isActive"].toInt();
             m_booksTable->setItem(i, 3, new QTableWidgetItem(isActive ? "Approved" : "Pending/Rejected"));
 
             if (!isActive) setRowDimmed(m_booksTable, i, true);
@@ -529,7 +529,7 @@ void BookTab::handleServerResponse(const QJsonObject &response)
             b.coverImagePath = data["coverImagePath"].toString();
             b.pdfPath = data["pdfPath"].toString();
             b.averageRating = data["averageRating"].toDouble();
-            b.status = data["isActive"].toBool();
+            b.status = data["isActive"].toInt();
 
             AddEditBookDialog dialog(b, this);
             if (dialog.exec() == QDialog::Accepted) {
@@ -637,7 +637,7 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
     formLayout->addRow(makeFieldLabel("Avg Rating"),
                        makeValueLabel(rating > 0.0 ? QString::number(rating, 'f', 1) + " ⭐" : "N/A"));
 
-    bool isActive = data["isActive"].toBool();
+    bool isActive = data["isActive"].toInt();
     formLayout->addRow(makeFieldLabel("Status"),
                        makeValueLabel(isActive ? "✅ Approved" : "🚫 Pending/Rejected"));
 

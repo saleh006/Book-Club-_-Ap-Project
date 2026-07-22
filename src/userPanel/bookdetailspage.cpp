@@ -341,7 +341,6 @@ void BookDetailsPage::setBook(const Book &b)
     m_desc->setText(b.description.isEmpty() ? "No description available." : b.description);
     clearReviewForm();
     setOwned(false);
-    setWishlisted(false);
     showReviews({});
 }
 

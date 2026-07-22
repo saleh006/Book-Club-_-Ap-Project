@@ -159,6 +159,22 @@ void UserPanel::setupUi()
     m_btnCart->setStyleSheet(menuBtnStyle);
     m_btnCart->setCursor(Qt::PointingHandCursor);
 
+    auto *cartBtnLayout = new QGridLayout(m_btnCart);
+    cartBtnLayout->setContentsMargins(0, 3, 6, 0);
+    cartBtnLayout->setColumnStretch(0, 1);
+    cartBtnLayout->setRowStretch(1, 1);
+
+    m_cartBadge = new QLabel(m_btnCart);
+    m_cartBadge->setAlignment(Qt::AlignCenter);
+    m_cartBadge->setFixedHeight(18);
+    m_cartBadge->setMinimumWidth(18);
+    m_cartBadge->setStyleSheet(
+        "QLabel { background-color: #e46060; color: white; font-size: 10px; font-weight: 700;"
+        " border-radius: 9px; padding: 0 4px; }");
+    m_cartBadge->hide();
+
+    cartBtnLayout->addWidget(m_cartBadge, 0, 1, Qt::AlignTop | Qt::AlignRight);
+
     m_btnWishlist = new QPushButton("💜 Wishlist", sidebar);
     m_btnWishlist->setStyleSheet(menuBtnStyle);
     m_btnWishlist->setCursor(Qt::PointingHandCursor);
@@ -186,6 +202,7 @@ void UserPanel::setupUi()
 
     m_cartPage = new ShoppingCartPage(m_socket, m_userId, this);
     connect(m_cartPage, &ShoppingCartPage::cartUpdated, this, &UserPanel::updateHero);
+    connect(m_cartPage, &ShoppingCartPage::cartUpdated, this, &UserPanel::updateCartBadge);
     m_stackedWidget->addWidget(m_cartPage);           // index 1: cart
 
     m_detailsPage = new BookDetailsPage(this);
@@ -211,6 +228,11 @@ void UserPanel::setupUi()
     connect(m_wishlistPage, &WishlistPage::addToCartRequested, this, &UserPanel::addToCart);
     connect(m_wishlistPage, &WishlistPage::bookDetailsRequested, this, &UserPanel::openBookDetails);
     connect(m_wishlistPage, &WishlistPage::exploreBooksRequested, this, [this] { switchPage(0); });
+    connect(m_wishlistPage, &WishlistPage::wishlistUpdated, this, [this] {
+        updateHero();
+        if (m_stackedWidget->currentWidget() == m_detailsPage)
+            m_detailsPage->setWishlisted(m_wishlistPage->containsBook(m_detailsPage->currentBookId()));
+    });
     m_stackedWidget->addWidget(m_wishlistPage);
 
     mainLayout->addWidget(sidebar);
@@ -897,6 +919,19 @@ void UserPanel::updateHero()
     }
 }
 
+void UserPanel::updateCartBadge()
+{
+    const int count = m_cartPage ? m_cartPage->itemCount() : 0;
+
+    if (count <= 0) {
+        m_cartBadge->hide();
+        return;
+    }
+
+    m_cartBadge->setText(count > 99 ? QStringLiteral("99+") : QString::number(count));
+    m_cartBadge->show();
+}
+
 void UserPanel::setupSearch()
 {
     m_searchTimer = new QTimer(this);
@@ -958,6 +993,7 @@ void UserPanel::openBookDetails(int bookId)
     for (const Book &b : std::as_const(m_storeBooks)) {
         if (b.id == bookId) {
             m_detailsPage->setBook(b);
+            m_detailsPage->setWishlisted(m_wishlistPage && m_wishlistPage->containsBook(bookId));
             switchPage(2);   // check this is 2, not 1
             return;
         }

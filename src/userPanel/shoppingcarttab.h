@@ -59,6 +59,7 @@ public:
 
 signals:
     void checkoutRequested();
+    void clearCartRequested();
 
 private:
     void buildUi();
@@ -70,6 +71,7 @@ private:
     QLabel *m_subtotalValue = nullptr;
     QLabel *m_totalValue    = nullptr;
     QPushButton *m_checkoutButton = nullptr;
+    QPushButton *m_clearCartButton = nullptr;
 };
 
 class ShoppingCartPage : public QWidget
@@ -85,6 +87,7 @@ public:
         }
         return false;
     }
+    int itemCount() const { return m_items.size(); }
 
 signals:
     void checkoutCompleted(int purchaseId);

@@ -651,6 +651,6 @@ void WishlistPage::handleMutationResponse(const QJsonObject &response)
         refreshWishlist();
         return;
     }
-    if (response["action"].toString() == "wishlist_add_response")
-        refreshWishlist();
+
+    refreshWishlist();
 }

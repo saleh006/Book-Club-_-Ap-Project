@@ -196,10 +196,22 @@ void OrderSummaryWidget::buildUi() {
         "QPushButton:pressed { background-color: #93407a; }"
         "QPushButton:disabled { background-color: #2c2731; color: #7f7689; }");
 
-    // connect(m_checkoutButton, &QPushButton::clicked, this, &OrderSummaryWidget::checkoutRequested);
+    m_clearCartButton = new QPushButton(tr("🗑  Clear Cart"), this);
+    m_clearCartButton->setCursor(Qt::PointingHandCursor);
+    m_clearCartButton->setMinimumHeight(46);
+    m_clearCartButton->setStyleSheet(
+        "QPushButton { color: #ffffff; background-color: #e46060; border: none; border-radius: 8px;"
+        " font-size: 15px; font-weight: 700; }"
+        "QPushButton:hover { background-color: #f07171; }"
+        "QPushButton:pressed { background-color: #c24b4b; }"
+        "QPushButton:disabled { background-color: #2c2731; color: #7f7689; }");
+
+    connect(m_checkoutButton, &QPushButton::clicked, this, &OrderSummaryWidget::checkoutRequested);
+    connect(m_clearCartButton, &QPushButton::clicked, this, &OrderSummaryWidget::clearCartRequested);
 
     layout->addSpacing(4);
     layout->addWidget(m_checkoutButton);
+    layout->addWidget(m_clearCartButton);
 }
 void OrderSummaryWidget::updateSummary(int itemCount, double itemsTotal, double discount) {
     const double subtotal = itemsTotal - discount;
@@ -210,6 +222,7 @@ void OrderSummaryWidget::updateSummary(int itemCount, double itemsTotal, double 
     m_subtotalValue->setText(QStringLiteral("$%1").arg(subtotal, 0, 'f', 2));
     m_totalValue->setText(QStringLiteral("$%1").arg(subtotal, 0, 'f', 2));
     m_checkoutButton->setEnabled(itemCount > 0);
+    m_clearCartButton->setVisible(itemCount > 0);
 }
 
 
@@ -264,6 +277,14 @@ void ShoppingCartPage::buildUi()
     bodyLayout->addWidget(m_scrollArea, 1);
 
     m_summaryWidget = new OrderSummaryWidget(this);
+
+    connect(m_summaryWidget, &OrderSummaryWidget::checkoutRequested, this, [this]() {
+        sendRequest("checkout", QJsonObject());
+    });
+
+    connect(m_summaryWidget, &OrderSummaryWidget::clearCartRequested, this, [this]() {
+        sendRequest("cart_clear", QJsonObject());
+    });
 
     auto *summaryColumn = new QVBoxLayout;
     summaryColumn->addWidget(m_summaryWidget);

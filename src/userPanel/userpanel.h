@@ -43,6 +43,7 @@ private slots:
     void onReadyRead();
     void onSocketError();
     void handleEditProfile();
+    void updateCartBadge();
 
 private:
     void setupUi();
@@ -100,6 +101,7 @@ private:
     QLabel *m_heroAuthor = nullptr;
     QLabel *m_heroRating = nullptr;
     QLabel *m_heroDesc = nullptr;
+    QLabel *m_cartBadge = nullptr;
 
     // Catalog Row Layout References
     QHBoxLayout *m_rowRecommended = nullptr;
