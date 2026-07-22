@@ -773,23 +773,18 @@ QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&
     auto *headerLayout = new QHBoxLayout;
     auto *titleLabel = new QLabel(title, container);
     titleLabel->setStyleSheet("color:#FFFFFF;font-size:16px;font-weight:bold;border:none;background:transparent;");
-
     auto *seeAllBtn = new QPushButton("See All →", container);
     seeAllBtn->setFlat(true);
     seeAllBtn->setCursor(Qt::PointingHandCursor);
     seeAllBtn->setStyleSheet(
         "QPushButton{color:#7C3E66;font-size:12px;border:none;background:transparent;padding:4px 8px;}"
         "QPushButton:hover{color:#B06B96;text-decoration:underline;}");
-    connect(seeAllBtn, &QPushButton::clicked, this, [this, title, getFullList]() {
-        showFullList(title, getFullList());
-    });
-
     headerLayout->addWidget(titleLabel);
     headerLayout->addStretch();
     headerLayout->addWidget(seeAllBtn);
     vLayout->addLayout(headerLayout);
 
-    // Horizontal scroll area
+    // Horizontal scroll area (compact preview row)
     auto *scrollArea = new QScrollArea(container);
     scrollArea->setWidgetResizable(true);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -803,7 +798,6 @@ QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&
         "QScrollBar::handle:horizontal:hover{background:#B06B96;}"
         "QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal{width:0px;}"
         "QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal{background:none;}");
-
     auto *scrollContent = new QWidget;
     scrollContent->setStyleSheet("background:transparent;border:none;");
     rowLayoutOut = new QHBoxLayout(scrollContent);
@@ -811,9 +805,46 @@ QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&
     rowLayoutOut->setSpacing(16);
     rowLayoutOut->setAlignment(Qt::AlignLeft);
     scrollContent->setMinimumHeight(250);
-
     scrollArea->setWidget(scrollContent);
     vLayout->addWidget(scrollArea);
+
+    // ---- inline "expanded" grid, appears directly under this row ----
+    auto *expandPanel = new QWidget(container);
+    expandPanel->setStyleSheet("background:transparent;border:none;");
+    auto *expandLayout = new QVBoxLayout(expandPanel);
+    expandLayout->setContentsMargins(0, 6, 0, 0);
+    auto *expandGrid = new QGridLayout;
+    expandGrid->setSpacing(16);
+    expandLayout->addLayout(expandGrid);
+    expandPanel->hide();
+    vLayout->addWidget(expandPanel);
+
+    auto expanded = std::make_shared<bool>(false);
+
+    connect(seeAllBtn, &QPushButton::clicked, this,
+            [this, seeAllBtn, scrollArea, expandPanel, expandGrid, getFullList, expanded]() {
+                *expanded = !*expanded;
+                if (*expanded) {
+                    while (QLayoutItem *it = expandGrid->takeAt(0)) {
+                        if (it->widget()) it->widget()->deleteLater();
+                        delete it;
+                    }
+                    const QVector<Book> books = getFullList();
+                    const int columns = 5;
+                    int row = 0, col = 0;
+                    for (const Book &b : books) {
+                        expandGrid->addWidget(makeBookCard(b), row, col);
+                        if (++col >= columns) { col = 0; ++row; }
+                    }
+                    scrollArea->hide();
+                    expandPanel->show();
+                    seeAllBtn->setText("Show Less ↑");
+                } else {
+                    expandPanel->hide();
+                    scrollArea->show();
+                    seeAllBtn->setText("See All →");
+                }
+            });
 
     return container;
 }
