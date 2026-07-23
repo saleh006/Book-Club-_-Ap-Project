@@ -589,13 +589,22 @@ void BookTab::handleServerResponse(const QJsonObject &response)
             m_booksTable->setItem(i, 1, new QTableWidgetItem(b["title"].toString()));
             m_booksTable->setItem(i, 2, new QTableWidgetItem(b["author"].toString()));
 
-            bool isActive = b["isActive"].toInt();
-            m_booksTable->setItem(i, 3, new QTableWidgetItem(isActive ? "Approved" : "Pending/Rejected"));
+            int status = b.contains("status") ? b["status"].toInt() : b["isActive"].toInt();
+            QString statusText = "Pending/Rejected";
+            if (status == 1) {
+                statusText = "Approved";
+            } else if (status == -1) {
+                statusText = "Deleted";
+            }
 
-            if (!isActive)
+            m_booksTable->setItem(i, 3, new QTableWidgetItem(statusText));
+
+            if (status != 1) {
                 setRowDimmed(m_booksTable, i, true);
+            }
         }
     }
+
     else if (action == "admin_set_book_status_response") {
         if (response["status"].toString() == "success") {
             int bookId = response["bookId"].toInt();
@@ -603,12 +612,18 @@ void BookTab::handleServerResponse(const QJsonObject &response)
 
             for (int i = 0; i < m_booksTable->rowCount(); ++i) {
                 if (m_booksTable->item(i, 0)->text().toInt() == bookId) {
+                    QString statusText = "Pending/Rejected";
+                    if (status == 1) {
+                        statusText = "Approved";
+                    } else if (status == -1) {
+                        statusText = "Deleted";
+                    }
+
+                    m_booksTable->item(i, 3)->setText(statusText);
+                    setRowDimmed(m_booksTable, i, status != 1);
+
                     if (status == -1) {
-                        m_booksTable->removeRow(i);
-                        QMessageBox::information(this, "Success", "Book deleted successfully.");
-                    } else {
-                        m_booksTable->item(i, 3)->setText(status == 1 ? "Approved" : "Pending/Rejected");
-                        setRowDimmed(m_booksTable, i, status != 1);
+                        QMessageBox::information(this, "Success", "Book marked as deleted.");
                     }
                     break;
                 }
