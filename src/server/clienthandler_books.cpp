@@ -32,26 +32,81 @@ bool ClientHandler::handleBookActions(const QString &action, const QJsonObject &
             }
         }
     }
+    // else if (action == "book_update") {
+    //     responseObj["action"] = "book_update_response";
+    //     Book b;
+    //     b.id = requestObj["id"].toInt();
+    //     b.title = requestObj["title"].toString();
+    //     b.author = requestObj["author"].toString();
+    //     b.genre = requestObj["genre"].toString();
+    //     b.description = requestObj["description"].toString();
+    //     b.price = requestObj["price"].toDouble();
+    //     b.coverImagePath = requestObj["coverImagePath"].toString();
+    //     b.pdfPath = requestObj["pdfPath"].toString();
+
+    //     QString errorMsg;
+    //     if (DatabaseManager::instance().updateBook(b, errorMsg)) {
+    //         responseObj["status"] = "success";
+    //         responseObj["message"] = "Book information updated successfully.";
+    //         emit databaseUpdated("book");
+    //     } else {
+    //         responseObj["status"] = "error";
+    //         responseObj["message"] = errorMsg;
+    //     }
+    // }
     else if (action == "book_update") {
         responseObj["action"] = "book_update_response";
-        Book b;
-        b.id = requestObj["id"].toInt();
-        b.title = requestObj["title"].toString();
-        b.author = requestObj["author"].toString();
-        b.genre = requestObj["genre"].toString();
-        b.description = requestObj["description"].toString();
-        b.price = requestObj["price"].toDouble();
-        b.coverImagePath = requestObj["coverImagePath"].toString();
-        b.pdfPath = requestObj["pdfPath"].toString();
 
-        QString errorMsg;
-        if (DatabaseManager::instance().updateBook(b, errorMsg)) {
-            responseObj["status"] = "success";
-            responseObj["message"] = "Book information updated successfully.";
-            emit databaseUpdated("book");
-        } else {
+        int bookId = requestObj["id"].toInt();
+        int requesterPubId = requestObj.contains("publisherId") ? requestObj["publisherId"].toInt() : -1;
+
+        Book existingBook;
+        QString fetchErr;
+
+        if (!DatabaseManager::instance().fetchBook(bookId, existingBook, fetchErr)) {
             responseObj["status"] = "error";
-            responseObj["message"] = errorMsg;
+            responseObj["message"] = "Book not found.";
+        }
+        else if (requesterPubId != -1 && existingBook.publisherId != requesterPubId) {
+            responseObj["status"] = "error";
+            responseObj["message"] = "Access denied! You do not own this book.";
+        }
+        else {
+            Book b = existingBook;
+
+            b.title = requestObj["title"].toString();
+            b.author = requestObj["author"].toString();
+            b.genre = requestObj["genre"].toString();
+            b.description = requestObj["description"].toString();
+            b.price = requestObj["price"].toDouble();
+            b.coverImagePath = requestObj["coverImagePath"].toString();
+            b.pdfPath = requestObj["pdfPath"].toString();
+
+            QString errorMsg;
+            if (DatabaseManager::instance().updateBook(b, errorMsg)) {
+                responseObj["status"] = "success";
+                responseObj["message"] = "Book information updated successfully.";
+
+                emit databaseUpdated("book");
+                emit logProduced(QString("[BOOK] Book ID %1 was updated.").arg(b.id));
+
+                if (b.status == 1) {
+                    QJsonObject broadcastObj;
+                    broadcastObj["action"] = "notify_book_updated";
+                    broadcastObj["bookId"] = b.id;
+                    broadcastObj["title"] = b.title;
+                    broadcastObj["author"] = b.author;
+                    broadcastObj["genre"] = b.genre;
+                    broadcastObj["price"] = b.price;
+                    broadcastObj["coverImagePath"] = b.coverImagePath;
+                    broadcastObj["status"] = 1;
+
+                    emit broadcastTargetedUpdate(broadcastObj);
+                }
+            } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
         }
     }
     else if (action == "get_book_details") {
