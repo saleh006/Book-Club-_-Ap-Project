@@ -17,6 +17,7 @@ signals:
     void logProduced(const QString &message);
     void clientDisconnectedSignal(qintptr descriptor, const QString &username);
     void databaseUpdated(const QString &type);
+    void broadcastTargetedUpdate(const QJsonObject &msg);
 
 protected:
     void run() override;

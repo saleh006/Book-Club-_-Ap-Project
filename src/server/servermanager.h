@@ -3,6 +3,7 @@
 
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QList>
 
 class ServerManager : public QTcpServer
 {
@@ -17,7 +18,9 @@ signals:
     void clientCountChanged(int count);
     void databaseUpdated(const QString &type);
     void broadcastToAdmins(const QJsonObject &msg);
-
+    void sendToAllClientsSignal(const QJsonObject &msg);
+public slots:
+    void onBroadcastReceived(const QJsonObject &msg);
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
 

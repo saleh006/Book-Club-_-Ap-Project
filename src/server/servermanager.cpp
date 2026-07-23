@@ -68,6 +68,9 @@ void ServerManager::incomingConnection(qintptr socketDescriptor)
 
     connect(handler,&ClientHandler::logProduced,this,&ServerManager::serverLogEvent);
     connect(handler, &ClientHandler::databaseUpdated,this,&ServerManager::databaseUpdated);
+    connect(handler, &ClientHandler::broadcastTargetedUpdate, this, &ServerManager::onBroadcastReceived);
+    connect(this, &ServerManager::sendToAllClientsSignal, handler, &ClientHandler::sendToClient);
+
     connect(handler, &ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc,const QString &username){
         if(m_activeClients > 0) m_activeClients--;
         emit clientCountChanged(m_activeClients);
@@ -76,4 +79,9 @@ void ServerManager::incomingConnection(qintptr socketDescriptor)
 
     connect(handler, &ClientHandler::finished, handler, &ClientHandler::deleteLater);
     handler->start();
+}
+
+void ServerManager::onBroadcastReceived(const QJsonObject &msg)
+{
+    emit sendToAllClientsSignal(msg);
 }

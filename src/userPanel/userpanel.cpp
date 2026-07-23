@@ -5,6 +5,7 @@
 #include <QFrame>
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <algorithm>
 
 static const char *kCardBg     = "#120E14";
 static const char *kCardBorder = "#1F1724";
@@ -720,6 +721,106 @@ void UserPanel::rebuildHomeSections()
     fillBookRow(m_rowFree, m_freeBooks);
 }
 
+// void UserPanel::onReadyRead()
+// {
+//     while (m_socket->canReadLine()) {
+//         QByteArray data = m_socket->readLine().trimmed();
+//         QJsonParseError err;
+//         QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+//         if (err.error != QJsonParseError::NoError) continue;
+//         if (!doc.isObject()) continue;
+
+//         QJsonObject responseObj = doc.object();
+//         const QString action = responseObj["action"].toString();
+//         QString type = responseObj["type"].toString();
+
+//         if (responseObj.contains("action")) {
+//             m_cartPage->handleServerResponse(responseObj);
+//             m_wishlistPage->handleServerResponse(responseObj);
+//         }
+
+//         if (action == "books_fetch_all_response" && responseObj["status"].toString() == "success") {
+//             m_storeBooks.clear();
+//             for (const QJsonValue &val : responseObj["books"].toArray()) {
+//                 const QJsonObject bo = val.toObject();
+//                 Book b;
+//                 b.id = bo["id"].toInt();
+//                 b.title = bo["title"].toString();
+//                 b.author = bo["author"].toString();
+//                 b.genre = bo["genre"].toString();
+//                 b.price = bo["price"].toDouble();
+//                 b.description = bo["description"].toString();
+//                 b.coverImagePath = bo["coverImagePath"].toString();
+//                 b.averageRating = bo["averageRating"].toDouble();
+//                 b.totalSales = bo["totalSales"].toInt();
+//                 b.publisherName = bo["publisherName"].toString();
+//                 qDebug() << b.title << "-> publisher:" << b.publisherName;
+//                 m_storeBooks.push_back(b);
+//             }
+//             rebuildHomeSections();
+//             m_wishlistPage->setCatalog(m_storeBooks);
+//         }
+//         else if (type == "favorite_genres" && responseObj["success"].toBool()) {
+//             m_favoriteGenres.clear();
+//             for (const QJsonValue &v : responseObj["genres"].toArray()) {
+//                 m_favoriteGenres << v.toString();
+//             }
+
+//             if (m_favoriteGenres.isEmpty()) {
+//                 GenreSelectionDialog dialog(this);
+//                 if (dialog.exec() == QDialog::Accepted) {
+//                     m_favoriteGenres = dialog.selectedGenres();
+
+//                     QJsonObject req;
+//                     req["action"] = "user_set_favorite_genres";
+//                     req["userId"] = m_userId;
+
+//                     QJsonArray arr;
+//                     for (const QString &genre : m_favoriteGenres) {
+//                         arr.append(genre);
+//                     }
+//                     req["genres"] = arr;
+//                     sendRequest(req);
+//                 }
+//             }
+
+//             rebuildHomeSections();
+//         }
+//         else if (type == "favorite_genres_saved" && responseObj["success"].toBool()) {
+//             rebuildHomeSections();
+//         }
+//         else if (type == "user_info" && responseObj["status"].toString() == "success") {
+//             m_fullName = responseObj["fullName"].toString();
+//             m_email = responseObj["email"].toString();
+//             m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
+//         }
+//         else if (action == "book_reviews_response" && responseObj["status"].toString() == "success") {
+//             QVector<Review> reviews;
+//             for (const QJsonValue &val : responseObj["data"].toArray()) {
+//                 QJsonObject ro = val.toObject();
+//                 if (!ro["isApproved"].toBool()) continue;   // never show unapproved reviews
+//                 Review r;
+//                 r.id = ro["id"].toInt();
+//                 r.username = ro["username"].toString();
+//                 r.rating = ro["rating"].toInt();
+//                 r.comment = ro["comment"].toString();
+//                 r.date = QDateTime::fromString(ro["date"].toString(), Qt::ISODate);
+//                 reviews.push_back(r);
+//             }
+//             m_detailsPage->showReviews(reviews);
+//         }
+//         else if (action == "submit_review_response") {
+//             if (responseObj["status"].toString() == "success") {
+//                 QMessageBox::information(this, "Review Submitted",
+//                                          "Thanks! Your review has been submitted and is awaiting admin approval.");
+//                 m_detailsPage->clearReviewForm();
+//             } else {
+//                 QMessageBox::warning(this, "Submission Failed", responseObj["message"].toString());
+//             }
+//         }
+//     }
+// }
+
 void UserPanel::onReadyRead()
 {
     while (m_socket->canReadLine()) {
@@ -756,6 +857,52 @@ void UserPanel::onReadyRead()
                 qDebug() << b.title << "-> publisher:" << b.publisherName;
                 m_storeBooks.push_back(b);
             }
+            rebuildHomeSections();
+            m_wishlistPage->setCatalog(m_storeBooks);
+        }
+        else if (action == "notify_book_updated") {
+            int bookId = responseObj["bookId"].toInt();
+            int status = responseObj.contains("status") ? responseObj["status"].toInt() : 1;
+
+            if (status != 1) {
+                m_storeBooks.removeIf([bookId](const Book &b) { return b.id == bookId; });
+            }
+            else {
+                bool found = false;
+                for (Book &b : m_storeBooks) {
+                    if (b.id == bookId) {
+                        if (responseObj.contains("title")) b.title = responseObj["title"].toString();
+                        if (responseObj.contains("author")) b.author = responseObj["author"].toString();
+                        if (responseObj.contains("genre")) b.genre = responseObj["genre"].toString();
+                        if (responseObj.contains("price")) b.price = responseObj["price"].toDouble();
+                        if (responseObj.contains("coverImagePath")) b.coverImagePath = responseObj["coverImagePath"].toString();
+                        b.status = status;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    Book b;
+                    b.id = bookId;
+                    b.title = responseObj["title"].toString();
+                    b.author = responseObj["author"].toString();
+                    b.genre = responseObj["genre"].toString();
+                    b.price = responseObj["price"].toDouble();
+                    b.coverImagePath = responseObj["coverImagePath"].toString();
+                    b.status = status;
+                    m_storeBooks.push_back(b);
+                }
+            }
+
+            rebuildHomeSections();
+            m_wishlistPage->setCatalog(m_storeBooks);
+        }
+        else if (action == "notify_book_removed") {
+            int bookId = responseObj["bookId"].toInt();
+
+            m_storeBooks.removeIf([bookId](const Book &b) { return b.id == bookId; });
+
             rebuildHomeSections();
             m_wishlistPage->setCatalog(m_storeBooks);
         }
@@ -797,7 +944,7 @@ void UserPanel::onReadyRead()
             QVector<Review> reviews;
             for (const QJsonValue &val : responseObj["data"].toArray()) {
                 QJsonObject ro = val.toObject();
-                if (!ro["isApproved"].toBool()) continue;   // never show unapproved reviews
+                if (!ro["isApproved"].toBool()) continue;
                 Review r;
                 r.id = ro["id"].toInt();
                 r.username = ro["username"].toString();

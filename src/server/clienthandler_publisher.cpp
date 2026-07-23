@@ -143,6 +143,28 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
         }
     }
 
+    // else if (action == "publisher_update_book") {
+    //     Book book;
+    //     book.id = requestObj["id"].toInt();
+    //     book.publisherId = requestObj["publisherId"].toInt();
+    //     book.title = requestObj["title"].toString();
+    //     book.author = requestObj["author"].toString();
+    //     book.genre = requestObj["genre"].toString();
+    //     book.description = requestObj["description"].toString();
+    //     book.price = requestObj["price"].toDouble();
+    //     book.coverImagePath = requestObj["coverImagePath"].toString();
+    //     book.pdfPath = requestObj["pdfPath"].toString();
+    //     // remove the "book.isActive = true;" line entirely,
+    //     // OR if publishers should be able to resubmit for review:
+    //     book.status = requestObj.contains("status") ? requestObj["status"].toInt() : 1;
+
+    //     QString errorMsg;
+    //     bool ok = DatabaseManager::instance().updateBook(book, errorMsg);
+    //     responseObj["type"] = "action_result";
+    //     responseObj["success"] = ok;
+    //     responseObj["message"] = ok ? "Book updated." : errorMsg;
+    //     emit databaseUpdated("book");
+    // }
     else if (action == "publisher_update_book") {
         Book book;
         book.id = requestObj["id"].toInt();
@@ -154,8 +176,6 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
         book.price = requestObj["price"].toDouble();
         book.coverImagePath = requestObj["coverImagePath"].toString();
         book.pdfPath = requestObj["pdfPath"].toString();
-        // remove the "book.isActive = true;" line entirely,
-        // OR if publishers should be able to resubmit for review:
         book.status = requestObj.contains("status") ? requestObj["status"].toInt() : 1;
 
         QString errorMsg;
@@ -164,8 +184,31 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
         responseObj["success"] = ok;
         responseObj["message"] = ok ? "Book updated." : errorMsg;
         emit databaseUpdated("book");
+
+        if (ok) {
+            QJsonObject broadcastObj;
+            broadcastObj["action"] = "notify_book_updated";
+            broadcastObj["bookId"] = book.id;
+            broadcastObj["title"] = book.title;
+            broadcastObj["author"] = book.author;
+            broadcastObj["genre"] = book.genre;
+            broadcastObj["price"] = book.price;
+            broadcastObj["coverImagePath"] = book.coverImagePath;
+            broadcastObj["status"] = book.status;
+
+            emit broadcastTargetedUpdate(broadcastObj);
+        }
     }
 
+    // else if (action == "publisher_delete_book") {
+    //     int bookId = requestObj["bookId"].toInt();
+    //     QString errorMsg;
+    //     bool ok = DatabaseManager::instance().deleteBook(bookId, errorMsg);
+    //     responseObj["type"] = "action_result";
+    //     responseObj["success"] = ok;
+    //     responseObj["message"] = ok ? "Book removed." : errorMsg;
+    //     emit databaseUpdated("book");
+    // }
     else if (action == "publisher_delete_book") {
         int bookId = requestObj["bookId"].toInt();
         QString errorMsg;
@@ -174,6 +217,13 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
         responseObj["success"] = ok;
         responseObj["message"] = ok ? "Book removed." : errorMsg;
         emit databaseUpdated("book");
+
+        if (ok) {
+            QJsonObject broadcastObj;
+            broadcastObj["action"] = "notify_book_removed";
+            broadcastObj["bookId"] = bookId;
+            emit broadcastTargetedUpdate(broadcastObj);
+        }
     }
     else if (action == "admin_set_book_status") {
         responseObj["action"] = "admin_set_book_status_response";
@@ -196,6 +246,48 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             responseObj["message"] = errorMsg;
         }
     }
+    // else if (action == "publisher_set_book_status") {
+    //     int bookId = requestObj["bookId"].toInt();
+    //     int publisherId = requestObj["publisherId"].toInt();
+    //     int status = requestObj["status"].toInt();
+
+    //     if (status != 0 && status != 1) {
+    //         responseObj["type"] = "action_result";
+    //         responseObj["success"] = false;
+    //         responseObj["message"] = "Publishers can only set active/inactive.";
+    //     }
+    //     else {
+    //         Book b;
+    //         QString fetchErr;
+    //         if (!DatabaseManager::instance().fetchBook(bookId, b, fetchErr) || b.publisherId != publisherId) {
+    //         } else {
+    //             QString errorMsg;
+    //             bool ok = DatabaseManager::instance().setBookStatus(bookId, status, errorMsg);
+    //             responseObj["type"] = "action_result";
+    //             responseObj["success"] = ok;
+    //             responseObj["message"] = ok ? "Book status updated." : errorMsg;
+    //             emit databaseUpdated("book");
+    //             if (ok) {
+    //                 QJsonObject broadcastObj;
+    //                 if (status == 1) {
+    //                     broadcastObj["action"] = "notify_book_updated";
+    //                     broadcastObj["bookId"] = b.id;
+    //                     broadcastObj["title"] = b.title;
+    //                     broadcastObj["author"] = b.author;
+    //                     broadcastObj["genre"] = b.genre;
+    //                     broadcastObj["price"] = b.price;
+    //                     broadcastObj["coverImagePath"] = b.coverImagePath;
+    //                     broadcastObj["isActive"] = true;
+    //                 } else { // غیرفعال شده
+    //                     broadcastObj["action"] = "notify_book_removed";
+    //                     broadcastObj["bookId"] = bookId;
+    //                 }
+    //                 emit broadcastTargetedUpdate(broadcastObj);
+    //             }
+    //         }
+    //     }
+    // }
+
     else if (action == "publisher_set_book_status") {
         int bookId = requestObj["bookId"].toInt();
         int publisherId = requestObj["publisherId"].toInt();
@@ -205,14 +297,14 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             responseObj["type"] = "action_result";
             responseObj["success"] = false;
             responseObj["message"] = "Publishers can only set active/inactive.";
-        } else {
-            // Verify the book actually belongs to this publisher before touching it
+        }
+        else {
             Book b;
             QString fetchErr;
             if (!DatabaseManager::instance().fetchBook(bookId, b, fetchErr) || b.publisherId != publisherId) {
                 responseObj["type"] = "action_result";
                 responseObj["success"] = false;
-                responseObj["message"] = "Book not found or not owned by you.";
+                responseObj["message"] = "Book not found or access denied.";
             } else {
                 QString errorMsg;
                 bool ok = DatabaseManager::instance().setBookStatus(bookId, status, errorMsg);
@@ -220,9 +312,28 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
                 responseObj["success"] = ok;
                 responseObj["message"] = ok ? "Book status updated." : errorMsg;
                 emit databaseUpdated("book");
+
+                if (ok) {
+                    QJsonObject broadcastObj;
+                    if (status == 1) {
+                        broadcastObj["action"] = "notify_book_updated";
+                        broadcastObj["bookId"] = b.id;
+                        broadcastObj["title"] = b.title;
+                        broadcastObj["author"] = b.author;
+                        broadcastObj["genre"] = b.genre;
+                        broadcastObj["price"] = b.price;
+                        broadcastObj["coverImagePath"] = b.coverImagePath;
+                        broadcastObj["status"] = 1;
+                    } else {
+                        broadcastObj["action"] = "notify_book_removed";
+                        broadcastObj["bookId"] = bookId;
+                    }
+                    emit broadcastTargetedUpdate(broadcastObj);
+                }
             }
         }
     }
+
     else if (action == "publisher_add_discount") {
         int publisherId = requestObj["publisherId"].toInt();
         int bookId = requestObj["bookId"].toInt();
