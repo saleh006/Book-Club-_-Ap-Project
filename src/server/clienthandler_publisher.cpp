@@ -117,6 +117,32 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
         responseObj["totalIncome"] = totalIncome;
     }
 
+    // else if (action == "publisher_add_book") {
+    //     Book book;
+    //     book.publisherId = requestObj["publisherId"].toInt();
+    //     book.title = requestObj["title"].toString();
+    //     book.author = requestObj["author"].toString();
+    //     book.genre = requestObj["genre"].toString();
+    //     book.description = requestObj["description"].toString();
+    //     book.price = requestObj["price"].toDouble();
+    //     book.coverImagePath = requestObj["coverImagePath"].toString();
+    //     book.pdfPath = requestObj["pdfPath"].toString();
+
+    //     int newBookId = -1;
+    //     QString errorMsg;
+    //     if (DatabaseManager::instance().addBook(book, newBookId, errorMsg)) {
+    //         responseObj["type"] = "action_result";
+    //         responseObj["success"] = true;
+    //         responseObj["newBookId"] = newBookId;
+    //         responseObj["message"] = "Book added.";
+    //         emit databaseUpdated("book");
+    //     } else {
+    //         responseObj["type"] = "action_result";
+    //         responseObj["success"] = false;
+    //         responseObj["message"] = errorMsg;
+    //     }
+    // }
+
     else if (action == "publisher_add_book") {
         Book book;
         book.publisherId = requestObj["publisherId"].toInt();
@@ -136,6 +162,18 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             responseObj["newBookId"] = newBookId;
             responseObj["message"] = "Book added.";
             emit databaseUpdated("book");
+
+            QJsonObject broadcastObj;
+            broadcastObj["action"] = "notify_book_updated";
+            broadcastObj["bookId"] = newBookId;
+            broadcastObj["title"] = book.title;
+            broadcastObj["author"] = book.author;
+            broadcastObj["genre"] = book.genre;
+            broadcastObj["price"] = book.price;
+            broadcastObj["coverImagePath"] = book.coverImagePath;
+            broadcastObj["status"] = 1;
+
+            emit broadcastTargetedUpdate(broadcastObj);
         } else {
             responseObj["type"] = "action_result";
             responseObj["success"] = false;
