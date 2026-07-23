@@ -391,91 +391,104 @@ void PublisherPanel::onReadyRead()
         if (!doc.isObject()) {
             continue;
         }
-    const QJsonObject responseObj = doc.object();
-    const QString type = responseObj["type"].toString();
 
-    if (type == "publisher_books_list") {
-        QVector<Book> books;
-        const QJsonArray booksArray = responseObj["books"].toArray();
-        for (const QJsonValue &val : booksArray) {
-            const QJsonObject bo = val.toObject();
-            Book b;
-            b.id = bo["id"].toInt();
-            b.publisherId = m_publisherId;
-            b.title = bo["title"].toString();
-            b.author = bo["author"].toString();
-            b.genre = bo["genre"].toString();
-            b.description = bo["description"].toString();
-            b.price = bo["price"].toDouble();
-            b.coverImagePath = bo["coverImagePath"].toString();
-            b.pdfPath = bo["pdfPath"].toString();
-            b.status = bo["status"].toInt();
-            b.averageRating = bo["averageRating"].toDouble();
-            b.totalSales = bo["totalSales"].toInt();
-            books.push_back(b);
-        }
-        m_allBooks = books;
-        filterBooks(m_bookSearchEdit->text());
-        m_allBooks = books;
-        filterBooks(m_bookSearchEdit->text());
-        updateDashboard();
-    }
-    else if (type == "publisher_stats") {
-        m_statBookCount->setText(QString::number(responseObj["bookCount"].toInt()));
-        m_statTotalSales->setText(QString::number(responseObj["totalSales"].toInt()));
-        m_statAvgRating->setText(QString::number(responseObj["averageRating"].toDouble(), 'f', 1));
-        m_statTotalIncome->setText("$" + QString::number(responseObj["totalIncome"].toDouble(), 'f', 2));
-    }
-    else if (type == "action_result") {
-        const bool success = responseObj["success"].toBool();
-        if (success) {
-            requestBooks(); // refresh grid after add/edit/delete/status change
-            requestStats();
-        } else {
-            QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
-        }
-    }
-    else if (type == "publisher_sales_trend") {
-        updateSalesTrend(responseObj["points"].toArray());
-    }
-    else if (type == "user_info") {
-        m_fullName = responseObj["fullName"].toString();
-        m_email    = responseObj["email"].toString();
-        m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
-    }
-    else if (type == "profile_update_result") {
-        if (responseObj["success"].toBool()) {
-            m_fullName = responseObj["fullName"].toString();
-            m_email    = responseObj["email"].toString();
-            const QString newU = responseObj["username"].toString();
-            if (!newU.isEmpty()) {
-                m_username = newU;
-                m_usernameLabel->setText("@" + m_username);
+        const QJsonObject responseObj = doc.object();
+        const QString type = responseObj["type"].toString();
+        const QString action = responseObj["action"].toString();
+
+        if (type == "table_refresh_required") {
+            if (responseObj["target_table"].toString() == "book") {
+                requestBooks();
+                requestStats();
             }
-            m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
-            if (m_welcomeLabel) m_welcomeLabel->setText(QString("Welcome back, %1!").arg(m_fullName));
-            QMessageBox::information(this, "Profile", "Profile updated successfully.");
-        } else {
-            QMessageBox::warning(this, "Profile", responseObj["message"].toString());
+            continue;
         }
-    }
-    else if (type == "password_change_result") {
-        if (responseObj["success"].toBool())
-            QMessageBox::information(this, "Password", "Password changed successfully.");
-        else
-            QMessageBox::warning(this, "Password", responseObj["message"].toString());
-    }
-    else {
-        const QString status = responseObj["status"].toString();
-        if (status == "success") {
+
+        if (action == "notify_book_updated" || action == "notify_book_removed") {
             requestBooks();
             requestStats();
+            continue;
+        }
 
-        } else if (status == "error") {
-            QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
+        if (type == "publisher_books_list") {
+            QVector<Book> books;
+            const QJsonArray booksArray = responseObj["books"].toArray();
+            for (const QJsonValue &val : booksArray) {
+                const QJsonObject bo = val.toObject();
+                Book b;
+                b.id = bo["id"].toInt();
+                b.publisherId = m_publisherId;
+                b.title = bo["title"].toString();
+                b.author = bo["author"].toString();
+                b.genre = bo["genre"].toString();
+                b.description = bo["description"].toString();
+                b.price = bo["price"].toDouble();
+                b.coverImagePath = bo["coverImagePath"].toString();
+                b.pdfPath = bo["pdfPath"].toString();
+                b.status = bo["status"].toInt();
+                b.averageRating = bo["averageRating"].toDouble();
+                b.totalSales = bo["totalSales"].toInt();
+                books.push_back(b);
+            }
+            m_allBooks = books;
+            filterBooks(m_bookSearchEdit->text());
+            updateDashboard();
+        }
+        else if (type == "publisher_stats") {
+            m_statBookCount->setText(QString::number(responseObj["bookCount"].toInt()));
+            m_statTotalSales->setText(QString::number(responseObj["totalSales"].toInt()));
+            m_statAvgRating->setText(QString::number(responseObj["averageRating"].toDouble(), 'f', 1));
+            m_statTotalIncome->setText("$" + QString::number(responseObj["totalIncome"].toDouble(), 'f', 2));
+        }
+        else if (type == "action_result") {
+            const bool success = responseObj["success"].toBool();
+            if (success) {
+                requestBooks();
+                requestStats();
+            } else {
+                QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
+            }
+        }
+        else if (type == "publisher_sales_trend") {
+            updateSalesTrend(responseObj["points"].toArray());
+        }
+        else if (type == "user_info") {
+            m_fullName = responseObj["fullName"].toString();
+            m_email    = responseObj["email"].toString();
+            m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
+        }
+        else if (type == "profile_update_result") {
+            if (responseObj["success"].toBool()) {
+                m_fullName = responseObj["fullName"].toString();
+                m_email    = responseObj["email"].toString();
+                const QString newU = responseObj["username"].toString();
+                if (!newU.isEmpty()) {
+                    m_username = newU;
+                    m_usernameLabel->setText("@" + m_username);
+                }
+                m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
+                if (m_welcomeLabel) m_welcomeLabel->setText(QString("Welcome back, %1!").arg(m_fullName));
+                QMessageBox::information(this, "Profile", "Profile updated successfully.");
+            } else {
+                QMessageBox::warning(this, "Profile", responseObj["message"].toString());
+            }
+        }
+        else if (type == "password_change_result") {
+            if (responseObj["success"].toBool())
+                QMessageBox::information(this, "Password", "Password changed successfully.");
+            else
+                QMessageBox::warning(this, "Password", responseObj["message"].toString());
+        }
+        else {
+            const QString status = responseObj["status"].toString();
+            if (status == "success") {
+                requestBooks();
+                requestStats();
+            } else if (status == "error") {
+                QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
+            }
         }
     }
-}
 }
 
 void PublisherPanel::onSocketError(QAbstractSocket::SocketError error)
