@@ -4,6 +4,7 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHeaderView>
+#include <QFrame>
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QDoubleSpinBox>
@@ -564,26 +565,59 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
 {
     QDialog *dialog = new QDialog(this);
     dialog->setWindowTitle("Book Details");
-    dialog->resize(550, 520);
+    dialog->resize(560, 480);
+    dialog->setMinimumWidth(500);
     dialog->setStyleSheet(R"(
         QDialog {
             background-color: #120E14;
             color: #EAEAEA;
         }
 
-        QLabel#fieldLabel {
-            color: #A594B3;
-            background-color: #120E14;
-            padding: 6px 10px;
-            min-width: 90px;
-            qproperty-alignment: 'Qt::AlignCenter';
+        QLabel#titleValue {
+            background-color: transparent;
+            color: #EAEAEA;
+            font-size: 20px;
+            font-weight: bold;
         }
 
-        QLabel#valueLabel {
+        QLabel#subtitleValue {
+            background-color: transparent;
+            color: #A594B3;
+            font-size: 13px;
+        }
+
+        QFrame#statChip {
+            background-color: transparent;
+            border: 1px solid #5F2E4F;
+            border-radius: 12px;
+        }
+
+        QLabel#statLabel {
+            background-color: transparent;
+            color: #A594B3;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        QLabel#statValue {
+            background-color: transparent;
+            color: #EAEAEA;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        QLabel#sectionLabel {
+            background-color: transparent;
+            color: #A594B3;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        QTextEdit#descriptionView {
             background-color: #1F1724;
             border: 1px solid #5F2E4F;
             border-radius: 12px;
-            padding: 6px 12px;
+            padding: 10px;
             color: #EAEAEA;
         }
 
@@ -591,7 +625,7 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
             background-color: #7C3E66;
             border: none;
             border-radius: 12px;
-            padding: 8px 20px;
+            padding: 8px 22px;
             color: white;
             font-weight: bold;
         }
@@ -601,45 +635,70 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
         }
     )");
 
-    auto makeFieldLabel = [](const QString &text) {
-        QLabel *lbl = new QLabel(text);
-        lbl->setObjectName("fieldLabel");
-        return lbl;
+    const bool isActive = data["isActive"].toInt();
+
+    QLabel *titleLabel = new QLabel(data["title"].toString(), dialog);
+    titleLabel->setObjectName("titleValue");
+    titleLabel->setWordWrap(true);
+
+    QLabel *statusBadge = new QLabel(isActive ? "✅ Approved" : "🚫 Pending/Rejected", dialog);
+    statusBadge->setAlignment(Qt::AlignCenter);
+    statusBadge->setStyleSheet(isActive
+                            ? "background-color: rgba(46, 204, 113, 45); color: #ABEBC6; border: 1px solid #2ECC71;"
+                            " border-radius: 10px; padding: 4px 12px; font-weight: bold; font-size: 12px;"
+                            : "background-color: rgba(231, 76, 60, 45); color: #F5B7B1; border: 1px solid #E74C3C;"
+                            " border-radius: 10px; padding: 4px 12px; font-weight: bold; font-size: 12px;");
+
+    QHBoxLayout *headerRow = new QHBoxLayout();
+    headerRow->setSpacing(12);
+    headerRow->addWidget(titleLabel, 1);
+    headerRow->addWidget(statusBadge, 0, Qt::AlignTop);
+
+    QString authorText = data["author"].toString();
+    QString genreText = data["genre"].toString();
+    QLabel *subtitleLabel = new QLabel(
+        genreText.isEmpty() ? QString("by %1").arg(authorText)
+                            : QString("by %1  •  %2").arg(authorText, genreText),
+        dialog);
+    subtitleLabel->setObjectName("subtitleValue");
+    subtitleLabel->setWordWrap(true);
+
+    auto makeStatChip = [dialog](const QString &label, const QString &value) {
+        QFrame *chip = new QFrame(dialog);
+        chip->setObjectName("statChip");
+        QVBoxLayout *chipLayout = new QVBoxLayout(chip);
+        chipLayout->setContentsMargins(14, 10, 14, 10);
+        chipLayout->setSpacing(3);
+
+        QLabel *lbl = new QLabel(label.toUpper(), chip);
+        lbl->setObjectName("statLabel");
+        QLabel *val = new QLabel(value, chip);
+        val->setObjectName("statValue");
+
+        chipLayout->addWidget(lbl);
+        chipLayout->addWidget(val);
+        return chip;
     };
-    auto makeValueLabel = [](const QString &text) {
-        QLabel *val = new QLabel(text.isEmpty() ? "—" : text);
-        val->setObjectName("valueLabel");
-        val->setWordWrap(true);
-        return val;
-    };
 
-    QFormLayout *formLayout = new QFormLayout;
-    formLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    formLayout->setFormAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    formLayout->setLabelAlignment(Qt::AlignCenter);
-    formLayout->setHorizontalSpacing(15);
-    formLayout->setVerticalSpacing(14);
+    const double rating = data["averageRating"].toDouble();
+    QFrame *priceChip = makeStatChip("Price", "$" + QString::number(data["price"].toDouble(), 'f', 2));
+    QFrame *ratingChip = makeStatChip("Avg Rating", rating > 0.0 ? QString::number(rating, 'f', 1) + " ⭐" : "N/A");
 
-    formLayout->addRow(makeFieldLabel("Title"), makeValueLabel(data["title"].toString()));
-    formLayout->addRow(makeFieldLabel("Price"), makeValueLabel("$" + QString::number(data["price"].toDouble(), 'f', 2)));
-    formLayout->addRow(makeFieldLabel("Author"), makeValueLabel(data["author"].toString()));
-    formLayout->addRow(makeFieldLabel("Genre"), makeValueLabel(data["genre"].toString()));
+    QHBoxLayout *statsRow = new QHBoxLayout();
+    statsRow->setSpacing(14);
+    statsRow->addWidget(priceChip, 1);
+    statsRow->addWidget(ratingChip, 1);
 
-    QLabel *descLabel = makeValueLabel(data["description"].toString());
-    descLabel->setMinimumHeight(100);
-    descLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    formLayout->addRow(makeFieldLabel("Description"), descLabel);
+    QLabel *descSectionLabel = new QLabel("DESCRIPTION", dialog);
+    descSectionLabel->setObjectName("sectionLabel");
 
-    formLayout->addRow(makeFieldLabel("Cover Path"), makeValueLabel(data["coverImagePath"].toString()));
-    formLayout->addRow(makeFieldLabel("PDF Path"), makeValueLabel(data["pdfPath"].toString()));
-
-    double rating = data["averageRating"].toDouble();
-    formLayout->addRow(makeFieldLabel("Avg Rating"),
-                       makeValueLabel(rating > 0.0 ? QString::number(rating, 'f', 1) + " ⭐" : "N/A"));
-
-    bool isActive = data["isActive"].toInt();
-    formLayout->addRow(makeFieldLabel("Status"),
-                       makeValueLabel(isActive ? "✅ Approved" : "🚫 Pending/Rejected"));
+    QTextEdit *descView = new QTextEdit(dialog);
+    descView->setObjectName("descriptionView");
+    descView->setReadOnly(true);
+    descView->setFrameShape(QFrame::NoFrame);
+    QString descText = data["description"].toString();
+    descView->setText(descText.isEmpty() ? "No description provided." : descText);
+    descView->setMinimumHeight(140);
 
     QPushButton *closeDetailsBtn = new QPushButton("Close", dialog);
     closeDetailsBtn->setCursor(Qt::PointingHandCursor);
@@ -650,9 +709,15 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
     footerLayout->addWidget(closeDetailsBtn);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
-    mainLayout->setSpacing(15);
-    mainLayout->addLayout(formLayout);
+    mainLayout->setContentsMargins(24, 22, 24, 20);
+    mainLayout->setSpacing(14);
+    mainLayout->addLayout(headerRow);
+    mainLayout->addWidget(subtitleLabel);
+    mainLayout->addSpacing(2);
+    mainLayout->addLayout(statsRow);
+    mainLayout->addSpacing(4);
+    mainLayout->addWidget(descSectionLabel);
+    mainLayout->addWidget(descView, 1);
     mainLayout->addLayout(footerLayout);
 
     dialog->exec();

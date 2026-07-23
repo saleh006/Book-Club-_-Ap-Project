@@ -163,23 +163,27 @@ void WishlistItemWidget::buildGridUi()
 
 void WishlistItemWidget::buildListUi()
 {
+    setFixedHeight(128);
+
     auto *rootLayout = new QHBoxLayout(this);
-    rootLayout->setContentsMargins(14, 14, 14, 14);
-    rootLayout->setSpacing(16);
+    rootLayout->setContentsMargins(16, 16, 16, 16);
+    rootLayout->setSpacing(18);
 
     auto *coverContainer = new QWidget(this);
     coverContainer->setFixedSize(72, 96);
     coverContainer->setStyleSheet("background: transparent; border: none;");
     auto *cover = makeCoverLabel(coverContainer, QSize(72, 96));
     cover->setGeometry(0, 0, 72, 96);
-    rootLayout->addWidget(coverContainer);
+    rootLayout->addWidget(coverContainer,0,Qt::AlignVCenter);
 
     auto *infoLayout = new QVBoxLayout;
-    infoLayout->setContentsMargins(0, 2, 0, 2);
-    infoLayout->setSpacing(3);
+    infoLayout->setContentsMargins(0, 0, 0, 0);
+    infoLayout->setSpacing(4);
+    infoLayout->addStretch();
 
     auto *titleLabel = new QLabel(m_item.title, this);
     titleLabel->setStyleSheet("color: #f4f1f6; font-size: 16px; font-weight: 700;");
+    titleLabel->setWordWrap(true);
     infoLayout->addWidget(titleLabel);
 
     auto *authorLabel = new QLabel(m_item.author, this);
@@ -193,13 +197,13 @@ void WishlistItemWidget::buildListUi()
     rootLayout->addLayout(infoLayout, 1);
 
     auto *rightLayout = new QVBoxLayout;
-    rightLayout->setSpacing(8);
+    rightLayout->setSpacing(10);
+    rightLayout->addStretch();
 
     auto *priceLabel = new QLabel(m_item.price <= 0.0 ? tr("Free") : QStringLiteral("$%1").arg(m_item.price, 0, 'f', 2), this);
     priceLabel->setAlignment(Qt::AlignRight);
     priceLabel->setStyleSheet("color: #e0559e; font-size: 16px; font-weight: 700;");
     rightLayout->addWidget(priceLabel);
-    rightLayout->addStretch();
 
     auto *actionRow = new QHBoxLayout;
     actionRow->setSpacing(10);
@@ -211,6 +215,7 @@ void WishlistItemWidget::buildListUi()
     actionRow->addWidget(cartBtn);
     actionRow->addWidget(removeBtn);
     rightLayout->addLayout(actionRow);
+    rightLayout->addStretch();
 
     rootLayout->addLayout(rightLayout);
 }
@@ -532,8 +537,22 @@ void WishlistPage::rebuildGrid()
     const auto oldCards = m_scrollArea->widget()->findChildren<WishlistItemWidget *>();
     for (WishlistItemWidget *card : oldCards)
         card->deleteLater();
+
+    QWidget *gridContainer = m_scrollArea->widget();
+    auto *containerLayout = qobject_cast<QVBoxLayout *>(gridContainer->layout());
+
     while (QLayoutItem *item = m_gridLayout->takeAt(0))
         delete item;
+
+    containerLayout->removeItem(m_gridLayout);
+    delete m_gridLayout;
+
+    m_gridLayout = new QGridLayout;
+    m_gridLayout->setContentsMargins(0, 0, 0, 0);
+    m_gridLayout->setHorizontalSpacing(18);
+    m_gridLayout->setVerticalSpacing(18);
+    m_gridLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    containerLayout->insertLayout(0, m_gridLayout);
 
     const QList<WishlistDisplayItem> visible = filteredSortedItems();
     m_columns = gridColumnCount();
