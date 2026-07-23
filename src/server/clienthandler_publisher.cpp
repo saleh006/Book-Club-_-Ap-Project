@@ -263,10 +263,32 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             emit broadcastTargetedUpdate(broadcastObj);
         }
     }
+    // else if (action == "admin_set_book_status") {
+    //     responseObj["action"] = "admin_set_book_status_response";
+    //     int bookId = requestObj["bookId"].toInt();
+    //     int status = requestObj["status"].toInt(); // 1, 0, or -1
+    //     QString errorMsg;
+
+    //     if (DatabaseManager::instance().setBookStatus(bookId, status, errorMsg)) {
+    //         responseObj["status"] = "success";
+    //         responseObj["bookId"] = bookId;
+    //         responseObj["book_status"] = status;
+
+    //         QString actionLabel = status == -1 ? "deleted" : (status == 1 ? "approved" : "rejected");
+    //         responseObj["message"] = QString("Book %1 successfully.").arg(actionLabel);
+
+    //         emit databaseUpdated("book");
+    //         emit logProduced(QString("[ADMIN] Book ID %1 was %2.").arg(bookId).arg(actionLabel));
+    //     } else {
+    //         responseObj["status"] = "error";
+    //         responseObj["message"] = errorMsg;
+    //     }
+    // }
+
     else if (action == "admin_set_book_status") {
         responseObj["action"] = "admin_set_book_status_response";
         int bookId = requestObj["bookId"].toInt();
-        int status = requestObj["status"].toInt(); // 1, 0, or -1
+        int status = requestObj["status"].toInt(); // 1 (approved), 0 (rejected), -1 (deleted)
         QString errorMsg;
 
         if (DatabaseManager::instance().setBookStatus(bookId, status, errorMsg)) {
@@ -279,11 +301,32 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
 
             emit databaseUpdated("book");
             emit logProduced(QString("[ADMIN] Book ID %1 was %2.").arg(bookId).arg(actionLabel));
+            QJsonObject broadcastObj;
+            if (status == 1) {
+                Book b;
+                QString fetchErr;
+                if (DatabaseManager::instance().fetchBook(bookId, b, fetchErr)) {
+                    broadcastObj["action"] = "notify_book_updated";
+                    broadcastObj["bookId"] = b.id;
+                    broadcastObj["title"] = b.title;
+                    broadcastObj["author"] = b.author;
+                    broadcastObj["genre"] = b.genre;
+                    broadcastObj["price"] = b.price;
+                    broadcastObj["coverImagePath"] = b.coverImagePath;
+                    broadcastObj["status"] = 1;
+                }
+            } else {
+                broadcastObj["action"] = "notify_book_removed";
+                broadcastObj["bookId"] = bookId;
+            }
+
+            emit broadcastTargetedUpdate(broadcastObj);
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;
         }
     }
+
     // else if (action == "publisher_set_book_status") {
     //     int bookId = requestObj["bookId"].toInt();
     //     int publisherId = requestObj["publisherId"].toInt();

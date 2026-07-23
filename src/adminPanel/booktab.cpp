@@ -467,6 +467,100 @@ void BookTab::handleEditBook()
     m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
 
+// void BookTab::handleServerResponse(const QJsonObject &response)
+// {
+//     QString action = response["action"].toString();
+
+//     if (response.contains("type") && response["type"].toString() == "table_refresh_required") {
+//         if (response["target_table"].toString() == "book") {
+//             refreshTable();
+//         }
+//         return;
+//     }
+
+//     if (action == "books_list_response" && response["status"] == "success") {
+//         QJsonArray books = response["data"].toArray();
+//         m_booksTable->setRowCount(0);
+
+//         for (int i = 0; i < books.size(); ++i) {
+//             QJsonObject b = books[i].toObject();
+//             m_booksTable->insertRow(i);
+
+//             m_booksTable->setItem(i, 0, new QTableWidgetItem(QString::number(b["id"].toInt())));
+//             m_booksTable->setItem(i, 1, new QTableWidgetItem(b["title"].toString()));
+//             m_booksTable->setItem(i, 2, new QTableWidgetItem(b["author"].toString()));
+
+//             bool isActive = b["isActive"].toInt();
+//             m_booksTable->setItem(i, 3, new QTableWidgetItem(isActive ? "Approved" : "Pending/Rejected"));
+
+//             if (!isActive) setRowDimmed(m_booksTable, i, true);
+//         }
+//     }
+//     else if (action == "admin_set_book_status_response") {
+//         if (response["status"].toString() == "success") {
+//             int bookId = response["bookId"].toInt();
+//             int status = response["book_status"].toInt();
+
+//             for (int i = 0; i < m_booksTable->rowCount(); ++i) {
+//                 if (m_booksTable->item(i, 0)->text().toInt() == bookId) {
+//                     if (status == -1) {
+//                         m_booksTable->removeRow(i);
+//                         QMessageBox::information(this, "Success", "Book deleted successfully.");
+//                     } else {
+//                         m_booksTable->item(i, 3)->setText(status == 1 ? "Approved" : "Pending/Rejected");
+//                         setRowDimmed(m_booksTable, i, status != 1);
+//                     }
+//                     break;
+//                 }
+//             }
+//         } else {
+//             QMessageBox::warning(this, "Action Failed", response["message"].toString());
+//         }
+//     }
+//     else if (action == "book_details_response" && response["status"].toString() == "success") {
+//         QJsonObject data = response["data"].toObject();
+//         if (m_pendingBookDetailPurpose == "edit") {
+//             Book b;
+//             b.id = data["id"].toInt();
+//             b.title = data["title"].toString();
+//             b.author = data["author"].toString();
+//             b.genre = data["genre"].toString();
+//             b.description = data["description"].toString();
+//             b.price = data["price"].toDouble();
+//             b.coverImagePath = data["coverImagePath"].toString();
+//             b.pdfPath = data["pdfPath"].toString();
+//             b.averageRating = data["averageRating"].toDouble();
+//             b.status = data["isActive"].toInt();
+
+//             AddEditBookDialog dialog(b, this);
+//             if (dialog.exec() == QDialog::Accepted) {
+//                 Book updated = dialog.resultBook();
+//                 QJsonObject packet;
+//                 packet["action"] = "book_update";
+//                 packet["id"] = updated.id;
+//                 packet["title"] = updated.title;
+//                 packet["author"] = updated.author;
+//                 packet["genre"] = updated.genre;
+//                 packet["description"] = updated.description;
+//                 packet["price"] = updated.price;
+//                 packet["coverImagePath"] = updated.coverImagePath;
+//                 packet["pdfPath"] = updated.pdfPath;
+//                 m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
+//             }
+//         } else {
+//             showBookDetailsDialog(response["data"].toObject());
+//         }
+//     }
+//     else if (action == "book_update_response") {
+//         if (response["status"].toString() == "success") {
+//             QMessageBox::information(this, "Success", "Book information updated successfully.");
+//             refreshTable();
+//         } else {
+//             QMessageBox::warning(this, "Update Failed", response["message"].toString());
+//         }
+//     }
+// }
+
 void BookTab::handleServerResponse(const QJsonObject &response)
 {
     QString action = response["action"].toString();
@@ -475,6 +569,11 @@ void BookTab::handleServerResponse(const QJsonObject &response)
         if (response["target_table"].toString() == "book") {
             refreshTable();
         }
+        return;
+    }
+
+    if (action == "notify_book_updated" || action == "notify_book_removed") {
+        refreshTable();
         return;
     }
 
@@ -493,7 +592,8 @@ void BookTab::handleServerResponse(const QJsonObject &response)
             bool isActive = b["isActive"].toInt();
             m_booksTable->setItem(i, 3, new QTableWidgetItem(isActive ? "Approved" : "Pending/Rejected"));
 
-            if (!isActive) setRowDimmed(m_booksTable, i, true);
+            if (!isActive)
+                setRowDimmed(m_booksTable, i, true);
         }
     }
     else if (action == "admin_set_book_status_response") {
