@@ -12,6 +12,43 @@ static const char *kCardBorder = "#1F1724";
 static const char *kAccent     = "#7C3E66";
 static const char *kTextDim    = "#9A8FA0";
 
+namespace {
+static const char *kNotifPanelBg    = "#121017";
+static const char *kNotifCardBg     = "#1B1822";
+static const char *kNotifCardBorder = "#2A2735";
+static const char *kNotifUnreadBg   = "#211D2C";
+static const char *kNotifTextDim    = "#8D8797";
+
+struct NotifVisual { QString icon; QString accent; QString label; };
+
+NotifVisual notificationVisualFor(const QString &title)
+{
+    if (title.startsWith(QStringLiteral("New in"), Qt::CaseInsensitive))
+        return { QStringLiteral("\U0001F4D8"), QStringLiteral("#6C8EF5"), QStringLiteral("New Release") };
+    if (title.compare(QStringLiteral("Price Drop!"), Qt::CaseInsensitive) == 0)
+        return { QStringLiteral("\U0001F3F7\uFE0F"), QStringLiteral("#45C48A"), QStringLiteral("Discount") };
+    if (title.compare(QStringLiteral("Book Sold!"), Qt::CaseInsensitive) == 0)
+        return { QStringLiteral("\U0001F4B0"), QStringLiteral("#F0B429"), QStringLiteral("Sale") };
+    if (title.compare(QStringLiteral("New Review"), Qt::CaseInsensitive) == 0)
+        return { QStringLiteral("\U00002B50"), QStringLiteral("#F2994A"), QStringLiteral("Review") };
+    return { QStringLiteral("\U0001F514"), QStringLiteral("#B06B96"), QStringLiteral("Update") };
+}
+
+QString formatRelativeNotifTime(const QDateTime &dt)
+{
+    if (!dt.isValid()) return QString();
+    const qint64 secs = dt.secsTo(QDateTime::currentDateTime());
+    if (secs < 0)      return dt.toString("MMM d, HH:mm");
+    if (secs < 60)     return QStringLiteral("Just now");
+    if (secs < 3600)   return QStringLiteral("%1m ago").arg(secs / 60);
+    if (secs < 86400)  return QStringLiteral("%1h ago").arg(secs / 3600);
+    if (secs < 172800) return QStringLiteral("Yesterday");
+    if (secs < 604800) return QStringLiteral("%1d ago").arg(secs / 86400);
+    return dt.toString("MMM d");
+}
+
+}
+
 static QPixmap makeCoverPixmap(const Book &b, const QSize &size)
 {
     if (!b.coverImagePath.isEmpty()) {
@@ -1253,44 +1290,64 @@ void UserPanel::requestNotifications()
 QWidget *UserPanel::createNotificationsPage()
 {
     auto *page = new QWidget(this);
-    page->setStyleSheet("background:transparent;border:none;");
+    page->setStyleSheet(QString("background-color:%1;border:none;").arg(kNotifPanelBg));
     auto *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(30, 30, 30, 30);
-    layout->setSpacing(16);
+    layout->setContentsMargins(30, 26, 30, 30);
+    layout->setSpacing(14);
 
     auto *headerLayout = new QHBoxLayout();
-    auto *title = new QLabel("🔔 Notifications", page);
-    title->setStyleSheet("color:#FFFFFF;font-size:20px;font-weight:bold;border:none;background:transparent;");
-    auto *markAllBtn = new QPushButton("Mark all as read", page);
+    auto *titleCol = new QVBoxLayout();
+    titleCol->setSpacing(2);
+    auto *title = new QLabel("Notifications", page);
+    title->setStyleSheet("color:#FFFFFF;font-size:21px;font-weight:700;border:none;background:transparent;");
+    auto *subtitle = new QLabel("What's new with your books and orders", page);
+    subtitle->setStyleSheet(QString("color:%1;font-size:12px;border:none;background:transparent;").arg(kNotifTextDim));
+    titleCol->addWidget(title);
+    titleCol->addWidget(subtitle);
+
+    auto *markAllBtn = new QPushButton("\u2713 Mark all as read", page);
     markAllBtn->setCursor(Qt::PointingHandCursor);
     markAllBtn->setStyleSheet(
-        "QPushButton{color:#B06B96;font-size:12px;border:1px solid #7C3E66;border-radius:6px;background:transparent;padding:6px 12px;}"
-        "QPushButton:hover{background-color:#7C3E66;color:white;}");
+        "QPushButton{color:#CFC7D6;font-size:12px;font-weight:600;border:1px solid #34303F;"
+        "border-radius:8px;background-color:#1E1B26;padding:8px 14px;}"
+        "QPushButton:hover{background-color:#2A2635;border-color:#443F52;color:#FFFFFF;}"
+        "QPushButton:pressed{background-color:#242030;}");
     connect(markAllBtn, &QPushButton::clicked, this, [this]() {
         QJsonObject req;
         req["action"] = "notifications_mark_all_read";
         req["userId"] = m_userId;
         sendRequest(req);
     });
-    headerLayout->addWidget(title);
+    headerLayout->addLayout(titleCol);
     headerLayout->addStretch();
-    headerLayout->addWidget(markAllBtn);
+    headerLayout->addWidget(markAllBtn,0,Qt::AlignTop);
     layout->addLayout(headerLayout);
 
     m_notifListWidget = new QListWidget(page);
     m_notifListWidget->setFrameShape(QFrame::NoFrame);
+    m_notifListWidget->setSpacing(8);
+    m_notifListWidget->setUniformItemSizes(false);
+    m_notifListWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_notifListWidget->setStyleSheet(
-        "QListWidget{background-color:#120E14;border:1px solid #1F1724;border-radius:10px;}"
-        "QListWidget::item{border-bottom:1px solid #1F1724;}"
-        "QListWidget::item:selected{background-color:#1F1724;}");
+        "QListWidget{background-color:transparent;border:none;}"
+        "QListWidget::item{border:none;padding:0;}"
+        "QListWidget::item:selected{background:transparent;}"
+        "QScrollBar:vertical{background:transparent;width:8px;margin:0;}"
+        "QScrollBar::handle:vertical{background:#2E2A38;border-radius:4px;min-height:24px;}"
+        "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}");
+
     connect(m_notifListWidget, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        int notifId = item->data(Qt::UserRole).toInt();
+        bool alreadyRead = item->data(Qt::UserRole + 1).toBool();
+        if (alreadyRead) return;
+
         QJsonObject req;
         req["action"] = "notification_mark_read";
         req["userId"] = m_userId;
-        req["notificationId"] = item->data(Qt::UserRole).toInt();
+        req["notificationId"] = notifId;
         sendRequest(req);
     });
-    layout->addWidget(m_notifListWidget);
+    layout->addWidget(m_notifListWidget, 1);
 
     return page;
 }
@@ -1300,41 +1357,104 @@ void UserPanel::rebuildNotificationList()
     if (!m_notifListWidget) return;
     m_notifListWidget->clear();
 
-    for (const Notification &n : m_notifications) {
-        auto *row = new QWidget(m_notifListWidget);
-        row->setStyleSheet(n.isRead ? "background:transparent;" : "background-color:rgba(124,62,102,40);");
-        auto *rowLayout = new QHBoxLayout(row);
-        rowLayout->setContentsMargins(14, 10, 14, 10);
-        rowLayout->setSpacing(10);
+    if (m_notifications.isEmpty()) {
+        auto *empty = new QWidget(m_notifListWidget);
+        auto *emptyLayout = new QVBoxLayout(empty);
+        emptyLayout->setContentsMargins(0, 60, 0, 40);
+        emptyLayout->setSpacing(8);
+        auto *icon = new QLabel("\U0001F4ED", empty); // 📭
+        icon->setStyleSheet("font-size:34px;border:none;background:transparent;");
+        icon->setAlignment(Qt::AlignCenter);
+        auto *text = new QLabel("You're all caught up", empty);
+        text->setStyleSheet(QString("color:%1;font-size:13px;border:none;background:transparent;").arg(kNotifTextDim));
+        text->setAlignment(Qt::AlignCenter);
+        emptyLayout->addWidget(icon);
+        emptyLayout->addWidget(text);
 
-        auto *dot = new QLabel(row);
-        dot->setFixedSize(8, 8);
-        dot->setStyleSheet(QString("background-color:%1;border-radius:4px;")
-                               .arg(n.isRead ? "transparent" : "#e46060"));
+        auto *item = new QListWidgetItem();
+        item->setFlags(Qt::NoItemFlags);
+        item->setSizeHint(QSize(0, 160));
+        m_notifListWidget->addItem(item);
+        m_notifListWidget->setItemWidget(item, empty);
+        return;
+    }
+
+    for (const Notification &n : m_notifications) {
+        const NotifVisual visual = notificationVisualFor(n.title);
+
+        auto *row = new QFrame(m_notifListWidget);
+        row->setObjectName("notifCard");
+        row->setAttribute(Qt::WA_Hover, true);
+        row->setCursor(n.isRead ? Qt::ArrowCursor : Qt::PointingHandCursor);
+        row->setStyleSheet(QString(
+                               "QFrame#notifCard{background-color:%1;border:1px solid %2;border-radius:12px;}"
+                               "QFrame#notifCard:hover{background-color:%3;border-color:%4;}")
+                               .arg(n.isRead ? kNotifCardBg : kNotifUnreadBg,
+                                    n.isRead ? kNotifCardBorder : visual.accent + "88",
+                                    n.isRead ? "#211E29" : "#2A2436",
+                                    visual.accent));
+
+        auto *rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(14, 13, 16, 13);
+        rowLayout->setSpacing(12);
+
+        // Left accent bar — the strongest unread cue in the panel.
+        auto *accentBar = new QLabel(row);
+        accentBar->setFixedWidth(3);
+        accentBar->setMinimumHeight(1);
+        accentBar->setStyleSheet(QString("background-color:%1;border-radius:2px;")
+                                     .arg(n.isRead ? "transparent" : visual.accent));
+
+        // Category icon bubble.
+        auto *iconBubble = new QLabel(visual.icon, row);
+        iconBubble->setFixedSize(36, 36);
+        iconBubble->setAlignment(Qt::AlignCenter);
+        iconBubble->setStyleSheet(QString(
+                                      "font-size:16px;border-radius:18px;background-color:%1;border:none;")
+                                      .arg(visual.accent + "26")); // soft tint of the accent color
 
         auto *textCol = new QVBoxLayout();
-        textCol->setSpacing(2);
+        textCol->setSpacing(3);
+
+        auto *topRow = new QHBoxLayout();
+        topRow->setSpacing(8);
         auto *titleLbl = new QLabel(n.title, row);
         titleLbl->setStyleSheet(QString("color:%1;font-size:13px;font-weight:%2;border:none;background:transparent;")
-                                    .arg(n.isRead ? "#C9BFCB" : "#FFFFFF", n.isRead ? "normal" : "bold"));
+                                    .arg(n.isRead ? "#C9C3D1" : "#FFFFFF", n.isRead ? "500" : "700"));
         titleLbl->setWordWrap(true);
+        auto *categoryTag = new QLabel(visual.label.toUpper(), row);
+        categoryTag->setStyleSheet(QString(
+                                       "color:%1;font-size:9px;font-weight:700;letter-spacing:0.5px;border:none;background:transparent;")
+                                       .arg(visual.accent));
+        topRow->addWidget(titleLbl, 1);
+        topRow->addWidget(categoryTag, 0, Qt::AlignRight | Qt::AlignTop);
+
         auto *msgLbl = new QLabel(n.message, row);
-        msgLbl->setStyleSheet("color:#9A8FA0;font-size:12px;border:none;background:transparent;");
+        msgLbl->setStyleSheet(QString("color:%1;font-size:12px;border:none;background:transparent;").arg(kNotifTextDim));
         msgLbl->setWordWrap(true);
-        textCol->addWidget(titleLbl);
+
+        auto *timeLbl = new QLabel(formatRelativeNotifTime(n.date), row);
+        timeLbl->setStyleSheet("color:#5C5668;font-size:10.5px;border:none;background:transparent;");
+
+        textCol->addLayout(topRow);
         textCol->addWidget(msgLbl);
+        textCol->addWidget(timeLbl);
 
-        auto *timeLbl = new QLabel(n.date.toString("MMM d, HH:mm"), row);
-        timeLbl->setStyleSheet("color:#5F5566;font-size:11px;border:none;background:transparent;");
-
-        rowLayout->addWidget(dot);
+        rowLayout->addWidget(accentBar);
+        rowLayout->addWidget(iconBubble, 0, Qt::AlignTop);
         rowLayout->addLayout(textCol, 1);
-        rowLayout->addWidget(timeLbl);
-        if (!n.isRead) row->setCursor(Qt::PointingHandCursor);
+
+        if (!n.isRead) {
+            auto *unreadDot = new QLabel(row);
+            unreadDot->setFixedSize(8, 8);
+            unreadDot->setStyleSheet("background-color:#E4577A;border-radius:4px;");
+            rowLayout->addWidget(unreadDot, 0, Qt::AlignTop);
+        }
 
         auto *item = new QListWidgetItem();
         item->setSizeHint(row->sizeHint());
         item->setData(Qt::UserRole, n.id);
+        item->setData(Qt::UserRole + 1, n.isRead);
         m_notifListWidget->addItem(item);
         m_notifListWidget->setItemWidget(item, row);
     }

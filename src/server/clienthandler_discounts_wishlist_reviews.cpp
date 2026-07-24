@@ -13,6 +13,17 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
         if (DatabaseManager::instance().addDiscount(d, errorMsg)) {
             responseObj["status"] = "success";
             responseObj["message"] = "New discount added successfully.";
+
+            Book b;
+            QString bookErr;
+            if (DatabaseManager::instance().fetchBook(d.bookId, b, bookErr)) {
+                QVector<int> wl;
+                QString wErr;
+                DatabaseManager::instance().fetchUserIdsWithBookInWishlist(d.bookId, wl, wErr);
+                for (int uid : wl) {
+                    notifyUser(uid, "Price Drop!", QString("\"%1\" now has a limited-time discount.").arg(b.title));
+                }
+            }
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;

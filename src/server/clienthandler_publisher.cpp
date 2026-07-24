@@ -448,11 +448,10 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
                 responseObj["status"] = "success";
                 responseObj["message"] = "Offer set successfully.";
 
-                QVector<int> wl, cart;
-                QString wErr, cErr;
+                QVector<int> wl;
+                QString wErr;
                 DatabaseManager::instance().fetchUserIdsWithBookInWishlist(bookId, wl, wErr);
-                DatabaseManager::instance().fetchUserIdsWithBookInCart(bookId, cart, cErr);
-                for (int uid : cart) if (!wl.contains(uid)) wl.push_back(uid);
+
                 for (int uid : wl) {
                     notifyUser(uid, "Price Drop!", QString("\"%1\" now has a limited-time discount.").arg(b.title));
                 }
