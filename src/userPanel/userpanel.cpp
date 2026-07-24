@@ -72,6 +72,10 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
         reqGenres["action"] = "user_get_favorite_genres";
         reqGenres["userId"] = m_userId;
         sendRequest(reqGenres);
+        QJsonObject reqOwned;
+        reqOwned["action"] = "books_fetch_owned";
+        reqOwned["userId"] = m_userId;
+        sendRequest(reqOwned);
     });
 
     m_socket->connectToHost("127.0.0.1", 1234);
@@ -231,6 +235,15 @@ void UserPanel::setupUi()
     m_stackedWidget->addWidget(createHomePage());    // index 0: home
 
     m_cartPage = new ShoppingCartPage(m_socket, m_userId, this);
+    connect(m_cartPage, &ShoppingCartPage::checkoutCompleted, this, [this](int purchaseId) {
+        Q_UNUSED(purchaseId);
+
+        // Fetch updated list of owned books from server
+        QJsonObject reqOwned;
+        reqOwned["action"] = "books_fetch_owned";
+        reqOwned["userId"] = m_userId;
+        sendRequest(reqOwned);
+    });
     connect(m_cartPage, &ShoppingCartPage::cartUpdated, this, &UserPanel::updateHero);
     connect(m_cartPage, &ShoppingCartPage::cartUpdated, this, &UserPanel::updateCartBadge);
     m_stackedWidget->addWidget(m_cartPage);           // index 1: cart
@@ -438,11 +451,19 @@ QWidget *UserPanel::createHomePage()
         "QPushButton{background:transparent;border:1px solid #3A3244;border-radius:8px;"
         "padding:10px 20px;color:#EAEAEA;font-size:13px;}"
         "QPushButton:hover{border-color:#7C3E66;background-color:#1A141F;}");
+    // 1. Create the buttons ONCE (no parent needed if adding to layout, or pass hero)
     m_heroCartBtn = new QPushButton("Add to Cart", hero);
     m_heroCartBtn->setStyleSheet(QString(
                                      "QPushButton{background-color:%1;border:none;border-radius:8px;"
                                      "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}"
                                      "QPushButton:hover{background-color:#B06B96;}").arg(kAccent));
+
+    m_heroOpenBtn = new QPushButton("Open Book", hero);
+    m_heroOpenBtn->setStyleSheet(
+        "QPushButton{background-color:#3FAE72;border:none;border-radius:8px;"
+        "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}"
+        "QPushButton:hover{background-color:#55C687;}");
+    m_heroOpenBtn->hide(); // Hide by default
 
     m_heroWishlistBtn = new QPushButton("♡", hero);
     m_heroWishlistBtn->setFixedSize(40, 40);
@@ -454,8 +475,11 @@ QWidget *UserPanel::createHomePage()
     viewBtn->setCursor(Qt::PointingHandCursor);
     m_heroCartBtn->setCursor(Qt::PointingHandCursor);
     m_heroWishlistBtn->setCursor(Qt::PointingHandCursor);
-    heroBtns->addWidget(viewBtn); heroBtns->addWidget(m_heroCartBtn);
-    heroBtns->addWidget(m_heroWishlistBtn); heroBtns->addStretch();
+    heroBtns->addWidget(viewBtn);
+    heroBtns->addWidget(m_heroCartBtn);
+    heroBtns->addWidget(m_heroOpenBtn);
+    heroBtns->addWidget(m_heroWishlistBtn);
+    heroBtns->addStretch();
 
     connect(viewBtn, &QPushButton::clicked, this, [this] {
         if (!m_heroBooks.isEmpty()) openBookDetails(m_heroBooks[m_heroIndex].id);
@@ -482,6 +506,13 @@ QWidget *UserPanel::createHomePage()
         if (m_heroBooks.isEmpty()) return;
         m_heroIndex = (m_heroIndex + 1) % m_heroBooks.size();
         updateHero();
+    });
+    connect(m_heroOpenBtn, &QPushButton::clicked, this, [this] {
+        if (!m_heroBooks.isEmpty()) {
+            int id = m_heroBooks[m_heroIndex].id;
+            qDebug() << "Open book triggered for ID:" << id;
+            // TODO: Emit your open book signal or logic here
+        }
     });
 
     heroInfo->addLayout(genreWrap);
@@ -1037,6 +1068,23 @@ void UserPanel::onReadyRead()
             rebuildNotificationList();
             updateNotificationBadge();
         }
+        else if (action == "books_fetch_owned_response" || action == "books_fetch_owned") {
+            if (responseObj["status"].toString() == "success") {
+                m_ownedBookIds.clear();
+                QJsonArray booksArr = responseObj["books"].toArray();
+                for (const QJsonValue &val : booksArr) {
+                    m_ownedBookIds.insert(val.toObject()["id"].toInt());
+                }
+
+                // 1. Immediately update Hero Banner button
+                updateHero();
+
+                // 2. Immediately update Book Details page if open
+                if (m_detailsPage && m_stackedWidget->currentWidget() == m_detailsPage) {
+                    m_detailsPage->setOwned(m_ownedBookIds.contains(m_detailsPage->currentBookId()));
+                }
+            }
+        }
     }
 }
 
@@ -1171,6 +1219,13 @@ void UserPanel::updateHero()
             "color:#FF6B9D;font-size:16px;}"
             "QPushButton:hover{border-color:#FF6B9D;background-color:#1A141F;}")
             .arg(inWishlist ? "rgba(255,107,157,40)" : "transparent"));
+    }
+    if (!m_heroBooks.isEmpty()) {
+        int currentBookId = m_heroBooks[m_heroIndex].id;
+        bool isOwned = m_ownedBookIds.contains(currentBookId);
+
+        m_heroCartBtn->setVisible(!isOwned);
+        m_heroOpenBtn->setVisible(isOwned);
     }
 }
 
@@ -1360,14 +1415,24 @@ void UserPanel::openBookDetails(int bookId)
 {
     for (const Book &b : std::as_const(m_storeBooks)) {
         if (b.id == bookId) {
+            // 1. Load book data into details page
             m_detailsPage->setBook(b);
-            m_detailsPage->setWishlisted(m_wishlistPage && m_wishlistPage->containsBook(bookId));
-            switchPage(2);   // check this is 2, not 1
 
+            // 2. Pass ownership state (Must be called AFTER setBook because setBook resets owned to false)
+            m_detailsPage->setOwned(m_ownedBookIds.contains(bookId));
+
+            // 3. Sync wishlist state
+            m_detailsPage->setWishlisted(m_wishlistPage && m_wishlistPage->containsBook(bookId));
+
+            // 4. Switch stacked widget page to details page
+            switchPage(2);
+
+            // 5. Fetch reviews for this book from server
             QJsonObject req;
             req["action"] = "get_book_reviews";
             req["bookId"] = bookId;
             sendRequest(req);
+
             return;
         }
     }

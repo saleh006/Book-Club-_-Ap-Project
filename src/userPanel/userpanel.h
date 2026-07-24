@@ -25,6 +25,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QListWidget>
+#include <QSet>
 #include "models.h"
 #include "shoppingcarttab.h"
 #include "bookdetailspage.h"
@@ -142,7 +143,8 @@ private:
     QVector<Book> m_newestBooks;
     QVector<Book> m_bestsellerBooks;
     QVector<Book> m_freeBooks;
-
+    QSet<int> m_ownedBookIds;
+    QPushButton *m_heroOpenBtn;
     void showFullList(const QString &title, const QVector<Book> &books);
 };
 

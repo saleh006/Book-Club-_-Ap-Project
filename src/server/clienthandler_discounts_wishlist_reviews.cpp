@@ -172,6 +172,7 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
         }
     }
     else if (action == "books_fetch_owned") {
+        responseObj["action"] = "books_fetch_owned_response";
         int userId = requestObj["userId"].toInt();
         QVector<Book> books;
         QString errorMsg;
