@@ -12,8 +12,10 @@
 #include <QTableWidget>
 #include <QComboBox>
 #include <QMap>
+#include <QListWidget>
 #include "models.h"
 #include "QLineEdit"
+#include "src/userPanel/notificationtoast.h"
 
 class PublisherPanel : public QWidget
 {
@@ -56,6 +58,21 @@ private:
     QPushButton *m_btnStats;
     QPushButton *m_btnBooks;
     QPushButton *m_btnLogout;
+
+    //Notification
+    QPushButton *m_btnNotifications;
+    QLabel *m_notifBadge;
+    QVector<Notification> m_notifications;
+    QListWidget *m_notifListWidget;
+    QWidget *m_notifPage;
+
+    QWidget *createNotificationsPage();
+    void requestNotifications();
+    void rebuildNotificationList();
+    void updateNotificationBadge();
+    void showNotificationToast(const QString &title, const QString &message);
+
+    ////////////////////////
 
     QLabel *m_statBookCount;
     QLabel *m_statTotalSales;
