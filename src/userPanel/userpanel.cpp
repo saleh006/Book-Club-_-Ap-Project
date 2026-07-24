@@ -6,6 +6,7 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <algorithm>
+#include "src/publisherPanel/editprofiledialog.h"
 
 static const char *kCardBg     = "#120E14";
 static const char *kCardBorder = "#1F1724";
@@ -1040,6 +1041,30 @@ void UserPanel::onReadyRead()
             m_email = responseObj["email"].toString();
             m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
         }
+        else if (type == "profile_update_result") {
+            if (responseObj["success"].toBool()) {
+                m_fullName = responseObj["fullName"].toString();
+                m_email    = responseObj["email"].toString();
+                const QString newU = responseObj["username"].toString();
+
+                if (!newU.isEmpty()) {
+                    m_username = newU;
+                    m_usernameLabel->setText("@" + m_username);
+                }
+                m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
+
+                QMessageBox::information(this, "Profile", "Profile updated successfully.");
+            } else {
+                QMessageBox::warning(this, "Profile", responseObj["message"].toString());
+            }
+        }
+        else if (type == "password_change_result") {
+            if (responseObj["success"].toBool()) {
+                QMessageBox::information(this, "Password", "Password changed successfully.");
+            } else {
+                QMessageBox::warning(this, "Password", responseObj["message"].toString());
+            }
+        }
         else if (action == "book_reviews_response" && responseObj["status"].toString() == "success") {
             QVector<Review> reviews;
             for (const QJsonValue &val : responseObj["data"].toArray()) {
@@ -1130,10 +1155,7 @@ void UserPanel::onSocketError()
     qWarning() << "UserPanel socket error: " << m_socket->errorString();
 }
 
-void UserPanel::handleEditProfile()
-{
-    qDebug() << "Open profile update UI workspace window dialog context.";
-}
+
 
 QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut,
                                             std::function<QVector<Book>()> getFullList)
@@ -1626,3 +1648,30 @@ void UserPanel::showFullList(const QString &title, const QVector<Book> &books)
         books);
 }
 
+void UserPanel::handleEditProfile(){
+    EditProfileDialog dialog(m_username, m_fullName, m_email, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    // empty field = keep current value
+    const QString newUsername = dialog.username().isEmpty() ? m_username : dialog.username();
+    const QString newFullName = dialog.fullName().isEmpty() ? m_fullName : dialog.fullName();
+    const QString newEmail    = dialog.email().isEmpty()    ? m_email    : dialog.email();
+    if (newUsername != m_username || newFullName != m_fullName || newEmail != m_email) {
+        QJsonObject req;
+        req["action"]      = "user_update_profile";
+        req["userId"]      = m_userId;        // <-- ID, not username
+        req["newUsername"] = newUsername;
+        req["fullName"]    = newFullName;
+        req["email"]       = newEmail;
+        sendRequest(req);
+    }
+    if (dialog.wantsPasswordChange()) {
+        QJsonObject req;
+        req["action"]      = "user_change_password";
+        req["userId"]      = m_userId;        // <-- ID here too
+        req["oldPassword"] = dialog.oldPassword();
+        req["newPassword"] = dialog.newPassword();
+        sendRequest(req);
+    }
+}
