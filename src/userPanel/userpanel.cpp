@@ -51,6 +51,13 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
     connect(m_socket, &QTcpSocket::readyRead, this, &UserPanel::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &UserPanel::onSocketError);
     connect(m_socket, &QTcpSocket::connected, this, [this]() {
+        QJsonObject subReq;
+        subReq["action"] = "user_subscribe";
+        subReq["userId"] = m_userId;
+        sendRequest(subReq);
+
+        requestNotifications();
+
         requestAllBooks();
         m_cartPage->refreshCart();
         m_wishlistPage->refreshWishlist();
@@ -187,6 +194,28 @@ void UserPanel::setupUi()
     connect(m_btnWishlist, &QPushButton::clicked, this, [this]() { switchPage(3); });
     sidebarLayout->addWidget(m_btnWishlist);
 
+    m_btnNotifications = new QPushButton("🔔 Notifications", sidebar);
+    m_btnNotifications->setStyleSheet(menuBtnStyle);
+    m_btnNotifications->setCursor(Qt::PointingHandCursor);
+
+    auto *notifBtnLayout = new QGridLayout(m_btnNotifications);
+    notifBtnLayout->setContentsMargins(0, 3, 6, 0);
+    notifBtnLayout->setColumnStretch(0, 1);
+    notifBtnLayout->setRowStretch(1, 1);
+
+    m_notifBadge = new QLabel(m_btnNotifications);
+    m_notifBadge->setAlignment(Qt::AlignCenter);
+    m_notifBadge->setFixedHeight(18);
+    m_notifBadge->setMinimumWidth(18);
+    m_notifBadge->setStyleSheet(
+        "QLabel { background-color: #e46060; color: white; font-size: 10px; font-weight: 700;"
+        " border-radius: 9px; padding: 0 4px; }");
+    m_notifBadge->hide();
+    notifBtnLayout->addWidget(m_notifBadge, 0, 1, Qt::AlignTop | Qt::AlignRight);
+
+    connect(m_btnNotifications, &QPushButton::clicked, this, [this]() { switchPage(4); });
+    sidebarLayout->addWidget(m_btnNotifications);
+
     sidebarLayout->addStretch();
 
     m_btnLogout = new QPushButton("🚪 Logout", sidebar);
@@ -246,6 +275,9 @@ void UserPanel::setupUi()
             m_detailsPage->setWishlisted(m_wishlistPage->containsBook(m_detailsPage->currentBookId()));
     });
     m_stackedWidget->addWidget(m_wishlistPage);
+
+    m_notifPage = createNotificationsPage();
+    m_stackedWidget->addWidget(m_notifPage);
 
     mainLayout->addWidget(sidebar);
     mainLayout->addWidget(m_stackedWidget);
@@ -964,6 +996,47 @@ void UserPanel::onReadyRead()
                 QMessageBox::warning(this, "Submission Failed", responseObj["message"].toString());
             }
         }
+        else if (type == "notifications_list" && responseObj["status"].toString() == "success") {
+            m_notifications.clear();
+            for (const QJsonValue &v : responseObj["notifications"].toArray()) {
+                QJsonObject no = v.toObject();
+                Notification n;
+                n.id = no["id"].toInt();
+                n.userId = m_userId;
+                n.title = no["title"].toString();
+                n.message = no["message"].toString();
+                n.date = QDateTime::fromString(no["date"].toString(), Qt::ISODate);
+                n.isRead = no["isRead"].toBool();
+                m_notifications.push_back(n);
+            }
+            rebuildNotificationList();
+            updateNotificationBadge();
+        }
+        else if (type == "notification_new") {
+            QJsonObject no = responseObj["notification"].toObject();
+            Notification n;
+            n.id = no["id"].toInt();
+            n.userId = m_userId;
+            n.title = no["title"].toString();
+            n.message = no["message"].toString();
+            n.date = QDateTime::fromString(no["date"].toString(), Qt::ISODate);
+            n.isRead = false;
+            m_notifications.prepend(n);
+            rebuildNotificationList();
+            updateNotificationBadge();
+            showNotificationToast(n.title, n.message);
+        }
+        else if (type == "notification_mark_read_result" && responseObj["status"].toString() == "success") {
+            int notifId = responseObj["notificationId"].toInt();
+            for (auto &n : m_notifications) if (n.id == notifId) { n.isRead = true; break; }
+            rebuildNotificationList();
+            updateNotificationBadge();
+        }
+        else if (type == "notifications_mark_all_read_result" && responseObj["status"].toString() == "success") {
+            for (auto &n : m_notifications) n.isRead = true;
+            rebuildNotificationList();
+            updateNotificationBadge();
+        }
     }
 }
 
@@ -1112,6 +1185,119 @@ void UserPanel::updateCartBadge()
 
     m_cartBadge->setText(count > 99 ? QStringLiteral("99+") : QString::number(count));
     m_cartBadge->show();
+}
+
+void UserPanel::requestNotifications()
+{
+    QJsonObject req;
+    req["action"] = "notifications_fetch";
+    req["userId"] = m_userId;
+    sendRequest(req);
+}
+
+QWidget *UserPanel::createNotificationsPage()
+{
+    auto *page = new QWidget(this);
+    page->setStyleSheet("background:transparent;border:none;");
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 30, 30, 30);
+    layout->setSpacing(16);
+
+    auto *headerLayout = new QHBoxLayout();
+    auto *title = new QLabel("🔔 Notifications", page);
+    title->setStyleSheet("color:#FFFFFF;font-size:20px;font-weight:bold;border:none;background:transparent;");
+    auto *markAllBtn = new QPushButton("Mark all as read", page);
+    markAllBtn->setCursor(Qt::PointingHandCursor);
+    markAllBtn->setStyleSheet(
+        "QPushButton{color:#B06B96;font-size:12px;border:1px solid #7C3E66;border-radius:6px;background:transparent;padding:6px 12px;}"
+        "QPushButton:hover{background-color:#7C3E66;color:white;}");
+    connect(markAllBtn, &QPushButton::clicked, this, [this]() {
+        QJsonObject req;
+        req["action"] = "notifications_mark_all_read";
+        req["userId"] = m_userId;
+        sendRequest(req);
+    });
+    headerLayout->addWidget(title);
+    headerLayout->addStretch();
+    headerLayout->addWidget(markAllBtn);
+    layout->addLayout(headerLayout);
+
+    m_notifListWidget = new QListWidget(page);
+    m_notifListWidget->setFrameShape(QFrame::NoFrame);
+    m_notifListWidget->setStyleSheet(
+        "QListWidget{background-color:#120E14;border:1px solid #1F1724;border-radius:10px;}"
+        "QListWidget::item{border-bottom:1px solid #1F1724;}"
+        "QListWidget::item:selected{background-color:#1F1724;}");
+    connect(m_notifListWidget, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        QJsonObject req;
+        req["action"] = "notification_mark_read";
+        req["userId"] = m_userId;
+        req["notificationId"] = item->data(Qt::UserRole).toInt();
+        sendRequest(req);
+    });
+    layout->addWidget(m_notifListWidget);
+
+    return page;
+}
+
+void UserPanel::rebuildNotificationList()
+{
+    if (!m_notifListWidget) return;
+    m_notifListWidget->clear();
+
+    for (const Notification &n : m_notifications) {
+        auto *row = new QWidget(m_notifListWidget);
+        row->setStyleSheet(n.isRead ? "background:transparent;" : "background-color:rgba(124,62,102,40);");
+        auto *rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(14, 10, 14, 10);
+        rowLayout->setSpacing(10);
+
+        auto *dot = new QLabel(row);
+        dot->setFixedSize(8, 8);
+        dot->setStyleSheet(QString("background-color:%1;border-radius:4px;")
+                               .arg(n.isRead ? "transparent" : "#e46060"));
+
+        auto *textCol = new QVBoxLayout();
+        textCol->setSpacing(2);
+        auto *titleLbl = new QLabel(n.title, row);
+        titleLbl->setStyleSheet(QString("color:%1;font-size:13px;font-weight:%2;border:none;background:transparent;")
+                                    .arg(n.isRead ? "#C9BFCB" : "#FFFFFF", n.isRead ? "normal" : "bold"));
+        titleLbl->setWordWrap(true);
+        auto *msgLbl = new QLabel(n.message, row);
+        msgLbl->setStyleSheet("color:#9A8FA0;font-size:12px;border:none;background:transparent;");
+        msgLbl->setWordWrap(true);
+        textCol->addWidget(titleLbl);
+        textCol->addWidget(msgLbl);
+
+        auto *timeLbl = new QLabel(n.date.toString("MMM d, HH:mm"), row);
+        timeLbl->setStyleSheet("color:#5F5566;font-size:11px;border:none;background:transparent;");
+
+        rowLayout->addWidget(dot);
+        rowLayout->addLayout(textCol, 1);
+        rowLayout->addWidget(timeLbl);
+        if (!n.isRead) row->setCursor(Qt::PointingHandCursor);
+
+        auto *item = new QListWidgetItem();
+        item->setSizeHint(row->sizeHint());
+        item->setData(Qt::UserRole, n.id);
+        m_notifListWidget->addItem(item);
+        m_notifListWidget->setItemWidget(item, row);
+    }
+}
+
+void UserPanel::updateNotificationBadge()
+{
+    int unread = 0;
+    for (const Notification &n : m_notifications) if (!n.isRead) unread++;
+
+    if (unread <= 0) { m_notifBadge->hide(); return; }
+    m_notifBadge->setText(unread > 99 ? QStringLiteral("99+") : QString::number(unread));
+    m_notifBadge->show();
+}
+
+void UserPanel::showNotificationToast(const QString &title, const QString &message)
+{
+    NotificationToast::show(this, title, message);
 }
 
 void UserPanel::setupSearch()

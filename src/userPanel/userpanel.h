@@ -24,10 +24,12 @@
 #include <QTcpSocket>
 #include <QJsonObject>
 #include <QJsonDocument>
+#include <QListWidget>
 #include "models.h"
 #include "shoppingcarttab.h"
 #include "bookdetailspage.h"
 #include "wishlistpage.h"
+#include "notificationtoast.h"
 
 class UserPanel : public QWidget
 {
@@ -87,6 +89,19 @@ private:
     ShoppingCartPage *m_cartPage = nullptr;
     WishlistPage *m_wishlistPage = nullptr;
     QStackedWidget *m_stackedWidget = nullptr;
+
+    //Notification
+    QPushButton *m_btnNotifications = nullptr;
+    QLabel *m_notifBadge = nullptr;
+    QVector<Notification> m_notifications;
+    QListWidget *m_notifListWidget = nullptr;
+    QWidget *m_notifPage = nullptr;
+
+    QWidget *createNotificationsPage();
+    void requestNotifications();
+    void rebuildNotificationList();
+    void updateNotificationBadge();
+    void showNotificationToast(const QString &title, const QString &message);
 
     // Store State Containers
     QVector<Book> m_storeBooks;
