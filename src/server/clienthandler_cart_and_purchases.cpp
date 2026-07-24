@@ -101,6 +101,20 @@ bool ClientHandler::handleCart_PurchaseActions(const QString &action, const QJso
             responseObj["status"] = "success";
             responseObj["message"] = "Purchase completed successfully and cart cleared.";
             responseObj["purchaseId"] = purchaseId;
+
+            QVector<int> purchasedBookIds;
+            QString piErr;
+            if (DatabaseManager::instance().fetchPurchaseItemBookIds(purchaseId, purchasedBookIds, piErr)) {
+                for (int bookId : purchasedBookIds) {
+                    Book b;
+                    QString bErr;
+                    if (DatabaseManager::instance().fetchBook(bookId, b, bErr)) {
+                        notifyUser(b.publisherId, "Book Sold!",
+                                   QString("Your book \"%1\" was just purchased.").arg(b.title));
+                    }
+                }
+            }
+
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;

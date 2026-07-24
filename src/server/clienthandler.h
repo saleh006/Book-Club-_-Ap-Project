@@ -18,6 +18,7 @@ signals:
     void clientDisconnectedSignal(qintptr descriptor, const QString &username);
     void databaseUpdated(const QString &type);
     void broadcastTargetedUpdate(const QJsonObject &msg);
+    void notificationReady(int userId, const QJsonObject &payload);
 
 protected:
     void run() override;
@@ -38,10 +39,13 @@ private:
     bool handleCart_PurchaseActions(const QString &action, const QJsonObject &requestObj, QJsonObject &responseObj);
     bool handlePublisherActions(const QString &action, const QJsonObject &requestObj, QJsonObject &responseObj);
 
+    void notifyUser(int userId, const QString &title, const QString &message);
+
     qintptr m_socketDescriptor;
     QTcpSocket *m_socket;
     QByteArray m_buffer;
     QString m_username = "Anonymous";
+    int m_userId = -1;
 };
 
 #endif // CLIENTHANDLER_H

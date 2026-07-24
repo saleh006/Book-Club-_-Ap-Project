@@ -220,7 +220,7 @@ bool DatabaseManager::deleteReview(int reviewId, QString &errorMsg)
     return true;
 }
 
-bool DatabaseManager::addNotification(int userId, const QString &title, const QString &message, QString &errorMsg)
+bool DatabaseManager::addNotification(int userId, const QString &title, const QString &message, QString &errorMsg, int *newNotificationId)
 {
     QSqlQuery query(database());
     query.prepare("INSERT INTO notifications (user_id, title, message) VALUES (:uid, :title, :msg)");
@@ -230,6 +230,9 @@ bool DatabaseManager::addNotification(int userId, const QString &title, const QS
     if (!query.exec()) {
         errorMsg = "Failed to create notification: " + query.lastError().text();
         return false;
+    }
+    if (newNotificationId) {
+        *newNotificationId = query.lastInsertId().toInt();
     }
     return true;
 }
@@ -264,6 +267,18 @@ bool DatabaseManager::markNotificationRead(int notificationId, QString &errorMsg
     query.bindValue(":id", notificationId);
     if (!query.exec()) {
         errorMsg = "Failed to mark notification read: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::markAllNotificationsRead(int userId, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("UPDATE notifications SET is_read = 1 WHERE user_id = :uid");
+    query.bindValue(":uid", userId);
+    if (!query.exec()) {
+        errorMsg = "Failed to mark notifications read: " + query.lastError().text();
         return false;
     }
     return true;

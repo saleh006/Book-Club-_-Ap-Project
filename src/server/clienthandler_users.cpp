@@ -201,6 +201,15 @@ bool ClientHandler::handleUserActions(const QString &action, const QJsonObject &
             connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
         }
     }
+    else if (action == "user_subscribe") {
+        m_userId = requestObj["userId"].toInt();
+        ServerManager *server = qobject_cast<ServerManager*>(parent());
+        if (server) {
+            connect(server, &ServerManager::pushToUser, this, [this](int uid, const QJsonObject &payload) {
+                if (uid == m_userId) sendToClient(payload);
+            });
+        }
+    }
     else if (action == "user_update_profile") {
         int userId          = requestObj["userId"].toInt();
         QString newUsername = requestObj["newUsername"].toString();

@@ -2,6 +2,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include "clienthandler.h"
+#include "databasemanager.h"
+#include <QDateTime>
 
 ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
     : QThread(parent), m_socketDescriptor(socketDescriptor), m_socket(nullptr)
@@ -110,4 +112,27 @@ void ClientHandler::sendToClient(const QJsonObject &msg)
         m_socket->write(QJsonDocument(msg).toJson(QJsonDocument::Compact) + "\n");
         m_socket->flush();
     }
+}
+
+void ClientHandler::notifyUser(int userId, const QString &title, const QString &message)
+{
+    QString errorMsg;
+    int newId = -1;
+    if (!DatabaseManager::instance().addNotification(userId, title, message, errorMsg, &newId)) {
+        qWarning() << "Failed to create notification:" << errorMsg;
+        return;
+    }
+
+    QJsonObject notif;
+    notif["id"] = newId;
+    notif["title"] = title;
+    notif["message"] = message;
+    notif["date"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    notif["isRead"] = false;
+
+    QJsonObject payload;
+    payload["type"] = "notification_new";
+    payload["notification"] = notif;
+
+    emit notificationReady(userId, payload);
 }

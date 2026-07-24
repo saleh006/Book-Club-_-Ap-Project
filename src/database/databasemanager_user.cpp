@@ -380,3 +380,17 @@ bool DatabaseManager::fetchUserFavoriteGenres(int userId, QStringList &outGenres
         outGenres << query.value(0).toString();
     return true;
 }
+
+bool DatabaseManager::fetchUserIdsByFavoriteGenre(const QString &genre, QVector<int> &outUserIds, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("SELECT DISTINCT user_id FROM user_favorite_genres WHERE genre = :genre");
+    query.bindValue(":genre", genre);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching favorite-genre users: " + query.lastError().text();
+        return false;
+    }
+    outUserIds.clear();
+    while (query.next()) outUserIds.push_back(query.value(0).toInt());
+    return true;
+}

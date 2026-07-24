@@ -19,8 +19,11 @@ signals:
     void databaseUpdated(const QString &type);
     void broadcastToAdmins(const QJsonObject &msg);
     void sendToAllClientsSignal(const QJsonObject &msg);
+    void pushToUser(int userId, const QJsonObject &payload);
+
 public slots:
     void onBroadcastReceived(const QJsonObject &msg);
+
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
 

@@ -148,6 +148,7 @@ public:
                         const QString &newPassword, QString &errorMsg);
     bool setUserFavoriteGenres(int userId, const QStringList &genres, QString &errorMsg);
     bool fetchUserFavoriteGenres(int userId, QStringList &outGenres, QString &errorMsg);
+    bool fetchUserIdsByFavoriteGenre(const QString &genre, QVector<int> &outUserIds, QString &errorMsg);
 
     //book
 
@@ -173,9 +174,10 @@ public:
     bool deleteReview(int reviewId, QString &errorMsg);
 
     // Notifications
-    bool addNotification(int userId, const QString &title, const QString &message, QString &errorMsg);
+    bool addNotification(int userId, const QString &title, const QString &message, QString &errorMsg, int *newNotificationId = nullptr);
     bool fetchNotifications(int userId, QVector<Notification> &outNotifications, QString &errorMsg);
     bool markNotificationRead(int notificationId, QString &errorMsg);
+    bool markAllNotificationsRead(int userId, QString &errorMsg);
 
     // Library / shelves / reading progress
     bool createShelf(int userId, const QString &title, int &newShelfId, QString &errorMsg);
@@ -190,16 +192,19 @@ public:
     bool addToWishlist(int userId, int bookId, QString &errorMsg);
     bool removeFromWishlist(int userId, int bookId, QString &errorMsg);
     bool fetchWishlist(int userId, QVector<Book> &outBooks, QString &erroirMsg);
+    bool fetchUserIdsWithBookInWishlist(int bookId, QVector<int> &outUserIds, QString &errorMsg);
 
     // Shopping cart
     bool addToCart(int userId, int bookId, int quantity, QString &errorMsg);
     bool removeFromCart(int userId, int bookId, QString &errorMsg);
     bool clearCart(int userId, QString &errorMsg);
     bool fetchCart(int userId, QVector<CartItem> &outItems, double &totalPrice, QString &errorMsg);
+    bool fetchUserIdsWithBookInCart(int bookId, QVector<int> &outUserIds, QString &errorMsg);
 
     // Purchases
     bool checkoutCart(int userId, QString &errorMsg, int &purchaseId);
     bool fetchPurchaseHistory(int userId, QVector<Purchase> &outPurchases, QString &errorMsg);
+    bool fetchPurchaseItemBookIds(int purchaseId, QVector<int> &outBookIds, QString &errorMsg);
 
     //publisher
     bool fetchPublishedBooks(int publisherId, QVector<Book> &outBooks, QString &errorMsg, bool activeOnly = false);

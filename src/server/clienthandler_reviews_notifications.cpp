@@ -22,6 +22,13 @@ bool ClientHandler::handleReviewAndNotificationActions(const QString &action, co
                 responseObj["status"] = "success";
                 responseObj["message"] = "Review submitted and awaiting approval.";
                 emit databaseUpdated("reviews");
+
+                Book b;
+                QString bErr;
+                if (DatabaseManager::instance().fetchBook(r.bookId, b, bErr)) {
+                    notifyUser(b.publisherId, "New Review",
+                               QString("Someone left a %1★ review on \"%2\".").arg(r.rating).arg(b.title));
+                }
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
@@ -125,6 +132,7 @@ bool ClientHandler::handleReviewAndNotificationActions(const QString &action, co
         }
     }
     else if (action == "notifications_fetch") {
+        responseObj["type"] = "notifications_list";
         int userId = requestObj["userId"].toInt();
         QVector<Notification> notifications;
         QString errorMsg;
@@ -136,6 +144,7 @@ bool ClientHandler::handleReviewAndNotificationActions(const QString &action, co
                 notifObj["id"] = n.id;
                 notifObj["title"] = n.title;
                 notifObj["message"] = n.message;
+                notifObj["date"] = n.date.toString(Qt::ISODate);
                 notifObj["isRead"] = n.isRead;
                 notifArray.append(notifObj);
             }
@@ -146,11 +155,24 @@ bool ClientHandler::handleReviewAndNotificationActions(const QString &action, co
         }
     }
     else if (action == "notification_mark_read") {
+        responseObj["type"] = "notification_mark_read_result";
         int notificationId = requestObj["notificationId"].toInt();
         QString errorMsg;
         if (DatabaseManager::instance().markNotificationRead(notificationId, errorMsg)) {
             responseObj["status"] = "success";
+            responseObj["notificationId"] = notificationId;
             responseObj["message"] = "Notification marked as read.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "notifications_mark_all_read") {             // <-- new block
+        responseObj["type"] = "notifications_mark_all_read_result";
+        int userId = requestObj["userId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().markAllNotificationsRead(userId, errorMsg)) {
+            responseObj["status"] = "success";
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;

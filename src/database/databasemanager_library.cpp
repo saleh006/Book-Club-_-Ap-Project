@@ -191,3 +191,17 @@ bool DatabaseManager::fetchWishlist(int userId, QVector<Book> &outBooks, QString
     }
     return true;
 }
+
+bool DatabaseManager::fetchUserIdsWithBookInWishlist(int bookId, QVector<int> &outUserIds, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("SELECT user_id FROM wishlist WHERE book_id = :bid");
+    query.bindValue(":bid", bookId);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching wishlist users: " + query.lastError().text();
+        return false;
+    }
+    outUserIds.clear();
+    while (query.next()) outUserIds.push_back(query.value(0).toInt());
+    return true;
+}

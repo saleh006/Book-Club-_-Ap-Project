@@ -174,6 +174,16 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             broadcastObj["status"] = 1;
 
             emit broadcastTargetedUpdate(broadcastObj);
+
+            QVector<int> genreUserIds;
+            QString genreErr;
+            if (DatabaseManager::instance().fetchUserIdsByFavoriteGenre(book.genre, genreUserIds, genreErr)) {
+                for (int uid : genreUserIds) {
+                    notifyUser(uid, "New in " + book.genre,
+                               QString("\"%1\" by %2 was just published.").arg(book.title, book.author));
+                }
+            }
+
         } else {
             responseObj["type"] = "action_result";
             responseObj["success"] = false;
@@ -437,6 +447,16 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             if (DatabaseManager::instance().addDiscount(d, errorMsg)) {
                 responseObj["status"] = "success";
                 responseObj["message"] = "Offer set successfully.";
+
+                QVector<int> wl, cart;
+                QString wErr, cErr;
+                DatabaseManager::instance().fetchUserIdsWithBookInWishlist(bookId, wl, wErr);
+                DatabaseManager::instance().fetchUserIdsWithBookInCart(bookId, cart, cErr);
+                for (int uid : cart) if (!wl.contains(uid)) wl.push_back(uid);
+                for (int uid : wl) {
+                    notifyUser(uid, "Price Drop!", QString("\"%1\" now has a limited-time discount.").arg(b.title));
+                }
+
             } else {
                 responseObj["status"] = "error";
                 responseObj["message"] = errorMsg;
