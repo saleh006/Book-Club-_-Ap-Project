@@ -114,6 +114,14 @@ qt_add_qml_module(BookClubClient
         SOURCES src/userPanel/bookdetailspage.h src/userPanel/bookdetailspage.cpp
         SOURCES src/userPanel/wishlistpage.h src/userPanel/wishlistpage.cpp
         SOURCES src/userPanel/notificationtoast.h src/userPanel/notificationtoast.cpp
+        SOURCES src/userPanel/bookcard.h src/userPanel/bookcard.cpp
+        SOURCES src/userPanel/hovercard.h src/userPanel/hovercard.cpp
+        SOURCES src/userPanel/librarydialogs.h src/userPanel/librarydialogs.cpp
+        SOURCES src/userPanel/shelfcard.h src/userPanel/shelfcard.cpp
+        SOURCES src/userPanel/librarytheme.h
+        SOURCES src/userPanel/shelfdetailpage.h src/userPanel/shelfdetailpage.cpp
+        SOURCES src/userPanel/statisticscard.h src/userPanel/statisticscard.cpp
+        SOURCES src/userPanel/mylibrarypage.h src/userPanel/mylibrarypage.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE

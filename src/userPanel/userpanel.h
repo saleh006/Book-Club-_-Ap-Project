@@ -26,11 +26,13 @@
 #include <QJsonDocument>
 #include <QListWidget>
 #include <QSet>
+#include <QMap>
 #include "models.h"
 #include "shoppingcarttab.h"
 #include "bookdetailspage.h"
 #include "wishlistpage.h"
 #include "notificationtoast.h"
+class MyLibraryPage;
 
 class UserPanel : public QWidget
 {
@@ -52,6 +54,11 @@ private:
     void setupUi();
     void sendRequest(const QJsonObject &requestObj);
     void switchPage(int index);
+
+    // My Library
+    void setupMyLibraryPage();
+    void finalizeShelfSummaries();
+    Book enrichedBook(int id, const QString &fallbackTitle, const QString &fallbackAuthor) const;
     void updateHero();
     void rebuildHomeSections();
     QWidget *makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut,
@@ -78,12 +85,26 @@ private:
     QString m_email;
     QTcpSocket *m_socket;
 
+    MyLibraryPage *m_libraryPage = nullptr;
+
+    // My Library integration state - fed to m_libraryPage, kept here so
+    // shelf_fetch_books responses (which arrive one-per-shelf) can be
+    // accumulated before pushing a complete picture to the page.
+    QVector<Shelf> m_shelves;
+    QMap<int, QVector<Book>> m_shelfBooksCache;   // shelfId -> that shelf's books
+    QVector<Book> m_ownedBooksFull;
+    QSet<int> m_favoriteBookIds;                  // book ids on the "Favorites" shelf
+    int m_favoritesShelfId = -1;
+    int m_openingShelfId = -1;                    // shelf awaiting shelf_fetch_books to open its detail view
+    int m_pendingFavoriteBookId = -1;             // book awaiting the auto-created "Favorites" shelf's id
+
     // Sidebar & Base Widgets
     QLabel *m_nameLabel = nullptr;
     QLabel *m_usernameLabel = nullptr;
     QPushButton *m_btnHome = nullptr;
     QPushButton *m_btnLogout = nullptr;
     QPushButton *m_btnCart = nullptr;
+    QPushButton *m_btnLibrary = nullptr;
     QPushButton *m_heroCartBtn = nullptr;
     QPushButton *m_heroWishlistBtn = nullptr;
     QPushButton *m_btnWishlist = nullptr;

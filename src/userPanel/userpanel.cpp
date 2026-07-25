@@ -7,6 +7,8 @@
 #include <QFileInfo>
 #include <algorithm>
 #include "src/publisherPanel/editprofiledialog.h"
+#include "mylibrarypage.h"
+#include "shelfcard.h"
 
 static const char *kCardBg     = "#120E14";
 static const char *kCardBorder = "#1F1724";
@@ -114,6 +116,11 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
         reqOwned["action"] = "books_fetch_owned";
         reqOwned["userId"] = m_userId;
         sendRequest(reqOwned);
+
+        QJsonObject reqShelves;
+        reqShelves["action"] = "shelves_fetch";
+        reqShelves["userId"] = m_userId;
+        sendRequest(reqShelves);
     });
 
     m_socket->connectToHost("127.0.0.1", 1234);
@@ -205,6 +212,10 @@ void UserPanel::setupUi()
     m_btnHome->setStyleSheet(menuBtnStyle);
     m_btnHome->setCursor(Qt::PointingHandCursor);
 
+    m_btnLibrary = new QPushButton("📚 My Library", sidebar);
+    m_btnLibrary->setStyleSheet(menuBtnStyle);
+    m_btnLibrary->setCursor(Qt::PointingHandCursor);
+
     m_btnCart = new QPushButton("🛒 Shopping Cart", sidebar);
     m_btnCart->setStyleSheet(menuBtnStyle);
     m_btnCart->setCursor(Qt::PointingHandCursor);
@@ -231,6 +242,8 @@ void UserPanel::setupUi()
 
     connect(m_btnHome, &QPushButton::clicked, this, [this]() { switchPage(0); });
     sidebarLayout->addWidget(m_btnHome);
+    connect(m_btnLibrary, &QPushButton::clicked, this, [this]() { switchPage(5); });
+    sidebarLayout->addWidget(m_btnLibrary);
     connect(m_btnCart, &QPushButton::clicked, this, [this]() { switchPage(1); });
     sidebarLayout->addWidget(m_btnCart);
     connect(m_btnWishlist, &QPushButton::clicked, this, [this]() { switchPage(3); });
@@ -330,8 +343,160 @@ void UserPanel::setupUi()
     m_notifPage = createNotificationsPage();
     m_stackedWidget->addWidget(m_notifPage);
 
+    setupMyLibraryPage();
+    m_stackedWidget->addWidget(m_libraryPage);        // index 5: my library
+
     mainLayout->addWidget(sidebar);
     mainLayout->addWidget(m_stackedWidget);
+}
+
+void UserPanel::setupMyLibraryPage()
+{
+    m_libraryPage = new MyLibraryPage(this);
+
+    // Reuses the exact same cover-loading path the Home page already uses
+    // (makeCoverPixmap() downloads via downloadFileFromServer() into
+    // <app dir>/cache/covers/ and falls back to a colored placeholder).
+    // This is a blocking call per cover, same as it already is on Home -
+    // fine for a few dozen visible cards, but worth knowing if a user's
+    // library grows into the hundreds and the first visit to this page
+    // feels slow before the cache is warm.
+    m_libraryPage->setCoverProvider([](const Book &b, const QSize &size) {
+        return makeCoverPixmap(b, size);
+    });
+
+    connect(m_libraryPage, &MyLibraryPage::bookOpenRequested, this, &UserPanel::openBookDetails);
+
+    connect(m_libraryPage, &MyLibraryPage::bookReadRequested, this, [this](int bookId) {
+        // Wire this up to whatever already opens an owned book's PDF in this
+        // project (BookDetailsPage / downloadFileFromServer show the pattern
+        // used elsewhere for pulling an owned file down locally before
+        // opening it). Not shown to me, so left as the one integration point
+        // the project owner needs to fill in.
+        openBookDetails(bookId);
+    });
+
+    connect(m_libraryPage, &MyLibraryPage::bookFavoriteToggleRequested, this, [this](int bookId) {
+        if (m_favoriteBookIds.contains(bookId)) {
+            // DatabaseManager (per the header provided) has no method to
+            // remove a single book from a shelf, so un-favoriting can't be
+            // wired to a real server action yet. Add a
+            // removeBookFromShelf(shelfId, bookId, errorMsg) to
+            // DatabaseManager + a matching "shelf_remove_book" case in
+            // ClientHandler to enable this.
+            QMessageBox::information(this, "Favorites",
+                                     "Removing a book from Favorites isn't supported by the server yet.");
+            return;
+        }
+        if (m_favoritesShelfId == -1) {
+            // No "Favorites" shelf exists yet - create it, then add the book
+            // once shelf_create_response comes back (see onReadyRead).
+            m_pendingFavoriteBookId = bookId;
+            QJsonObject req;
+            req["action"] = "shelf_create";
+            req["userId"] = m_userId;
+            req["title"] = "Favorites";
+            sendRequest(req);
+            return;
+        }
+        QJsonObject req;
+        req["action"] = "shelf_add_book";
+        req["shelfId"] = m_favoritesShelfId;
+        req["bookId"] = bookId;
+        sendRequest(req);
+    });
+
+    connect(m_libraryPage, &MyLibraryPage::moveBookToShelfRequested, this, [this](int bookId, int shelfId) {
+        QJsonObject req;
+        req["action"] = "shelf_add_book";
+        req["shelfId"] = shelfId;
+        req["bookId"] = bookId;
+        sendRequest(req);
+    });
+
+    connect(m_libraryPage, &MyLibraryPage::createShelfRequested, this,
+            [this](const QString &name, const QString &description, const QColor &color) {
+                Q_UNUSED(description); // createShelf() only accepts a title today
+                Q_UNUSED(color);       // shelf color isn't persisted server-side; see README
+                QJsonObject req;
+                req["action"] = "shelf_create";
+                req["userId"] = m_userId;
+                req["title"] = name;
+                sendRequest(req);
+            });
+
+    connect(m_libraryPage, &MyLibraryPage::editShelfRequested, this,
+            [this](int shelfId, const QString &newName, const QString &newDescription, const QColor &newColor) {
+                Q_UNUSED(shelfId);
+                Q_UNUSED(newName);
+                Q_UNUSED(newDescription);
+                Q_UNUSED(newColor);
+                // DatabaseManager has no updateShelf()/renameShelf(), so there is
+                // no server action to send this to yet. Add one (mirroring
+                // updateBook) before wiring this up.
+                QMessageBox::information(this, "Edit Shelf",
+                                         "Renaming a shelf isn't supported by the server yet.");
+            });
+
+    connect(m_libraryPage, &MyLibraryPage::deleteShelfRequested, this, [this](int shelfId) {
+        Q_UNUSED(shelfId);
+        // Same story as edit: DatabaseManager has no deleteShelf().
+        QMessageBox::information(this, "Delete Shelf",
+                                 "Deleting a shelf isn't supported by the server yet.");
+    });
+
+    connect(m_libraryPage, &MyLibraryPage::shelfOpened, this, [this](int shelfId) {
+        m_openingShelfId = shelfId;
+        QJsonObject req;
+        req["action"] = "shelf_fetch_books";
+        req["shelfId"] = shelfId;
+        sendRequest(req);
+    });
+}
+
+Book UserPanel::enrichedBook(int id, const QString &fallbackTitle, const QString &fallbackAuthor) const
+{
+    // shelf_fetch_books / books_fetch_owned only return {id, title, author,
+    // pdfPath}. Cross-reference the fuller catalog (already fetched via
+    // books_fetch_all) so My Library's cards can show genre/price/rating/
+    // cover art without any server changes. Falls back to the bare fields
+    // if the book is no longer in the active catalog.
+    for (const Book &b : m_storeBooks) {
+        if (b.id == id) return b;
+    }
+    Book b;
+    b.id = id;
+    b.title = fallbackTitle;
+    b.author = fallbackAuthor;
+    return b;
+}
+
+void UserPanel::finalizeShelfSummaries()
+{
+    QVector<ShelfSummary> summaries;
+    m_favoritesShelfId = -1;
+    m_favoriteBookIds.clear();
+
+    for (const Shelf &s : m_shelves) {
+        ShelfSummary summary;
+        summary.shelf = s;
+        const QVector<Book> books = m_shelfBooksCache.value(s.id);
+        summary.bookCount = books.size();
+        summary.previewBooks = books.mid(0, 4);
+        summaries.push_back(summary);
+
+        if (s.title.compare("Favorites", Qt::CaseInsensitive) == 0) {
+            m_favoritesShelfId = s.id;
+            for (const Book &b : books) m_favoriteBookIds.insert(b.id);
+        }
+    }
+
+    if (m_libraryPage) {
+        m_libraryPage->setShelves(summaries);
+        m_libraryPage->setFavoriteBookIds(m_favoriteBookIds);
+        m_libraryPage->setStatistics(m_ownedBooksFull.size(), m_shelves.size(),
+                                     0, m_favoriteBookIds.size());
+    }
 }
 
 void UserPanel::switchPage(int index)
@@ -346,12 +511,24 @@ void UserPanel::switchPage(int index)
     m_btnHome->setStyleSheet(index == 0 ? activeStyle : normalStyle);
     m_btnCart->setStyleSheet(index == 1 ? activeStyle : normalStyle);
     m_btnWishlist->setStyleSheet(index == 3 ? activeStyle : normalStyle);
+    m_btnLibrary->setStyleSheet(index == 5 ? activeStyle : normalStyle);
 
     if (index == 1) {
         m_cartPage->refreshCart();
     }
     else if (index == 3) {
         m_wishlistPage->refreshWishlist();
+    }
+    else if (index == 5) {
+        QJsonObject reqOwned;
+        reqOwned["action"] = "books_fetch_owned";
+        reqOwned["userId"] = m_userId;
+        sendRequest(reqOwned);
+
+        QJsonObject reqShelves;
+        reqShelves["action"] = "shelves_fetch";
+        reqShelves["userId"] = m_userId;
+        sendRequest(reqShelves);
     }
 }
 
@@ -1133,9 +1310,13 @@ void UserPanel::onReadyRead()
         else if (action == "books_fetch_owned_response" || action == "books_fetch_owned") {
             if (responseObj["status"].toString() == "success") {
                 m_ownedBookIds.clear();
+                m_ownedBooksFull.clear();
                 QJsonArray booksArr = responseObj["books"].toArray();
                 for (const QJsonValue &val : booksArr) {
-                    m_ownedBookIds.insert(val.toObject()["id"].toInt());
+                    QJsonObject bo = val.toObject();
+                    int id = bo["id"].toInt();
+                    m_ownedBookIds.insert(id);
+                    m_ownedBooksFull.push_back(enrichedBook(id, bo["title"].toString(), bo["author"].toString()));
                 }
 
                 // 1. Immediately update Hero Banner button
@@ -1145,6 +1326,112 @@ void UserPanel::onReadyRead()
                 if (m_detailsPage && m_stackedWidget->currentWidget() == m_detailsPage) {
                     m_detailsPage->setOwned(m_ownedBookIds.contains(m_detailsPage->currentBookId()));
                 }
+
+                // 3. Feed the My Library page
+                if (m_libraryPage) {
+                    m_libraryPage->setMyBooks(m_ownedBooksFull);
+                    m_libraryPage->setStatistics(m_ownedBooksFull.size(), m_shelves.size(),
+                                                 0, m_favoriteBookIds.size());
+                }
+            }
+        }
+        // ---- My Library: shelves ----
+        // NOTE: the shelf_create / shelf_add_book / shelves_fetch /
+        // shelf_fetch_books cases in ClientHandler::handleDiscount_Wishlist_
+        // ReviewsActions() (see clienthandler_discounts_wishlist_reviews.cpp)
+        // don't currently set responseObj["action"], and shelf_fetch_books's
+        // response doesn't echo back the shelfId it was fetched for. Both are
+        // needed for the client to tell these responses apart and match them
+        // to the right shelf - see the small patch in the delivered
+        // clienthandler_discounts_wishlist_reviews.cpp for the two-line fix
+        // per case (mirrors the pattern already used for wishlist_add/
+        // remove/fetch in the same file). The branches below assume that
+        // patch is applied.
+        else if (action == "shelves_fetch_response") {
+            if (responseObj["status"].toString() == "success") {
+                m_shelves.clear();
+                m_shelfBooksCache.clear();
+                for (const QJsonValue &val : responseObj["shelves"].toArray()) {
+                    QJsonObject so = val.toObject();
+                    Shelf s;
+                    s.id = so["id"].toInt();
+                    s.title = so["title"].toString();
+                    m_shelves.push_back(s);
+                }
+
+                if (m_shelves.isEmpty()) {
+                    finalizeShelfSummaries();
+                } else {
+                    for (const Shelf &s : m_shelves) {
+                        QJsonObject req;
+                        req["action"] = "shelf_fetch_books";
+                        req["shelfId"] = s.id;
+                        sendRequest(req);
+                    }
+                }
+            }
+        }
+        else if (action == "shelf_fetch_books_response") {
+            if (responseObj["status"].toString() == "success") {
+                int shelfId = responseObj["shelfId"].toInt();
+                QVector<Book> books;
+                for (const QJsonValue &val : responseObj["books"].toArray()) {
+                    QJsonObject bo = val.toObject();
+                    int id = bo["id"].toInt();
+                    books.push_back(enrichedBook(id, bo["title"].toString(), bo["author"].toString()));
+                }
+                m_shelfBooksCache[shelfId] = books;
+
+                if (m_openingShelfId == shelfId) {
+                    ShelfSummary summary;
+                    for (const Shelf &s : m_shelves) {
+                        if (s.id == shelfId) { summary.shelf = s; break; }
+                    }
+                    summary.bookCount = books.size();
+                    summary.previewBooks = books.mid(0, 4);
+                    if (m_libraryPage) m_libraryPage->showShelfDetail(summary, books);
+                    m_openingShelfId = -1;
+                }
+
+                if (m_shelfBooksCache.size() >= m_shelves.size()) {
+                    finalizeShelfSummaries();
+                }
+            }
+        }
+        else if (action == "shelf_create_response") {
+            if (responseObj["status"].toString() == "success") {
+                Shelf s;
+                s.id = responseObj["shelfId"].toInt();
+                s.title = responseObj.contains("title") ? responseObj["title"].toString() : QString();
+                m_shelves.push_back(s);
+
+                if (m_pendingFavoriteBookId != -1) {
+                    m_favoritesShelfId = s.id;
+                    QJsonObject req;
+                    req["action"] = "shelf_add_book";
+                    req["shelfId"] = s.id;
+                    req["bookId"] = m_pendingFavoriteBookId;
+                    sendRequest(req);
+                    m_pendingFavoriteBookId = -1;
+                }
+
+                QJsonObject reqShelves;
+                reqShelves["action"] = "shelves_fetch";
+                reqShelves["userId"] = m_userId;
+                sendRequest(reqShelves);
+            } else {
+                m_pendingFavoriteBookId = -1;
+                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
+            }
+        }
+        else if (action == "shelf_add_book_response") {
+            if (responseObj["status"].toString() == "success") {
+                QJsonObject reqShelves;
+                reqShelves["action"] = "shelves_fetch";
+                reqShelves["userId"] = m_userId;
+                sendRequest(reqShelves);
+            } else {
+                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
             }
         }
     }
@@ -1266,18 +1553,18 @@ void UserPanel::updateHero()
     } else {
         m_heroCartBtn->setText("Add to Cart");
         m_heroCartBtn->setStyleSheet(QString(
-            "QPushButton{background-color:%1;border:none;border-radius:8px;"
-            "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}"
-            "QPushButton:hover{background-color:#B06B96;}").arg(kAccent));
+                                         "QPushButton{background-color:%1;border:none;border-radius:8px;"
+                                         "padding:10px 20px;color:white;font-size:13px;font-weight:bold;}"
+                                         "QPushButton:hover{background-color:#B06B96;}").arg(kAccent));
     }
     if (m_heroWishlistBtn) {
         bool inWishlist = m_wishlistPage && m_wishlistPage->containsBook(b.id);
         m_heroWishlistBtn->setText(inWishlist ? "♥" : "♡");
         m_heroWishlistBtn->setStyleSheet(QString(
-            "QPushButton{background:%1;border:1px solid #3A3244;border-radius:20px;"
-            "color:#FF6B9D;font-size:16px;}"
-            "QPushButton:hover{border-color:#FF6B9D;background-color:#1A141F;}")
-            .arg(inWishlist ? "rgba(255,107,157,40)" : "transparent"));
+                                             "QPushButton{background:%1;border:1px solid #3A3244;border-radius:20px;"
+                                             "color:#FF6B9D;font-size:16px;}"
+                                             "QPushButton:hover{border-color:#FF6B9D;background-color:#1A141F;}")
+                                             .arg(inWishlist ? "rgba(255,107,157,40)" : "transparent"));
     }
     if (!m_heroBooks.isEmpty()) {
         int currentBookId = m_heroBooks[m_heroIndex].id;

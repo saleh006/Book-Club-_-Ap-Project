@@ -92,6 +92,7 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
         }
     }
     else if (action == "shelf_create") {
+        responseObj["action"] = "shelf_create_response";
         int userId = requestObj["userId"].toInt();
         QString title = requestObj["title"].toString();
         int newShelfId = -1;
@@ -100,24 +101,29 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
             responseObj["status"] = "success";
             responseObj["message"] = "New shelf created successfully.";
             responseObj["shelfId"] = newShelfId;
+            responseObj["title"] = title;
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;
         }
     }
     else if (action == "shelf_add_book") {
+        responseObj["action"] = "shelf_add_book_response";
         int shelfId = requestObj["shelfId"].toInt();
         int bookId = requestObj["bookId"].toInt();
         QString errorMsg;
         if (DatabaseManager::instance().addBookToShelf(shelfId, bookId, errorMsg)) {
             responseObj["status"] = "success";
             responseObj["message"] = "Book added to shelf.";
+            responseObj["shelfId"] = shelfId;
+            responseObj["bookId"] = bookId;
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;
         }
     }
     else if (action == "shelves_fetch") {
+        responseObj["action"] = "shelves_fetch_response";
         int userId = requestObj["userId"].toInt();
         QVector<Shelf> shelves;
         QString errorMsg;
@@ -137,7 +143,9 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
         }
     }
     else if (action == "shelf_fetch_books") {
+        responseObj["action"] = "shelf_fetch_books_response";
         int shelfId = requestObj["shelfId"].toInt();
+        responseObj["shelfId"] = shelfId;
         QVector<Book> books;
         QString errorMsg;
         if (DatabaseManager::instance().fetchShelfBooks(shelfId, books, errorMsg)) {
