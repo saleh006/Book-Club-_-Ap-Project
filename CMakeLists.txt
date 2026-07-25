@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.19)
 project(ap-project LANGUAGES CXX)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick PdfWidgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick PdfWidgets)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
     Widgets
     Sql
@@ -10,6 +10,7 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
     QuickWidgets
     Quick
     Charts
+    Pdf
 )
 
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS
@@ -122,6 +123,7 @@ qt_add_qml_module(BookClubClient
         SOURCES src/userPanel/shelfdetailpage.h src/userPanel/shelfdetailpage.cpp
         SOURCES src/userPanel/statisticscard.h src/userPanel/statisticscard.cpp
         SOURCES src/userPanel/mylibrarypage.h src/userPanel/mylibrarypage.cpp
+        SOURCES src/userPanel/pdfreaderdialog.h src/userPanel/pdfreaderdialog.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE
@@ -138,6 +140,7 @@ target_link_libraries(BookClubClient
         Qt::QuickWidgets
         Qt::Quick
         Qt::Charts
+        Qt::PdfWidgets
 )
 
 install(TARGETS BookClubClient

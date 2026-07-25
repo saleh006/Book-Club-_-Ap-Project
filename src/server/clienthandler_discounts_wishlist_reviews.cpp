@@ -165,9 +165,11 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
         }
     }
     else if (action == "progress_update") {
+        responseObj["action"] = "progress_update_response";
         int userId = requestObj["userId"].toInt();
         int bookId = requestObj["bookId"].toInt();
         int lastPage = requestObj["lastPage"].toInt();
+        responseObj["bookId"] = bookId;
         QString errorMsg;
         if (DatabaseManager::instance().updateReadingProgress(userId, bookId, lastPage, errorMsg)) {
             responseObj["status"] = "success";
@@ -178,8 +180,10 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
         }
     }
     else if (action == "progress_fetch") {
+        responseObj["action"] = "progress_fetch_response";
         int userId = requestObj["userId"].toInt();
         int bookId = requestObj["bookId"].toInt();
+        responseObj["bookId"] = bookId;
         ReadingProgress p;
         QString errorMsg;
         if (DatabaseManager::instance().fetchReadingProgress(userId, bookId, p, errorMsg)) {
