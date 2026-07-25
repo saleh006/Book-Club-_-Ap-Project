@@ -37,9 +37,21 @@ void AdminPanel::setupUi()
     sidebarLayout->setContentsMargins(15, 25, 15, 25);
     sidebarLayout->setSpacing(12);
 
-    QLabel *avatarLabel = new QLabel("👤", sidebar);
-    avatarLabel->setStyleSheet("font-size: 40px; border: none; background: transparent;");
+    QLabel *avatarLabel = new QLabel(sidebar);
+
+    QPixmap avatar(":/icons/settings.png");
+
+    avatarLabel->setPixmap(
+        avatar.scaled(80, 80, Qt::KeepAspectRatio, Qt::SmoothTransformation)
+        );
+
+    avatarLabel->setFixedSize(80, 80);
     avatarLabel->setAlignment(Qt::AlignCenter);
+
+    avatarLabel->setStyleSheet(
+        "border: none;"
+        "background: transparent;"
+        );
 
     QLabel *nameLabel = new QLabel("Admin", sidebar);
     nameLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #FFEAD2; border: none; background: transparent;");
@@ -49,18 +61,36 @@ void AdminPanel::setupUi()
     roleLabel->setStyleSheet("font-size: 11px; color: #A594B3; border: none; background: transparent;");
     roleLabel->setAlignment(Qt::AlignCenter);
 
-    sidebarLayout->addWidget(avatarLabel);
+    sidebarLayout->addWidget(avatarLabel, 0, Qt::AlignCenter);
     sidebarLayout->addWidget(nameLabel);
     sidebarLayout->addWidget(roleLabel);
     sidebarLayout->addSpacing(15);
 
-    m_btnMonitor = new QPushButton("📈 Server Monitor", sidebar);
-    m_btnUsers = new QPushButton("👥 Manage Users", sidebar);
-    m_btnBooks = new QPushButton("📚 Manage Books", sidebar);
-    m_btnPublishers = new QPushButton("🧑‍💻 Manage Publishers", sidebar);
-    m_btnReviews = new QPushButton("🛡️ Moderate Reviews", sidebar);
+    m_btnMonitor = new QPushButton("Server Monitor", sidebar);
 
-    m_btnLogout = new QPushButton("🚪 Logout", sidebar);
+    m_btnMonitor->setIcon(QIcon(":/icons/desktop-solid.png"));
+    m_btnMonitor->setIconSize(QSize(20, 20));
+    m_btnUsers = new QPushButton("Manage Users", sidebar);
+
+    m_btnUsers->setIcon(QIcon(":/icons/users-solid.png"));
+    m_btnUsers->setIconSize(QSize(20, 20));
+    m_btnBooks = new QPushButton("Manage Books", sidebar);
+
+    m_btnBooks->setIcon(QIcon(":/icons/book.png"));
+    m_btnBooks->setIconSize(QSize(20, 20));
+    m_btnPublishers = new QPushButton("Manage Publishers", sidebar);
+
+    m_btnPublishers->setIcon(QIcon(":/icons/user-gear-solid.png"));
+    m_btnPublishers->setIconSize(QSize(20, 20));
+    m_btnReviews = new QPushButton("Moderate Reviews", sidebar);
+
+    m_btnReviews->setIcon(QIcon(":/icons/black-tie-brands-solid.png"));
+    m_btnReviews->setIconSize(QSize(20, 20));
+
+    m_btnLogout = new QPushButton("Logout", sidebar);
+
+    m_btnLogout->setIcon(QIcon(":/icons/logout.png"));
+    m_btnLogout->setIconSize(QSize(20, 20));
     m_btnLogout->setCursor(Qt::PointingHandCursor);
     m_btnLogout->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #7C3E66; border-radius: 8px; padding: 8px; font-weight: bold; color: #D9C2D1; text-align: left; padding-left: 12px; }"

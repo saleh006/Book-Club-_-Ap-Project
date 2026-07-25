@@ -94,7 +94,10 @@ void CartItemWidget::buildUi() {
     actionRow->setContentsMargins(0, 8, 0, 0);
     actionRow->setSpacing(10);
 
-    auto *removeBtn = new QPushButton(tr("🗑  Remove"), this);
+    auto *removeBtn = new QPushButton(tr(" Remove"), this);
+
+    removeBtn->setIcon(QIcon(":/icons/trash-solid.png"));
+    removeBtn->setIconSize(QSize(15, 15));
     removeBtn->setCursor(Qt::PointingHandCursor);
     removeBtn->setStyleSheet(
         "QPushButton { color: #e46060; background: transparent; border: 1px solid rgba(228, 96, 96, 0.55);"
@@ -147,7 +150,7 @@ void OrderSummaryWidget::buildUi() {
     layout->setContentsMargins(22, 22, 22, 22);
     layout->setSpacing(14);
 
-    auto *titleLabel = new QLabel(tr("📒  Order Summary"), this);
+    auto *titleLabel = new QLabel(tr("  Order Summary"), this);
     titleLabel->setStyleSheet("color: #f4f1f6; font-size: 19px; font-weight: 700;");
     layout->addWidget(titleLabel);
 
@@ -186,7 +189,9 @@ void OrderSummaryWidget::buildUi() {
     totalRow->addWidget(m_totalValue);
     layout->addLayout(totalRow);
 
-    m_checkoutButton = new QPushButton(tr("💳  Proceed to Checkout"), this);
+    m_checkoutButton = new QPushButton(tr("Proceed to Checkout"), this);
+    m_checkoutButton->setIcon(QIcon(":/icons/credit-card.png"));
+    m_checkoutButton->setIconSize(QSize(20 , 20));
     m_checkoutButton->setCursor(Qt::PointingHandCursor);
     m_checkoutButton->setMinimumHeight(46);
     m_checkoutButton->setStyleSheet(
@@ -196,7 +201,10 @@ void OrderSummaryWidget::buildUi() {
         "QPushButton:pressed { background-color: #93407a; }"
         "QPushButton:disabled { background-color: #2c2731; color: #7f7689; }");
 
-    m_clearCartButton = new QPushButton(tr("🗑  Clear Cart"), this);
+    m_clearCartButton = new QPushButton(tr(" Clear Cart"), this);
+    m_clearCartButton->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_clearCartButton->setIconSize(QSize(20 , 20));
+
     m_clearCartButton->setCursor(Qt::PointingHandCursor);
     m_clearCartButton->setMinimumHeight(46);
     m_clearCartButton->setStyleSheet(
@@ -242,8 +250,23 @@ void ShoppingCartPage::buildUi()
     pageLayout->setSpacing(18);
 
     m_headerLabel = new QLabel(this);
-    m_headerLabel->setStyleSheet("color: #f4f1f6; font-size: 26px; font-weight: 800; background: transparent;");
-    m_headerLabel->setText(tr("🛒  Shopping Cart"));
+
+    QPixmap cartIcon(":/icons/cart.png");
+
+    m_headerLabel->setPixmap(cartIcon.scaled(
+        28, 28,
+        Qt::KeepAspectRatio,
+        Qt::SmoothTransformation
+        ));
+
+    m_headerLabel->setText("  Shopping Cart");
+
+    m_headerLabel->setStyleSheet(
+        "color: #f4f1f6;"
+        "font-size: 26px;"
+        "font-weight: 800;"
+        "background: transparent;"
+        );
     pageLayout->addWidget(m_headerLabel);
 
     auto *bodyLayout = new QHBoxLayout;
@@ -421,7 +444,7 @@ void ShoppingCartPage::refreshSummaryAndHeader() {
         discount += item.discount() * item.quantity;
     }
 
-    m_headerLabel->setText(tr("🛒  Shopping Cart (%1 %2)")
+    m_headerLabel->setText(tr("Shopping Cart (%1 %2)")
                                .arg(m_items.size())
                                .arg(m_items.size() == 1 ? tr("Item") : tr("Items")));
     m_summaryWidget->updateSummary(m_items.size(), itemsTotal, discount);

@@ -67,10 +67,22 @@ QWidget* PublishersTab::setupUi()
     QHBoxLayout *btnLayout = new QHBoxLayout();
     btnLayout->setSpacing(10);
 
-    m_btnBlockPublisher = new QPushButton("🚫 Block Publisher", page);
-    m_btnUnblockPublisher = new QPushButton("✅ Unblock Publisher", page);
-    m_btnPublisherDetails = new QPushButton("👁 View Details", page);
-    m_btnDeletePublisher = new QPushButton("🗑️ Delete Publisher", page);
+    m_btnBlockPublisher = new QPushButton("Block Publisher", page);
+
+    m_btnBlockPublisher->setIcon(QIcon(":/icons/block.png"));
+    m_btnBlockPublisher->setIconSize(QSize(16, 16));
+    m_btnUnblockPublisher = new QPushButton("Unblock Publisher", page);
+
+    m_btnUnblockPublisher->setIcon(QIcon(":/icons/unlocked.png"));
+    m_btnUnblockPublisher->setIconSize(QSize(16, 16));
+    m_btnPublisherDetails = new QPushButton("View Details", page);
+
+    m_btnPublisherDetails->setIcon(QIcon(":/icons/view.png"));
+    m_btnPublisherDetails->setIconSize(QSize(16, 16));
+    m_btnDeletePublisher = new QPushButton("Delete Publisher", page);
+
+    m_btnDeletePublisher->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_btnDeletePublisher->setIconSize(QSize(16, 16));
 
     m_btnBlockPublisher->setCursor(Qt::PointingHandCursor);
     m_btnUnblockPublisher->setCursor(Qt::PointingHandCursor);

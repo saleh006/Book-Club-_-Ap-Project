@@ -61,16 +61,36 @@ BookCardWidget::BookCardWidget(const Book &book, QWidget *parent)
     m_overlay->setObjectName("cardOverlay");
     m_overlay->hide();
 
-    m_editBtn = new QPushButton("✎ Edit", m_overlay);
+    m_editBtn = new QPushButton("Edit", m_overlay);
+
+    m_editBtn->setIcon(QIcon(":/icons/pen-to-square-solid.png"));
+    m_editBtn->setIconSize(QSize(14, 14));
     m_editBtn->setObjectName("cardEditBtn");
 
-    m_offerBtn = new QPushButton("🏷 Set Offer", m_overlay);
+    m_offerBtn = new QPushButton("Set Offer", m_overlay);
+
+    m_offerBtn->setIcon(QIcon(":/icons/percent-solid.png"));
+    m_offerBtn->setIconSize(QSize(14, 14));
     m_offerBtn->setObjectName("cardOfferBtn");
 
-    m_toggleActiveBtn = new QPushButton(book.status == 1 ? "⏸ Set Inactive" : "▶ Set Active", m_overlay);
+    m_toggleActiveBtn = new QPushButton(
+        book.status == 1 ? "Set Inactive" : "Set Active",
+        m_overlay
+        );
+
+    if (book.status == 1) {
+        m_toggleActiveBtn->setIcon(QIcon(":/icons/pause-solid.png"));
+    } else {
+        m_toggleActiveBtn->setIcon(QIcon(":/icons/circle-play-solid.png"));
+    }
+
+    m_toggleActiveBtn->setIconSize(QSize(14, 14));
     m_toggleActiveBtn->setObjectName("cardToggleBtn");
 
-    m_deleteBtn = new QPushButton("🗑 Delete", m_overlay);
+    m_deleteBtn = new QPushButton("Delete", m_overlay);
+
+    m_deleteBtn->setIcon(QIcon(":/icons/trash.png"));
+    m_deleteBtn->setIconSize(QSize(14, 14));
     m_deleteBtn->setObjectName("cardDeleteBtn");
 
     QVBoxLayout *overlayLayout = new QVBoxLayout(m_overlay);

@@ -69,7 +69,7 @@ void ServerWindow::setupUi()
     m_statusLabel = new QLabel("⚪ Server Status: Checking...", this);
     m_clientCountLabel = new QLabel("👥 Active Clients: 0", this);
     m_cpuLabel = new QLabel("💻 CPU Usage: -- %", this);
-    m_ramLabel = new QLabel("🧠 RAM Usage: -- %", this);
+    m_ramLabel = new QLabel("🎛️ RAM Usage: -- %", this);
 
     QString cardStyle =
         "QLabel { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
@@ -124,7 +124,7 @@ void ServerWindow::updateSystemUsage()
     memInfo.dwLength = sizeof(MEMORYSTATUSEX);
     if (GlobalMemoryStatusEx(&memInfo)) {
         int ramPercent = memInfo.dwMemoryLoad;
-        m_ramLabel->setText(QString("🧠 RAM Usage: %1 %").arg(ramPercent));
+        m_ramLabel->setText(QString("🎛️ RAM Usage: %1 %").arg(ramPercent));
     }
 #else
     m_cpuLabel->setText("💻 CPU Usage: N/A");

@@ -168,10 +168,22 @@ void UserPanel::setupUi()
     avatarRowLayout->setContentsMargins(0, 0, 0, 0);
     avatarRowLayout->setSpacing(8);
 
-    QLabel *avatarLabel = new QLabel("👤", avatarRow);
-    avatarLabel->setStyleSheet("font-size: 40px; border: none; background: transparent;");
+    QLabel *avatarLabel = new QLabel(avatarRow);
 
-    QPushButton *editProfileBtn = new QPushButton("✏️", avatarRow);
+    QPixmap avatar(":/icons/avater.png");
+    avatarLabel->setPixmap(avatar.scaled(
+        64, 64,
+        Qt::KeepAspectRatio,
+        Qt::SmoothTransformation));
+
+    avatarLabel->setFixedSize(64, 64);
+    avatarLabel->setStyleSheet("border: none; background: transparent;");
+    avatarLabel->setAlignment(Qt::AlignCenter);
+
+    QPushButton *editProfileBtn = new QPushButton(avatarRow);
+
+    editProfileBtn->setIcon(QIcon(":/icons/pen.png"));
+    editProfileBtn->setIconSize(QSize(18, 18));
     editProfileBtn->setFixedSize(30, 30);
     editProfileBtn->setCursor(Qt::PointingHandCursor);
     editProfileBtn->setToolTip("Edit profile");
@@ -205,18 +217,27 @@ void UserPanel::setupUi()
     sidebarLayout->addWidget(roleLabel);
     sidebarLayout->addSpacing(15);
 
-    m_btnHome = new QPushButton("🏠 Home Discovery", sidebar);
+    m_btnHome = new QPushButton("Home Discovery", sidebar);
+    m_btnHome->setIcon(QIcon(":/icons/home.png"));
+    m_btnHome->setIconSize(QSize(20, 20));
+
     QString menuBtnStyle =
         "QPushButton { background-color: transparent; border: none; border-radius: 8px; padding: 10px; font-size: 13px; color: #9A8FA0; text-align: left; padding-left: 12px; }"
         "QPushButton:hover { background-color: #1F1724; color: #EAEAEA; }";
     m_btnHome->setStyleSheet(menuBtnStyle);
     m_btnHome->setCursor(Qt::PointingHandCursor);
 
-    m_btnLibrary = new QPushButton("📚 My Library", sidebar);
+    m_btnLibrary = new QPushButton("My Library", sidebar);
+    m_btnLibrary->setIcon(QIcon(":/icons/book.png"));
+    m_btnLibrary->setIconSize(QSize(20,20));
+
     m_btnLibrary->setStyleSheet(menuBtnStyle);
     m_btnLibrary->setCursor(Qt::PointingHandCursor);
 
-    m_btnCart = new QPushButton("🛒 Shopping Cart", sidebar);
+    m_btnCart = new QPushButton("Shopping Cart", sidebar);
+    m_btnCart->setIcon(QIcon(":/icons/cart.png"));
+    m_btnCart->setIconSize(QSize(20,20));
+
     m_btnCart->setStyleSheet(menuBtnStyle);
     m_btnCart->setCursor(Qt::PointingHandCursor);
 
@@ -236,7 +257,10 @@ void UserPanel::setupUi()
 
     cartBtnLayout->addWidget(m_cartBadge, 0, 1, Qt::AlignTop | Qt::AlignRight);
 
-    m_btnWishlist = new QPushButton("💜 Wishlist", sidebar);
+    m_btnWishlist = new QPushButton("Wishlist", sidebar);
+    m_btnWishlist->setIcon(QIcon(":/icons/heart.png"));
+    m_btnWishlist->setIconSize(QSize(20,20));
+
     m_btnWishlist->setStyleSheet(menuBtnStyle);
     m_btnWishlist->setCursor(Qt::PointingHandCursor);
 
@@ -249,7 +273,10 @@ void UserPanel::setupUi()
     connect(m_btnWishlist, &QPushButton::clicked, this, [this]() { switchPage(3); });
     sidebarLayout->addWidget(m_btnWishlist);
 
-    m_btnNotifications = new QPushButton("🔔 Notifications", sidebar);
+    m_btnNotifications = new QPushButton("Notifications", sidebar);
+    m_btnNotifications->setIcon(QIcon(":/icons/bell.png"));
+    m_btnNotifications->setIconSize(QSize(20,20));
+
     m_btnNotifications->setStyleSheet(menuBtnStyle);
     m_btnNotifications->setCursor(Qt::PointingHandCursor);
 
@@ -273,7 +300,10 @@ void UserPanel::setupUi()
 
     sidebarLayout->addStretch();
 
-    m_btnLogout = new QPushButton("🚪 Logout", sidebar);
+    m_btnLogout = new QPushButton("Logout", sidebar);
+    m_btnLogout->setIcon(QIcon(":/icons/logout.png"));
+    m_btnLogout->setIconSize(QSize(20,20));
+
     m_btnLogout->setCursor(Qt::PointingHandCursor);
     m_btnLogout->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #7C3E66; border-radius: 8px; padding: 8px; font-weight: bold; color: #D9C2D1; text-align: left; padding-left: 12px; }"

@@ -69,10 +69,28 @@ QWidget* UsersTab::setupUi()
     QHBoxLayout *btnLayout = new QHBoxLayout();
     btnLayout->setSpacing(10);
 
-    m_btnBlock = new QPushButton("🚫 Block User", page);
-    m_btnUnblock = new QPushButton("✅ Unblock User", page);
-    m_btnUserDetails = new QPushButton("👁 View Details", page);
-    m_btnDeleteUser = new QPushButton("🗑️ Delete User", page);
+    m_btnBlock = new QPushButton("Block User", page);
+
+    m_btnBlock->setIcon(QIcon(":/icons/block.png"));
+    m_btnBlock->setIconSize(QSize(16, 16));
+
+
+    m_btnUnblock = new QPushButton("Unblock User", page);
+
+    m_btnUnblock->setIcon(QIcon(":/icons/unlocked.png"));
+    m_btnUnblock->setIconSize(QSize(16, 16));
+
+
+    m_btnUserDetails = new QPushButton("View Details", page);
+
+    m_btnUserDetails->setIcon(QIcon(":/icons/view.png"));
+    m_btnUserDetails->setIconSize(QSize(16, 16));
+
+
+    m_btnDeleteUser = new QPushButton("Delete User", page);
+
+    m_btnDeleteUser->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_btnDeleteUser->setIconSize(QSize(16, 16));
 
     m_btnBlock->setCursor(Qt::PointingHandCursor);
     m_btnUnblock->setCursor(Qt::PointingHandCursor);

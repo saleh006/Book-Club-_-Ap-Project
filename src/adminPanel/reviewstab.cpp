@@ -67,7 +67,10 @@ QWidget* ReviewsTab::setupUi()
     QHBoxLayout *reviewBtnLayout = new QHBoxLayout();
     reviewBtnLayout->setSpacing(10);
 
-    m_btnApproveReview = new QPushButton("✅ Approve Review", page);
+    QPushButton *m_btnApproveReview = new QPushButton("Approve Review", page);
+
+    m_btnApproveReview->setIcon(QIcon(":/icons/approve.png"));
+    m_btnApproveReview->setIconSize(QSize(16 , 16));
     m_btnApproveReview->setCursor(Qt::PointingHandCursor);
     m_btnApproveReview->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #268730; border-radius: 6px; "
@@ -75,7 +78,10 @@ QWidget* ReviewsTab::setupUi()
         "QPushButton:hover { background-color: rgba(38, 135, 48, 50); color: white; }"
         );
 
-    m_btnDeleteReview = new QPushButton("🗑️ Delete Review", page);
+    m_btnDeleteReview = new QPushButton("Delete Review", page);
+
+    m_btnDeleteReview->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_btnDeleteReview->setIconSize(QSize(16, 16));
     m_btnDeleteReview->setCursor(Qt::PointingHandCursor);
     m_btnDeleteReview->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #C0392B; border-radius: 6px; padding: 8px; font-weight: bold; color: #E6B0AA; }"

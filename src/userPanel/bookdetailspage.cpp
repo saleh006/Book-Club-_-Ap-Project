@@ -6,11 +6,6 @@
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
 
-// ---- Design tokens -------------------------------------------------------
-// A single palette + scale so every card/button reads as one system instead
-// of four separately-styled widgets. Gold is reserved for "value" signals
-// (price, rating) so it never collides with green, which means only one
-// thing: "you own this."
 static const char *kBg          = "#07050C";
 static const char *kSurface     = "#140F1B";   // card background
 static const char *kSurfaceAlt  = "#0B0810";   // nested surfaces (input, review rows)
@@ -201,10 +196,16 @@ QWidget *BookDetailsPage::buildTopCard()
     auto *btnRow = new QHBoxLayout;
     btnRow->setSpacing(10);
 
-    m_cartBtn = new QPushButton("🛒  Add to Cart", card);
+    m_cartBtn = new QPushButton("Add to Cart", card);
+
+    m_cartBtn->setIcon(QIcon(":/icons/cart.png"));
+    m_cartBtn->setIconSize(QSize(18, 18));
     m_cartBtn->setStyleSheet(primaryButtonQss(kAccent, "#6E3357", kAccentHover, "#82406A"));
 
-    m_openBtn = new QPushButton("📖  Open Book", card);
+    m_openBtn = new QPushButton("Open Book", card);
+
+    m_openBtn->setIcon(QIcon(":/icons/ebook.png"));
+    m_openBtn->setIconSize(QSize(18, 18));
     m_openBtn->setStyleSheet(primaryButtonQss(kGreen, "#2E8A5A", kGreenHover, kGreen));
     m_openBtn->hide();
 
@@ -263,9 +264,26 @@ QWidget *BookDetailsPage::buildWriteReviewCard()
     auto *v = new QVBoxLayout(card);
     v->setContentsMargins(24, 18, 24, 22);
     v->setSpacing(10);
-    auto *head = new QLabel("✍️  Write a review", card);
+
+    auto *headerLayout = new QHBoxLayout();
+
+    auto *reviewIcon = new QLabel(card);
+    reviewIcon->setPixmap(
+        QPixmap(":/icons/write-mail.png").scaled(
+            20, 20,
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation
+            )
+        );
+
+    auto *head = new QLabel("Write a review", card);
     head->setStyleSheet(sectionHeadQss());
-    v->addWidget(head);
+
+    headerLayout->addWidget(reviewIcon);
+    headerLayout->addWidget(head);
+    headerLayout->addStretch();
+
+    v->addLayout(headerLayout);
     v->addSpacing(4);
 
     auto *starRow = new QHBoxLayout;
@@ -353,7 +371,7 @@ void BookDetailsPage::setOwned(bool owned)
 void BookDetailsPage::setWishlisted(bool on)
 {
     m_wishlisted = on;
-    m_wishBtn->setText(on ? "💖  Wishlisted" : "🤍  Wishlist");
+    m_wishBtn->setText(on ? "❤️  Wishlisted" : "🤍  Wishlist");
     m_wishBtn->setStyleSheet(on
                                  ? QString("QPushButton{background:transparent;border:1px solid %1;border-radius:%2px;"
                                            "padding:12px 20px;color:%1;font-size:14px;}"

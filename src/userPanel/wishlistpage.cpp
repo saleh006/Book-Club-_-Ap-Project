@@ -69,7 +69,9 @@ QPushButton *WishlistItemWidget::makeHeartButton(QWidget *parent)
 
 QPushButton *WishlistItemWidget::makeCartButton()
 {
-    auto *cartBtn = new QPushButton(QStringLiteral("🛒"), this);
+    auto *cartBtn = new QPushButton(this);
+    cartBtn->setIcon(QIcon(":/icons/cart.png"));
+    cartBtn->setIconSize(QSize(24, 24));
     cartBtn->setCursor(Qt::PointingHandCursor);
     cartBtn->setToolTip(tr("Add to Cart"));
     cartBtn->setFixedHeight(34);
@@ -83,7 +85,9 @@ QPushButton *WishlistItemWidget::makeCartButton()
 
 QPushButton *WishlistItemWidget::makeRemoveButton()
 {
-    auto *removeBtn = new QPushButton(QStringLiteral("🗑"), this);
+    auto *removeBtn = new QPushButton(this);
+    removeBtn->setIcon(QIcon(":/icons/trash-solid.png"));
+    removeBtn->setIconSize(QSize(18, 18));
     removeBtn->setCursor(Qt::PointingHandCursor);
     removeBtn->setToolTip(tr("Remove from Wishlist"));
     removeBtn->setFixedHeight(34);

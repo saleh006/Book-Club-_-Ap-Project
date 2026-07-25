@@ -319,11 +319,26 @@ QWidget* BookTab::setupUi()
     QHBoxLayout *btnLayout = new QHBoxLayout();
     btnLayout->setSpacing(10);
 
-    m_btnApprove = new QPushButton("✨ Approve Book", page);
-    m_btnReject = new QPushButton("❌ Reject", page);
-    m_btnDeleteBook = new QPushButton("🗑️ Delete Book", page);
-    m_btnBookDetails = new QPushButton("👁 View Details", page);
-    m_btnEditBook = new QPushButton("✏️ Edit Book", page);
+    m_btnApprove = new QPushButton("Approve Book", page);
+
+    m_btnApprove->setIcon(QIcon(":/icons/approve.png"));
+    m_btnApprove->setIconSize(QSize(16, 16));
+    m_btnReject = new QPushButton("Reject", page);
+
+    m_btnReject->setIcon(QIcon(":/icons/reject.png"));
+    m_btnReject->setIconSize(QSize(16, 16));
+    m_btnDeleteBook = new QPushButton("Delete Book", page);
+
+    m_btnDeleteBook->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_btnDeleteBook->setIconSize(QSize(16, 16));
+    m_btnBookDetails = new QPushButton("View Details", page);
+
+    m_btnBookDetails->setIcon(QIcon(":/icons/view.png"));
+    m_btnBookDetails->setIconSize(QSize(16, 16));
+    m_btnEditBook = new QPushButton("Edit Book", page);
+
+    m_btnEditBook->setIcon(QIcon(":/icons/pen-to-square-solid.png"));
+    m_btnEditBook->setIconSize(QSize(16, 16));
 
     m_btnApprove->setCursor(Qt::PointingHandCursor);
     m_btnReject->setCursor(Qt::PointingHandCursor);

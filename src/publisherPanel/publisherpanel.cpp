@@ -146,7 +146,10 @@ void PublisherPanel::setupUi()
     QLabel *avatarLabel = new QLabel("📖", avatarRow);
     avatarLabel->setStyleSheet("font-size: 40px; border: none; background: transparent;");
 
-    QPushButton *editProfileBtn = new QPushButton("✏️", avatarRow);
+    QPushButton *editProfileBtn = new QPushButton(avatarRow);
+
+    editProfileBtn->setIcon(QIcon(":/icons/pen.png"));
+    editProfileBtn->setIconSize(QSize(18, 18));
     editProfileBtn->setFixedSize(30, 30);
     editProfileBtn->setCursor(Qt::PointingHandCursor);
     editProfileBtn->setToolTip("Edit profile");
@@ -180,10 +183,20 @@ void PublisherPanel::setupUi()
     sidebarLayout->addWidget(roleLabel);
     sidebarLayout->addSpacing(15);
 
-    m_btnStats = new QPushButton("📊 Book Statistics", sidebar);
-    m_btnBooks = new QPushButton("📚 My Books", sidebar);
-    m_btnNotifications = new QPushButton("🔔 Notifications", sidebar);
-    m_btnLogout = new QPushButton("🚪 Logout", sidebar);
+
+    m_btnStats = new QPushButton("Book Statistics", sidebar);
+
+    m_btnStats->setIcon(QIcon(":/icons/chart-area-solid.png"));
+    m_btnStats->setIconSize(QSize(20, 20));
+    m_btnBooks = new QPushButton("My Books", sidebar);
+    m_btnBooks->setIcon(QIcon(":/icons/book.png"));
+    m_btnBooks->setIconSize(QSize(20, 20));
+    m_btnNotifications = new QPushButton("Notifications", sidebar);
+    m_btnNotifications->setIcon(QIcon(":/icons/bell.png"));
+    m_btnNotifications->setIconSize(QSize(20, 20));
+    m_btnLogout = new QPushButton("Logout", sidebar);
+    m_btnLogout->setIcon(QIcon(":/icons/logout.png"));
+    m_btnLogout->setIconSize(QSize(20, 20));
 
     QString menuBtnStyle =
         "QPushButton { background-color: transparent; border: none; border-radius: 8px; padding: 10px; font-size: 13px; color: #9A8FA0; text-align: left; padding-left: 12px; }"
