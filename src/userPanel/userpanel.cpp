@@ -396,28 +396,6 @@ void UserPanel::setupMyLibraryPage()
         openBookDetails(bookId);
     });
 
-    connect(m_libraryPage, &MyLibraryPage::bookFavoriteToggleRequested, this, [this](int bookId) {
-        if (m_favoriteBookIds.contains(bookId)) {
-            QMessageBox::information(this, "Favorites",
-                                     "Removing a book from Favorites isn't supported by the server yet.");
-            return;
-        }
-        if (m_favoritesShelfId == -1) {
-            m_pendingFavoriteBookId = bookId;
-            QJsonObject req;
-            req["action"] = "shelf_create";
-            req["userId"] = m_userId;
-            req["title"] = "Favorites";
-            sendRequest(req);
-            return;
-        }
-        QJsonObject req;
-        req["action"] = "shelf_add_book";
-        req["shelfId"] = m_favoritesShelfId;
-        req["bookId"] = bookId;
-        sendRequest(req);
-    });
-
     connect(m_libraryPage, &MyLibraryPage::moveBookToShelfRequested, this, [this](int bookId, int shelfId) {
         QJsonObject req;
         req["action"] = "shelf_add_book";
@@ -437,28 +415,62 @@ void UserPanel::setupMyLibraryPage()
                 sendRequest(req);
             });
 
-    connect(m_libraryPage, &MyLibraryPage::editShelfRequested, this,
-            [this](int shelfId, const QString &newName, const QString &newDescription, const QColor &newColor) {
-                Q_UNUSED(shelfId);
-                Q_UNUSED(newName);
-                Q_UNUSED(newDescription);
-                Q_UNUSED(newColor);
-                QMessageBox::information(this, "Edit Shelf",
-                                         "Renaming a shelf isn't supported by the server yet.");
-            });
-
-    connect(m_libraryPage, &MyLibraryPage::deleteShelfRequested, this, [this](int shelfId) {
-        Q_UNUSED(shelfId);
-        // Same story as edit: DatabaseManager has no deleteShelf().
-        QMessageBox::information(this, "Delete Shelf",
-                                 "Deleting a shelf isn't supported by the server yet.");
-    });
-
     connect(m_libraryPage, &MyLibraryPage::shelfOpened, this, [this](int shelfId) {
         m_openingShelfId = shelfId;
         QJsonObject req;
         req["action"] = "shelf_fetch_books";
         req["shelfId"] = shelfId;
+        sendRequest(req);
+    });
+
+    connect(m_libraryPage, &MyLibraryPage::bookFavoriteToggleRequested, this, [this](int bookId) {
+        if (m_favoriteBookIds.contains(bookId)) {
+            QJsonObject req;
+            req["action"] = "shelf_remove_book";
+            req["shelfId"] = m_favoritesShelfId;
+            req["bookId"] = bookId;
+            sendRequest(req);
+            return;
+        }
+        if (m_favoritesShelfId == -1) {
+            m_pendingFavoriteBookId = bookId;
+            QJsonObject req;
+            req["action"] = "shelf_create";
+            req["userId"] = m_userId;
+            req["title"] = "Favorites";
+            sendRequest(req);
+            return;
+        }
+        QJsonObject req;
+        req["action"] = "shelf_add_book";
+        req["shelfId"] = m_favoritesShelfId;
+        req["bookId"] = bookId;
+        sendRequest(req);
+    });
+
+    connect(m_libraryPage, &MyLibraryPage::editShelfRequested, this,
+            [this](int shelfId, const QString &newName, const QString &newDescription, const QColor &newColor) {
+                Q_UNUSED(newDescription);
+                Q_UNUSED(newColor);
+                QJsonObject req;
+                req["action"] = "shelf_update";
+                req["shelfId"] = shelfId;
+                req["title"] = newName;
+                sendRequest(req);
+            });
+
+    connect(m_libraryPage, &MyLibraryPage::deleteShelfRequested, this, [this](int shelfId) {
+        QJsonObject req;
+        req["action"] = "shelf_delete";
+        req["shelfId"] = shelfId;
+        sendRequest(req);
+    });
+
+    connect(m_libraryPage, &MyLibraryPage::removeBookFromShelfRequested, this, [this](int bookId, int shelfId) {
+        QJsonObject req;
+        req["action"] = "shelf_remove_book";
+        req["shelfId"] = shelfId;
+        req["bookId"] = bookId;
         sendRequest(req);
     });
 }
@@ -1334,6 +1346,52 @@ void UserPanel::onReadyRead()
         else if (action == "progress_update_response") {
             if (responseObj["status"].toString() != "success") {
                 qWarning() << "Failed to save reading progress:" << responseObj["message"].toString();
+            }
+        }else if (action == "shelf_remove_book_response") {
+            if (responseObj["status"].toString() == "success") {
+                int shelfId = responseObj["shelfId"].toInt();
+                int bookId = responseObj["bookId"].toInt();
+                if (shelfId == m_favoritesShelfId)
+                    m_favoriteBookIds.remove(bookId);
+
+                QJsonObject reqShelves;
+                reqShelves["action"] = "shelves_fetch";
+                reqShelves["userId"] = m_userId;
+                sendRequest(reqShelves);
+                if (m_libraryPage && m_libraryPage->currentlyViewedShelfId() == shelfId) {
+                    m_openingShelfId = shelfId;
+                    QJsonObject req;
+                    req["action"] = "shelf_fetch_books";
+                    req["shelfId"] = shelfId;
+                    sendRequest(req);
+                }
+            } else {
+                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
+            }
+        }
+        else if (action == "shelf_update_response") {
+            if (responseObj["status"].toString() == "success") {
+                QJsonObject reqShelves;
+                reqShelves["action"] = "shelves_fetch";
+                reqShelves["userId"] = m_userId;
+                sendRequest(reqShelves);
+            } else {
+                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
+            }
+        }
+        else if (action == "shelf_delete_response") {
+            if (responseObj["status"].toString() == "success") {
+                int shelfId = responseObj["shelfId"].toInt();
+                m_shelfBooksCache.remove(shelfId);
+                if (m_libraryPage && m_libraryPage->currentlyViewedShelfId() == shelfId)
+                    m_libraryPage->backToLibrary();
+
+                QJsonObject reqShelves;
+                reqShelves["action"] = "shelves_fetch";
+                reqShelves["userId"] = m_userId;
+                sendRequest(reqShelves);
+            } else {
+                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
             }
         }
     }

@@ -9,9 +9,6 @@
 class QLabel;
 class QGridLayout;
 
-// Full-page view of a single shelf: back button, shelf icon/name/count,
-// Edit/Delete actions, and a responsive grid of BookCards. Swapped in by
-// MyLibraryPage's internal QStackedWidget when a shelf is opened.
 class ShelfDetailPage : public QWidget
 {
     Q_OBJECT
@@ -20,6 +17,7 @@ public:
 
     void setShelf(const ShelfSummary &summary, const QVector<Book> &books);
     void setCoverProvider(const CoverProvider &provider);
+    int currentShelfId() const { return m_summary.shelf.id; }
 
 signals:
     void backRequested();
@@ -29,6 +27,7 @@ signals:
     void bookReadRequested(int bookId);
     void bookMoveRequested(int bookId);
     void bookFavoriteToggleRequested(int bookId);
+    void bookRemoveFromShelfRequested(int bookId);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

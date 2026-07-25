@@ -205,3 +205,53 @@ bool DatabaseManager::fetchUserIdsWithBookInWishlist(int bookId, QVector<int> &o
     while (query.next()) outUserIds.push_back(query.value(0).toInt());
     return true;
 }
+
+bool DatabaseManager::removeBookFromShelf(int shelfId, int bookId, QString &errorMsg)
+{
+    QSqlQuery q(database());
+    q.prepare("DELETE FROM shelf_books WHERE shelf_id = :shelfId AND book_id = :bookId");
+    q.bindValue(":shelfId", shelfId);
+    q.bindValue(":bookId", bookId);
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::updateShelf(int shelfId, const QString &newTitle, QString &errorMsg)
+{
+    if (newTitle.trimmed().isEmpty()) {
+        errorMsg = "Shelf name cannot be empty.";
+        return false;
+    }
+    QSqlQuery q(database());
+    q.prepare("UPDATE shelves SET title = :title WHERE id = :shelfId");
+    q.bindValue(":title", newTitle.trimmed());
+    q.bindValue(":shelfId", shelfId);
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteShelf(int shelfId, QString &errorMsg)
+{
+    QSqlQuery q(database());
+    q.prepare("DELETE FROM shelf_books WHERE shelf_id = :shelfId");
+    q.bindValue(":shelfId", shelfId);
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+
+    QSqlQuery q2(database());
+    q2.prepare("DELETE FROM shelves WHERE id = :shelfId");
+    q2.bindValue(":shelfId", shelfId);
+    if (!q2.exec()) {
+        errorMsg = q2.lastError().text();
+        return false;
+    }
+    return true;
+}

@@ -187,6 +187,9 @@ public:
     bool updateReadingProgress(int userId, int bookId, int lastPage, QString &errorMsg);
     bool fetchReadingProgress(int userId, int bookId, ReadingProgress &outProgress, QString &errorMsg);
     bool fetchOwnedBooks(int userId, QVector<Book> &outBooks, QString &errorMsg);
+    bool removeBookFromShelf(int shelfId, int bookId, QString &errorMsg);
+    bool updateShelf(int shelfId, const QString &newTitle, QString &errorMsg);
+    bool deleteShelf(int shelfId, QString &errorMsg);
 
     // wishlist
     bool addToWishlist(int userId, int bookId, QString &errorMsg);

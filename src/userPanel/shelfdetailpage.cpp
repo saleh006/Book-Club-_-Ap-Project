@@ -8,6 +8,8 @@
 #include <QScrollArea>
 #include <QFrame>
 #include <QResizeEvent>
+#include <QMenu>
+#include <QCursor>
 
 ShelfDetailPage::ShelfDetailPage(QWidget *parent) : QWidget(parent)
 {
@@ -122,6 +124,16 @@ void ShelfDetailPage::rebuildGrid()
         connect(card, &BookCard::readRequested, this, &ShelfDetailPage::bookReadRequested);
         connect(card, &BookCard::moveToShelfRequested, this, &ShelfDetailPage::bookMoveRequested);
         connect(card, &BookCard::favoriteToggleRequested, this, &ShelfDetailPage::bookFavoriteToggleRequested);
+        connect(card, &BookCard::moreOptionsRequested, this, [this](int bookId) {
+            QMenu menu(this);
+            menu.setStyleSheet(
+                "QMenu{background-color:#181320;border:1px solid rgba(255,255,255,30);border-radius:10px;padding:6px;color:#EAEAEA;}"
+                "QMenu::item{padding:8px 14px;border-radius:6px;}"
+                "QMenu::item:selected{background-color:#A855F7;color:white;}");
+            QAction *removeAction = menu.addAction("Remove from Shelf");
+            if (menu.exec(QCursor::pos()) == removeAction)
+                emit bookRemoveFromShelfRequested(bookId);
+        });
         m_cards.append(card);
     }
     relayoutGrid();

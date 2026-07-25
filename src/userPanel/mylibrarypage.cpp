@@ -86,6 +86,9 @@ MyLibraryPage::MyLibraryPage(QWidget *parent) : QWidget(parent)
     connect(m_shelfDetail, &ShelfDetailPage::bookReadRequested, this, &MyLibraryPage::bookReadRequested);
     connect(m_shelfDetail, &ShelfDetailPage::bookMoveRequested, this, &MyLibraryPage::openMoveDialog);
     connect(m_shelfDetail, &ShelfDetailPage::bookFavoriteToggleRequested, this, &MyLibraryPage::bookFavoriteToggleRequested);
+    connect(m_shelfDetail, &ShelfDetailPage::bookRemoveFromShelfRequested, this, [this](int bookId) {
+        emit removeBookFromShelfRequested(bookId, m_shelfDetail->currentShelfId());
+    });
     m_stack->addWidget(m_shelfDetail);
 
     outer->addWidget(m_stack);
@@ -671,4 +674,9 @@ void MyLibraryPage::resizeEvent(QResizeEvent *event)
     QWidget::resizeEvent(event);
     relayoutBooksGrid();
     relayoutShelvesGrid();
+}
+
+int MyLibraryPage::currentlyViewedShelfId() const
+{
+    return m_stack->currentIndex() == 1 ? m_shelfDetail->currentShelfId() : -1;
 }

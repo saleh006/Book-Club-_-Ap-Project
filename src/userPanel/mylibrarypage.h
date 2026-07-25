@@ -19,16 +19,7 @@ class QStackedWidget;
 class StatisticsCard;
 class ShelfDetailPage;
 
-// Top-level "My Library" page: header banner + stat cards, All/My Books/
-// Shelves tabs, a search+sort+filter+view toolbar, a horizontally
-// scrolling "Continue Reading" strip, a responsive "My Books" grid and a
-// responsive "My Shelves" grid. Opening a shelf swaps in a
-// ShelfDetailPage inside this widget's own QStackedWidget.
-//
-// This page is purely presentational and owns no network code: the
-// integrator (UserPanel) feeds it data through the setters below and
-// reacts to its signals to talk to DatabaseManager/ClientHandler, the
-// same way the rest of the app already drives ShoppingCartPage/WishlistPage.
+
 class MyLibraryPage : public QWidget
 {
     Q_OBJECT
@@ -40,17 +31,10 @@ public:
     void setMyBooks(const QVector<Book> &books);
     void setShelves(const QVector<ShelfSummary> &shelves);
     void setFavoriteBookIds(const QSet<int> &bookIds);
-
-    // Supplies real cover art for every card this page builds (My Books,
-    // Continue Reading, and shelf preview thumbnails), and is forwarded to
-    // the shelf detail view too. Call this once, before or after the setters
-    // above - whichever data is already loaded gets re-rendered with it.
     void setCoverProvider(const CoverProvider &provider);
-
-    // Called by the integrator once it has fetched the full book list for
-    // a shelf (in response to shelfOpened()); switches to the detail view.
     void showShelfDetail(const ShelfSummary &summary, const QVector<Book> &books);
     void backToLibrary();
+    int currentlyViewedShelfId() const;
 
 signals:
     void bookOpenRequested(int bookId);
@@ -61,6 +45,7 @@ signals:
     void editShelfRequested(int shelfId, const QString &newName, const QString &newDescription, const QColor &newColor);
     void deleteShelfRequested(int shelfId);
     void shelfOpened(int shelfId);
+    void removeBookFromShelfRequested(int bookId, int shelfId);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

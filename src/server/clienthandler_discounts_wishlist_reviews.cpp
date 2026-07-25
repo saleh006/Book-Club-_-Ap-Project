@@ -216,6 +216,49 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "shelf_remove_book") {
+        responseObj["action"] = "shelf_remove_book_response";
+        int shelfId = requestObj["shelfId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        responseObj["shelfId"] = shelfId;
+        responseObj["bookId"] = bookId;
+        QString errorMsg;
+        if (DatabaseManager::instance().removeBookFromShelf(shelfId, bookId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "Book removed from shelf.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "shelf_update") {
+        responseObj["action"] = "shelf_update_response";
+        int shelfId = requestObj["shelfId"].toInt();
+        QString newTitle = requestObj["title"].toString();
+        responseObj["shelfId"] = shelfId;
+        QString errorMsg;
+        if (DatabaseManager::instance().updateShelf(shelfId, newTitle, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "Shelf updated successfully.";
+            responseObj["title"] = newTitle;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "shelf_delete") {
+        responseObj["action"] = "shelf_delete_response";
+        int shelfId = requestObj["shelfId"].toInt();
+        responseObj["shelfId"] = shelfId;
+        QString errorMsg;
+        if (DatabaseManager::instance().deleteShelf(shelfId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "Shelf deleted successfully.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
     else {
         return false;
     }
