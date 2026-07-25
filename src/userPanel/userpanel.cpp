@@ -1,10 +1,13 @@
 #include "userpanel.h"
 #include "genreselectiondialog.h"
+#include "pdfreaderdialog.h"
+
 #include <QMessageBox>
 #include <QPainter>
 #include <QFrame>
 #include <QCoreApplication>
 #include <QFileInfo>
+#include <QDir>
 #include <algorithm>
 #include "src/publisherPanel/editprofiledialog.h"
 #include "mylibrarypage.h"
@@ -283,13 +286,12 @@ void UserPanel::setupUi()
     sidebarLayout->addWidget(m_btnLogout);
 
     m_stackedWidget = new QStackedWidget(this);
-    m_stackedWidget->addWidget(createHomePage());    // index 0: home
+    m_stackedWidget->addWidget(createHomePage());
 
     m_cartPage = new ShoppingCartPage(m_socket, m_userId, this);
     connect(m_cartPage, &ShoppingCartPage::checkoutCompleted, this, [this](int purchaseId) {
         Q_UNUSED(purchaseId);
 
-        // Fetch updated list of owned books from server
         QJsonObject reqOwned;
         reqOwned["action"] = "books_fetch_owned";
         reqOwned["userId"] = m_userId;
@@ -297,10 +299,10 @@ void UserPanel::setupUi()
     });
     connect(m_cartPage, &ShoppingCartPage::cartUpdated, this, &UserPanel::updateHero);
     connect(m_cartPage, &ShoppingCartPage::cartUpdated, this, &UserPanel::updateCartBadge);
-    m_stackedWidget->addWidget(m_cartPage);           // index 1: cart
+    m_stackedWidget->addWidget(m_cartPage);
 
     m_detailsPage = new BookDetailsPage(this);
-    m_stackedWidget->addWidget(m_detailsPage);        // index 2: details
+    m_stackedWidget->addWidget(m_detailsPage);
 
     connect(m_detailsPage, &BookDetailsPage::backRequested, this, [this] { switchPage(0); });
     connect(m_detailsPage, &BookDetailsPage::addToCartRequested, this, &UserPanel::addToCart);
@@ -312,7 +314,7 @@ void UserPanel::setupUi()
         sendRequest(req);
     });
     connect(m_detailsPage, &BookDetailsPage::openBookRequested, this,[this](int id) {
-        qDebug() << "open book" << id;
+        openBookReader(id);
     });
     connect(m_detailsPage, &BookDetailsPage::reviewSubmitted, this,[this](int id, int rating, const QString &text) {
         if (rating <= 0) {
@@ -344,7 +346,7 @@ void UserPanel::setupUi()
     m_stackedWidget->addWidget(m_notifPage);
 
     setupMyLibraryPage();
-    m_stackedWidget->addWidget(m_libraryPage);        // index 5: my library
+    m_stackedWidget->addWidget(m_libraryPage);
 
     mainLayout->addWidget(sidebar);
     mainLayout->addWidget(m_stackedWidget);
@@ -354,13 +356,6 @@ void UserPanel::setupMyLibraryPage()
 {
     m_libraryPage = new MyLibraryPage(this);
 
-    // Reuses the exact same cover-loading path the Home page already uses
-    // (makeCoverPixmap() downloads via downloadFileFromServer() into
-    // <app dir>/cache/covers/ and falls back to a colored placeholder).
-    // This is a blocking call per cover, same as it already is on Home -
-    // fine for a few dozen visible cards, but worth knowing if a user's
-    // library grows into the hundreds and the first visit to this page
-    // feels slow before the cache is warm.
     m_libraryPage->setCoverProvider([](const Book &b, const QSize &size) {
         return makeCoverPixmap(b, size);
     });
@@ -368,29 +363,16 @@ void UserPanel::setupMyLibraryPage()
     connect(m_libraryPage, &MyLibraryPage::bookOpenRequested, this, &UserPanel::openBookDetails);
 
     connect(m_libraryPage, &MyLibraryPage::bookReadRequested, this, [this](int bookId) {
-        // Wire this up to whatever already opens an owned book's PDF in this
-        // project (BookDetailsPage / downloadFileFromServer show the pattern
-        // used elsewhere for pulling an owned file down locally before
-        // opening it). Not shown to me, so left as the one integration point
-        // the project owner needs to fill in.
         openBookDetails(bookId);
     });
 
     connect(m_libraryPage, &MyLibraryPage::bookFavoriteToggleRequested, this, [this](int bookId) {
         if (m_favoriteBookIds.contains(bookId)) {
-            // DatabaseManager (per the header provided) has no method to
-            // remove a single book from a shelf, so un-favoriting can't be
-            // wired to a real server action yet. Add a
-            // removeBookFromShelf(shelfId, bookId, errorMsg) to
-            // DatabaseManager + a matching "shelf_remove_book" case in
-            // ClientHandler to enable this.
             QMessageBox::information(this, "Favorites",
                                      "Removing a book from Favorites isn't supported by the server yet.");
             return;
         }
         if (m_favoritesShelfId == -1) {
-            // No "Favorites" shelf exists yet - create it, then add the book
-            // once shelf_create_response comes back (see onReadyRead).
             m_pendingFavoriteBookId = bookId;
             QJsonObject req;
             req["action"] = "shelf_create";
@@ -416,8 +398,8 @@ void UserPanel::setupMyLibraryPage()
 
     connect(m_libraryPage, &MyLibraryPage::createShelfRequested, this,
             [this](const QString &name, const QString &description, const QColor &color) {
-                Q_UNUSED(description); // createShelf() only accepts a title today
-                Q_UNUSED(color);       // shelf color isn't persisted server-side; see README
+                Q_UNUSED(description);
+                Q_UNUSED(color);
                 QJsonObject req;
                 req["action"] = "shelf_create";
                 req["userId"] = m_userId;
@@ -431,9 +413,6 @@ void UserPanel::setupMyLibraryPage()
                 Q_UNUSED(newName);
                 Q_UNUSED(newDescription);
                 Q_UNUSED(newColor);
-                // DatabaseManager has no updateShelf()/renameShelf(), so there is
-                // no server action to send this to yet. Add one (mirroring
-                // updateBook) before wiring this up.
                 QMessageBox::information(this, "Edit Shelf",
                                          "Renaming a shelf isn't supported by the server yet.");
             });
@@ -456,11 +435,6 @@ void UserPanel::setupMyLibraryPage()
 
 Book UserPanel::enrichedBook(int id, const QString &fallbackTitle, const QString &fallbackAuthor) const
 {
-    // shelf_fetch_books / books_fetch_owned only return {id, title, author,
-    // pdfPath}. Cross-reference the fuller catalog (already fetched via
-    // books_fetch_all) so My Library's cards can show genre/price/rating/
-    // cover art without any server changes. Falls back to the bare fields
-    // if the book is no longer in the active catalog.
     for (const Book &b : m_storeBooks) {
         if (b.id == id) return b;
     }
@@ -723,11 +697,8 @@ QWidget *UserPanel::createHomePage()
         updateHero();
     });
     connect(m_heroOpenBtn, &QPushButton::clicked, this, [this] {
-        if (!m_heroBooks.isEmpty()) {
-            int id = m_heroBooks[m_heroIndex].id;
-            qDebug() << "Open book triggered for ID:" << id;
-            // TODO: Emit your open book signal or logic here
-        }
+        if (!m_heroBooks.isEmpty())
+            openBookReader(m_heroBooks[m_heroIndex].id);
     });
 
     heroInfo->addLayout(genreWrap);
@@ -900,7 +871,7 @@ QWidget *UserPanel::makeBookCard(const Book &b)
     coverGrid->addWidget(heartBtn, 0, 0, Qt::AlignTop | Qt::AlignRight);
     connect(heartBtn, &QPushButton::clicked, this, [this, id = b.id, heartBtn] {
         toggleWishlist(id);
-        bool nowIn = heartBtn->text() == QString("♡");   // optimistic flip; server confirms via wishlistUpdated
+        bool nowIn = heartBtn->text() == QString("♡");
         heartBtn->setText(nowIn ? "♥" : "♡");
     });
 
@@ -998,106 +969,6 @@ void UserPanel::rebuildHomeSections()
     m_freeBooks = free;
     fillBookRow(m_rowFree, m_freeBooks);
 }
-
-// void UserPanel::onReadyRead()
-// {
-//     while (m_socket->canReadLine()) {
-//         QByteArray data = m_socket->readLine().trimmed();
-//         QJsonParseError err;
-//         QJsonDocument doc = QJsonDocument::fromJson(data, &err);
-//         if (err.error != QJsonParseError::NoError) continue;
-//         if (!doc.isObject()) continue;
-
-//         QJsonObject responseObj = doc.object();
-//         const QString action = responseObj["action"].toString();
-//         QString type = responseObj["type"].toString();
-
-//         if (responseObj.contains("action")) {
-//             m_cartPage->handleServerResponse(responseObj);
-//             m_wishlistPage->handleServerResponse(responseObj);
-//         }
-
-//         if (action == "books_fetch_all_response" && responseObj["status"].toString() == "success") {
-//             m_storeBooks.clear();
-//             for (const QJsonValue &val : responseObj["books"].toArray()) {
-//                 const QJsonObject bo = val.toObject();
-//                 Book b;
-//                 b.id = bo["id"].toInt();
-//                 b.title = bo["title"].toString();
-//                 b.author = bo["author"].toString();
-//                 b.genre = bo["genre"].toString();
-//                 b.price = bo["price"].toDouble();
-//                 b.description = bo["description"].toString();
-//                 b.coverImagePath = bo["coverImagePath"].toString();
-//                 b.averageRating = bo["averageRating"].toDouble();
-//                 b.totalSales = bo["totalSales"].toInt();
-//                 b.publisherName = bo["publisherName"].toString();
-//                 qDebug() << b.title << "-> publisher:" << b.publisherName;
-//                 m_storeBooks.push_back(b);
-//             }
-//             rebuildHomeSections();
-//             m_wishlistPage->setCatalog(m_storeBooks);
-//         }
-//         else if (type == "favorite_genres" && responseObj["success"].toBool()) {
-//             m_favoriteGenres.clear();
-//             for (const QJsonValue &v : responseObj["genres"].toArray()) {
-//                 m_favoriteGenres << v.toString();
-//             }
-
-//             if (m_favoriteGenres.isEmpty()) {
-//                 GenreSelectionDialog dialog(this);
-//                 if (dialog.exec() == QDialog::Accepted) {
-//                     m_favoriteGenres = dialog.selectedGenres();
-
-//                     QJsonObject req;
-//                     req["action"] = "user_set_favorite_genres";
-//                     req["userId"] = m_userId;
-
-//                     QJsonArray arr;
-//                     for (const QString &genre : m_favoriteGenres) {
-//                         arr.append(genre);
-//                     }
-//                     req["genres"] = arr;
-//                     sendRequest(req);
-//                 }
-//             }
-
-//             rebuildHomeSections();
-//         }
-//         else if (type == "favorite_genres_saved" && responseObj["success"].toBool()) {
-//             rebuildHomeSections();
-//         }
-//         else if (type == "user_info" && responseObj["status"].toString() == "success") {
-//             m_fullName = responseObj["fullName"].toString();
-//             m_email = responseObj["email"].toString();
-//             m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
-//         }
-//         else if (action == "book_reviews_response" && responseObj["status"].toString() == "success") {
-//             QVector<Review> reviews;
-//             for (const QJsonValue &val : responseObj["data"].toArray()) {
-//                 QJsonObject ro = val.toObject();
-//                 if (!ro["isApproved"].toBool()) continue;   // never show unapproved reviews
-//                 Review r;
-//                 r.id = ro["id"].toInt();
-//                 r.username = ro["username"].toString();
-//                 r.rating = ro["rating"].toInt();
-//                 r.comment = ro["comment"].toString();
-//                 r.date = QDateTime::fromString(ro["date"].toString(), Qt::ISODate);
-//                 reviews.push_back(r);
-//             }
-//             m_detailsPage->showReviews(reviews);
-//         }
-//         else if (action == "submit_review_response") {
-//             if (responseObj["status"].toString() == "success") {
-//                 QMessageBox::information(this, "Review Submitted",
-//                                          "Thanks! Your review has been submitted and is awaiting admin approval.");
-//                 m_detailsPage->clearReviewForm();
-//             } else {
-//                 QMessageBox::warning(this, "Submission Failed", responseObj["message"].toString());
-//             }
-//         }
-//     }
-// }
 
 void UserPanel::onReadyRead()
 {
@@ -1311,23 +1182,22 @@ void UserPanel::onReadyRead()
             if (responseObj["status"].toString() == "success") {
                 m_ownedBookIds.clear();
                 m_ownedBooksFull.clear();
+                m_ownedBookPdfPaths.clear();
                 QJsonArray booksArr = responseObj["books"].toArray();
                 for (const QJsonValue &val : booksArr) {
-                    QJsonObject bo = val.toObject();
-                    int id = bo["id"].toInt();
+                    const QJsonObject bo = val.toObject();
+                    const int id = bo["id"].toInt();
                     m_ownedBookIds.insert(id);
                     m_ownedBooksFull.push_back(enrichedBook(id, bo["title"].toString(), bo["author"].toString()));
+                    m_ownedBookPdfPaths.insert(id,bo["pdfPath"].toString());
                 }
 
-                // 1. Immediately update Hero Banner button
                 updateHero();
 
-                // 2. Immediately update Book Details page if open
                 if (m_detailsPage && m_stackedWidget->currentWidget() == m_detailsPage) {
                     m_detailsPage->setOwned(m_ownedBookIds.contains(m_detailsPage->currentBookId()));
                 }
 
-                // 3. Feed the My Library page
                 if (m_libraryPage) {
                     m_libraryPage->setMyBooks(m_ownedBooksFull);
                     m_libraryPage->setStatistics(m_ownedBooksFull.size(), m_shelves.size(),
@@ -1335,18 +1205,6 @@ void UserPanel::onReadyRead()
                 }
             }
         }
-        // ---- My Library: shelves ----
-        // NOTE: the shelf_create / shelf_add_book / shelves_fetch /
-        // shelf_fetch_books cases in ClientHandler::handleDiscount_Wishlist_
-        // ReviewsActions() (see clienthandler_discounts_wishlist_reviews.cpp)
-        // don't currently set responseObj["action"], and shelf_fetch_books's
-        // response doesn't echo back the shelfId it was fetched for. Both are
-        // needed for the client to tell these responses apart and match them
-        // to the right shelf - see the small patch in the delivered
-        // clienthandler_discounts_wishlist_reviews.cpp for the two-line fix
-        // per case (mirrors the pattern already used for wishlist_add/
-        // remove/fetch in the same file). The branches below assume that
-        // patch is applied.
         else if (action == "shelves_fetch_response") {
             if (responseObj["status"].toString() == "success") {
                 m_shelves.clear();
@@ -1434,6 +1292,20 @@ void UserPanel::onReadyRead()
                 QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
             }
         }
+        else if (action == "progress_fetch_response" || (action.isEmpty() && responseObj.contains("lastPage"))) {
+            const int bookId = responseObj.contains("bookId") ? responseObj["bookId"].toInt() : m_pendingReaderBookId;
+            if (bookId != m_pendingReaderBookId)
+                continue;
+            m_pendingReaderBookId = -1;
+            const int lastPage = responseObj["status"].toString() == "success"
+                                     ? responseObj["lastPage"].toInt(0) : 0;
+            launchPdfReader(bookId, m_pendingReaderLocalPath, m_pendingReaderTitle, lastPage);
+        }
+        else if (action == "progress_update_response") {
+            if (responseObj["status"].toString() != "success") {
+                qWarning() << "Failed to save reading progress:" << responseObj["message"].toString();
+            }
+        }
     }
 }
 
@@ -1441,8 +1313,6 @@ void UserPanel::onSocketError()
 {
     qWarning() << "UserPanel socket error: " << m_socket->errorString();
 }
-
-
 
 QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut,
                                             std::function<QVector<Book>()> getFullList)
@@ -1844,19 +1714,15 @@ void UserPanel::openBookDetails(int bookId)
 {
     for (const Book &b : std::as_const(m_storeBooks)) {
         if (b.id == bookId) {
-            // 1. Load book data into details page
+
             m_detailsPage->setBook(b);
 
-            // 2. Pass ownership state (Must be called AFTER setBook because setBook resets owned to false)
             m_detailsPage->setOwned(m_ownedBookIds.contains(bookId));
 
-            // 3. Sync wishlist state
             m_detailsPage->setWishlisted(m_wishlistPage && m_wishlistPage->containsBook(bookId));
 
-            // 4. Switch stacked widget page to details page
             switchPage(2);
 
-            // 5. Fetch reviews for this book from server
             QJsonObject req;
             req["action"] = "get_book_reviews";
             req["bookId"] = bookId;
@@ -1961,4 +1827,58 @@ void UserPanel::handleEditProfile(){
         req["newPassword"] = dialog.newPassword();
         sendRequest(req);
     }
+}
+
+void UserPanel::openBookReader(int bookId)
+{
+    if (!m_ownedBookIds.contains(bookId)) {
+        QMessageBox::warning(this, "Not Purchased", "You need to purchase this book before you can read it.");
+        return;
+    }
+
+    const QString remotePdfPath = m_ownedBookPdfPaths.value(bookId);
+    if (remotePdfPath.isEmpty()) {
+        QMessageBox::warning(this, "Book Unavailable", "This book has no associated PDF file.");
+        return;
+    }
+
+    QString title;
+    for (const Book &b : std::as_const(m_storeBooks)) {
+        if (b.id == bookId) { title = b.title; break; }
+    }
+
+    QFileInfo info(remotePdfPath);
+    QDir().mkpath(QCoreApplication::applicationDirPath() + "/cache/books");
+    const QString localPath = QCoreApplication::applicationDirPath() + "/cache/books/" + info.fileName();
+
+    QString errorMsg;
+    if (!downloadFileFromServer(remotePdfPath, localPath, errorMsg)) {
+        QMessageBox::warning(this, "Unable to Open Book",
+                             errorMsg.isEmpty() ? "Failed to download this book's PDF file." : errorMsg);
+        return;
+    }
+
+    m_pendingReaderBookId = bookId;
+    m_pendingReaderLocalPath = localPath;
+    m_pendingReaderTitle = title;
+
+    QJsonObject req;
+    req["action"] = "progress_fetch";
+    req["userId"] = m_userId;
+    req["bookId"] = bookId;
+    sendRequest(req);
+}
+
+void UserPanel::launchPdfReader(int bookId, const QString &localPdfPath, const QString &title, int startPage)
+{
+    auto *reader = new PdfReaderDialog(localPdfPath, title, bookId, startPage, this);
+    connect(reader, &PdfReaderDialog::readingProgressChanged, this, [this](int id, int lastPage) {
+        QJsonObject req;
+        req["action"] = "progress_update";
+        req["userId"] = m_userId;
+        req["bookId"] = id;
+        req["lastPage"] = lastPage;
+        sendRequest(req);
+    });
+    reader->showFullScreen();
 }

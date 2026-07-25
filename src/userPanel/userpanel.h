@@ -27,12 +27,15 @@
 #include <QListWidget>
 #include <QSet>
 #include <QMap>
+#include <QHash>
 #include "models.h"
 #include "shoppingcarttab.h"
 #include "bookdetailspage.h"
 #include "wishlistpage.h"
 #include "notificationtoast.h"
+
 class MyLibraryPage;
+class PdfReaderDialog;
 
 class UserPanel : public QWidget
 {
@@ -59,6 +62,7 @@ private:
     void setupMyLibraryPage();
     void finalizeShelfSummaries();
     Book enrichedBook(int id, const QString &fallbackTitle, const QString &fallbackAuthor) const;
+
     void updateHero();
     void rebuildHomeSections();
     QWidget *makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut,
@@ -78,6 +82,10 @@ private:
     void toggleWishlist(int bookId);
     void openGenre(const QString &g);
 
+    // PDF reader
+    void openBookReader(int bookId);
+    void launchPdfReader(int bookId, const QString &localPdfPath, const QString &title, int startPage);
+
     // User Session Fields
     int m_userId;
     QString m_fullName;
@@ -87,16 +95,13 @@ private:
 
     MyLibraryPage *m_libraryPage = nullptr;
 
-    // My Library integration state - fed to m_libraryPage, kept here so
-    // shelf_fetch_books responses (which arrive one-per-shelf) can be
-    // accumulated before pushing a complete picture to the page.
     QVector<Shelf> m_shelves;
-    QMap<int, QVector<Book>> m_shelfBooksCache;   // shelfId -> that shelf's books
+    QMap<int, QVector<Book>> m_shelfBooksCache;
     QVector<Book> m_ownedBooksFull;
-    QSet<int> m_favoriteBookIds;                  // book ids on the "Favorites" shelf
+    QSet<int> m_favoriteBookIds;
     int m_favoritesShelfId = -1;
-    int m_openingShelfId = -1;                    // shelf awaiting shelf_fetch_books to open its detail view
-    int m_pendingFavoriteBookId = -1;             // book awaiting the auto-created "Favorites" shelf's id
+    int m_openingShelfId = -1;
+    int m_pendingFavoriteBookId = -1;
 
     // Sidebar & Base Widgets
     QLabel *m_nameLabel = nullptr;
@@ -165,6 +170,10 @@ private:
     QVector<Book> m_bestsellerBooks;
     QVector<Book> m_freeBooks;
     QSet<int> m_ownedBookIds;
+    QHash<int, QString> m_ownedBookPdfPaths;
+    int m_pendingReaderBookId = -1;
+    QString m_pendingReaderLocalPath;
+    QString m_pendingReaderTitle;
     QPushButton *m_heroOpenBtn;
     void showFullList(const QString &title, const QVector<Book> &books);
 };

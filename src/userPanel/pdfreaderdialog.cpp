@@ -97,6 +97,7 @@ void PdfReaderDialog::buildUi(const QString &bookTitle)
     pageLabel->setStyleSheet("color:#A79AB0;font-size:13px;background:transparent;border:none;");
 
     m_pageSpin = new QSpinBox(toolbar);
+    m_pageSpin->setFocusPolicy(Qt::NoFocus);
     m_pageSpin->setMinimum(1);
     m_pageSpin->setMaximum(1);
     m_pageSpin->setStyleSheet(
@@ -205,6 +206,8 @@ void PdfReaderDialog::buildUi(const QString &bookTitle)
 
     auto *escShortcut = new QShortcut(QKeySequence(Qt::Key_Escape), this);
     connect(escShortcut, &QShortcut::activated, this, &PdfReaderDialog::close);
+
+    this->setFocus();
 }
 
 void PdfReaderDialog::beginLoad(const QString &pdfPath)
