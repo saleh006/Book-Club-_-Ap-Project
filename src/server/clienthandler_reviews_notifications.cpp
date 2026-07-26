@@ -178,6 +178,31 @@ bool ClientHandler::handleReviewAndNotificationActions(const QString &action, co
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "notification_delete") {
+        responseObj["type"] = "notification_delete_result";
+        int notificationId = requestObj["notificationId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().deleteNotification(notificationId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["notificationId"] = notificationId;
+            responseObj["message"] = "Notification deleted.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "notifications_clear_all") {
+        responseObj["type"] = "notifications_clear_all_result";
+        int userId = requestObj["userId"].toInt();
+        QString errorMsg;
+        if (DatabaseManager::instance().deleteAllNotifications(userId, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "All notifications cleared.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
     else {
         return false;
     }

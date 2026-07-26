@@ -283,3 +283,27 @@ bool DatabaseManager::markAllNotificationsRead(int userId, QString &errorMsg)
     }
     return true;
 }
+
+bool DatabaseManager::deleteNotification(int notificationId, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("DELETE FROM notifications WHERE id = :id");
+    query.bindValue(":id", notificationId);
+    if (!query.exec()) {
+        errorMsg = "Failed to delete notification: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteAllNotifications(int userId, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("DELETE FROM notifications WHERE user_id = :uid");
+    query.bindValue(":uid", userId);
+    if (!query.exec()) {
+        errorMsg = "Failed to clear notifications: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}

@@ -15,14 +15,14 @@ struct ToastVisual { QString icon; QString accent; };
 static ToastVisual toastVisualFor(const QString &title)
 {
     if (title.startsWith(QStringLiteral("New in"), Qt::CaseInsensitive))
-        return { QStringLiteral("\U0001F4D8"), QStringLiteral("#6C8EF5") };
+        return { QStringLiteral("📘"), QStringLiteral("#6C8EF5") };
     if (title.compare(QStringLiteral("Price Drop!"), Qt::CaseInsensitive) == 0)
-        return { QStringLiteral("\U0001F3F7\uFE0F"), QStringLiteral("#45C48A") };
+        return { QStringLiteral("🏷"), QStringLiteral("#45C48A") };
     if (title.compare(QStringLiteral("Book Sold!"), Qt::CaseInsensitive) == 0)
-        return { QStringLiteral("\U0001F4B0"), QStringLiteral("#F0B429") };
+        return { QStringLiteral("💰"), QStringLiteral("#F0B429") };
     if (title.compare(QStringLiteral("New Review"), Qt::CaseInsensitive) == 0)
-        return { QStringLiteral("\U00002B50"), QStringLiteral("#F2994A") };
-    return { QStringLiteral("\U0001F514"), QStringLiteral("#B06B96") };
+        return { QStringLiteral("⭐"), QStringLiteral("#F2994A") };
+    return { QStringLiteral("🔔"), QStringLiteral("#B06B96") };
 }
 
 
@@ -81,7 +81,7 @@ NotificationToast::NotificationToast(QWidget *hostWidget, const QString &title, 
     textCol->addWidget(titleLbl);
     textCol->addWidget(msgLbl);
 
-    auto *closeBtn = new QPushButton("\u2715", this);
+    auto *closeBtn = new QPushButton("✕", this);
     closeBtn->setFixedSize(24, 24);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(

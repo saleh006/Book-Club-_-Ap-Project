@@ -19,43 +19,6 @@ static const char *kCardBorder = "#1F1724";
 static const char *kAccent     = "#7C3E66";
 static const char *kTextDim    = "#9A8FA0";
 
-namespace {
-static const char *kNotifPanelBg    = "#121017";
-static const char *kNotifCardBg     = "#1B1822";
-static const char *kNotifCardBorder = "#2A2735";
-static const char *kNotifUnreadBg   = "#211D2C";
-static const char *kNotifTextDim    = "#8D8797";
-
-struct NotifVisual { QString icon; QString accent; QString label; };
-
-NotifVisual notificationVisualFor(const QString &title)
-{
-    if (title.startsWith(QStringLiteral("New in"), Qt::CaseInsensitive))
-        return { QStringLiteral("\U0001F4D8"), QStringLiteral("#6C8EF5"), QStringLiteral("New Release") };
-    if (title.compare(QStringLiteral("Price Drop!"), Qt::CaseInsensitive) == 0)
-        return { QStringLiteral("\U0001F3F7\uFE0F"), QStringLiteral("#45C48A"), QStringLiteral("Discount") };
-    if (title.compare(QStringLiteral("Book Sold!"), Qt::CaseInsensitive) == 0)
-        return { QStringLiteral("\U0001F4B0"), QStringLiteral("#F0B429"), QStringLiteral("Sale") };
-    if (title.compare(QStringLiteral("New Review"), Qt::CaseInsensitive) == 0)
-        return { QStringLiteral("\U00002B50"), QStringLiteral("#F2994A"), QStringLiteral("Review") };
-    return { QStringLiteral("\U0001F514"), QStringLiteral("#B06B96"), QStringLiteral("Update") };
-}
-
-QString formatRelativeNotifTime(const QDateTime &dt)
-{
-    if (!dt.isValid()) return QString();
-    const qint64 secs = dt.secsTo(QDateTime::currentDateTime());
-    if (secs < 0)      return dt.toString("MMM d, HH:mm");
-    if (secs < 60)     return QStringLiteral("Just now");
-    if (secs < 3600)   return QStringLiteral("%1m ago").arg(secs / 60);
-    if (secs < 86400)  return QStringLiteral("%1h ago").arg(secs / 3600);
-    if (secs < 172800) return QStringLiteral("Yesterday");
-    if (secs < 604800) return QStringLiteral("%1d ago").arg(secs / 86400);
-    return dt.toString("MMM d");
-}
-
-}
-
 static QPixmap makeCoverPixmap(const Book &b, const QSize &size)
 {
     if (!b.coverImagePath.isEmpty()) {
@@ -1268,6 +1231,27 @@ void UserPanel::onReadyRead()
             rebuildNotificationList();
             updateNotificationBadge();
         }
+        else if (type == "notification_delete_result") {
+            if (responseObj["status"].toString() == "success") {
+                int notifId = responseObj["notificationId"].toInt();
+                for (int i = 0; i < m_notifications.size(); ++i) {
+                    if (m_notifications[i].id == notifId) { m_notifications.remove(i); break; }
+                }
+                rebuildNotificationList();
+                updateNotificationBadge();
+            } else {
+                StyledMessageBox::error(this, "Delete Failed", responseObj["message"].toString());
+            }
+        }
+        else if (type == "notifications_clear_all_result") {
+            if (responseObj["status"].toString() == "success") {
+                m_notifications.clear();
+                rebuildNotificationList();
+                updateNotificationBadge();
+            } else {
+                StyledMessageBox::error(this, "Clear Failed", responseObj["message"].toString());
+            }
+        }
         else if (action == "books_fetch_owned_response" || action == "books_fetch_owned") {
             if (responseObj["status"].toString() == "success") {
                 m_ownedBookIds.clear();
@@ -1676,7 +1660,7 @@ QWidget *UserPanel::createNotificationsPage()
     titleCol->addWidget(title);
     titleCol->addWidget(subtitle);
 
-    auto *markAllBtn = new QPushButton("\u2713 Mark all as read", page);
+    auto *markAllBtn = new QPushButton("✓ Mark all as read", page);
     markAllBtn->setCursor(Qt::PointingHandCursor);
     markAllBtn->setStyleSheet(
         "QPushButton{color:#CFC7D6;font-size:12px;font-weight:600;border:1px solid #34303F;"
@@ -1689,9 +1673,25 @@ QWidget *UserPanel::createNotificationsPage()
         req["userId"] = m_userId;
         sendRequest(req);
     });
+
+    auto *clearAllBtn = new QPushButton("🗑 Clear all", page);
+    clearAllBtn->setCursor(Qt::PointingHandCursor);
+    clearAllBtn->setStyleSheet(
+        "QPushButton{color:#E4577A;font-size:12px;font-weight:600;border:1px solid #3A2430;"
+        "border-radius:8px;background-color:#1E1B26;padding:8px 14px;}"
+        "QPushButton:hover{background-color:#2A1A22;border-color:#E4577A;color:#FF7A9C;}"
+        "QPushButton:pressed{background-color:#241018;}");
+    connect(clearAllBtn, &QPushButton::clicked, this, [this]() {
+        QJsonObject req;
+        req["action"] = "notifications_clear_all";
+        req["userId"] = m_userId;
+        sendRequest(req);
+    });
+
     headerLayout->addLayout(titleCol);
     headerLayout->addStretch();
     headerLayout->addWidget(markAllBtn,0,Qt::AlignTop);
+    headerLayout->addWidget(clearAllBtn,0,Qt::AlignTop);
     layout->addLayout(headerLayout);
 
     m_notifListWidget = new QListWidget(page);
@@ -1733,7 +1733,7 @@ void UserPanel::rebuildNotificationList()
         auto *emptyLayout = new QVBoxLayout(empty);
         emptyLayout->setContentsMargins(0, 60, 0, 40);
         emptyLayout->setSpacing(8);
-        auto *icon = new QLabel("\U0001F4ED", empty); // 📭
+        auto *icon = new QLabel("📭", empty);
         icon->setStyleSheet("font-size:34px;border:none;background:transparent;");
         icon->setAlignment(Qt::AlignCenter);
         auto *text = new QLabel("You're all caught up", empty);
@@ -1753,7 +1753,7 @@ void UserPanel::rebuildNotificationList()
     for (const Notification &n : m_notifications) {
         const NotifVisual visual = notificationVisualFor(n.title);
 
-        auto *row = new QFrame(m_notifListWidget);
+        auto *row = new NotifRowFrame(m_notifListWidget);
         row->setObjectName("notifCard");
         row->setAttribute(Qt::WA_Hover, true);
         row->setCursor(n.isRead ? Qt::ArrowCursor : Qt::PointingHandCursor);
@@ -1821,6 +1821,27 @@ void UserPanel::rebuildNotificationList()
             unreadDot->setStyleSheet("background-color:#E4577A;border-radius:4px;");
             rowLayout->addWidget(unreadDot, 0, Qt::AlignTop);
         }
+
+        auto *deleteBtn = new QPushButton("✕", row);
+        deleteBtn->setFixedSize(22, 22);
+        deleteBtn->setCursor(Qt::PointingHandCursor);
+        deleteBtn->setToolTip("Delete notification");
+        deleteBtn->setStyleSheet(
+            "QPushButton{color:#6B7280;border:none;background:transparent;font-size:12px;border-radius:11px;}"
+            "QPushButton:hover{color:#FFFFFF;background-color:#3A2430;}");
+        deleteBtn->hide();
+
+        const int notifId = n.id;
+        connect(deleteBtn, &QPushButton::clicked, this, [this, notifId]() {
+            QJsonObject req;
+            req["action"] = "notification_delete";
+            req["userId"] = m_userId;
+            req["notificationId"] = notifId;
+            sendRequest(req);
+        });
+
+        rowLayout->addWidget(deleteBtn, 0, Qt::AlignTop);
+        row->hoverButton = deleteBtn;
 
         auto *item = new QListWidgetItem();
         item->setSizeHint(row->sizeHint());
