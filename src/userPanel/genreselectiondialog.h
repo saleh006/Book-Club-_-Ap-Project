@@ -12,7 +12,7 @@ class GenreSelectionDialog : public QDialog
 {
     Q_OBJECT
 public:
-    explicit GenreSelectionDialog(QWidget *parent = nullptr);
+    explicit GenreSelectionDialog(const QStringList &preSelectedGenres = {}, QWidget *parent = nullptr);
     QStringList selectedGenres() const;
 
 private:

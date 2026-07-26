@@ -186,6 +186,12 @@ private:
     //Block method
     QWidget *m_blockOverlay = nullptr;
     void showBlockedOverlay();
+
+    QLabel *m_genresLabel = nullptr;
+    QPushButton *m_editGenresBtn = nullptr;
+    void handleEditGenres();
+    void updateGenresLabel();
+    void saveFavoriteGenres();
 };
 
 static bool downloadFileFromServer(const QString &serverFilePath, const QString &localSavePath, QString &errorMsg)

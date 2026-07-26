@@ -224,6 +224,38 @@ void UserPanel::setupUi()
     sidebarLayout->addSpacing(8);
     sidebarLayout->addWidget(avatarRow);
     sidebarLayout->addWidget(roleLabel);
+    sidebarLayout->addSpacing(10);
+
+    // --- Favorite genres: shows what the user picked, with an edit affordance ---
+    QWidget *genresRow = new QWidget(sidebar);
+    genresRow->setStyleSheet("background: transparent; border: none;");
+    QHBoxLayout *genresRowLayout = new QHBoxLayout(genresRow);
+    genresRowLayout->setContentsMargins(0, 0, 0, 0);
+    genresRowLayout->setSpacing(6);
+
+    m_genresLabel = new QLabel(genresRow);
+    m_genresLabel->setStyleSheet("color: #9A8FA0; font-size: 11px; background: transparent; border: none;");
+    m_genresLabel->setAlignment(Qt::AlignCenter);
+    m_genresLabel->setWordWrap(true);
+    m_genresLabel->setText("Favorite genres: not set yet");
+
+    m_editGenresBtn = new QPushButton(genresRow);
+    m_editGenresBtn->setIcon(QIcon(":/icons/pen.png"));
+    m_editGenresBtn->setIconSize(QSize(12, 12));
+    m_editGenresBtn->setFixedSize(20, 20);
+    m_editGenresBtn->setCursor(Qt::PointingHandCursor);
+    m_editGenresBtn->setToolTip("Edit favorite genres");
+    m_editGenresBtn->setStyleSheet(
+        "QPushButton { background-color: #1F1724; border: 1px solid #2A2233; border-radius: 6px; }"
+        "QPushButton:hover { background-color: #7C3E66; border-color: #B06B96; }");
+    connect(m_editGenresBtn, &QPushButton::clicked, this, &UserPanel::handleEditGenres);
+
+    genresRowLayout->addStretch();
+    genresRowLayout->addWidget(m_genresLabel);
+    genresRowLayout->addWidget(m_editGenresBtn);
+    genresRowLayout->addStretch();
+
+    sidebarLayout->addWidget(genresRow);
     sidebarLayout->addSpacing(15);
 
     m_btnHome = new QPushButton("Home Discovery", sidebar);
@@ -1124,26 +1156,18 @@ void UserPanel::onReadyRead()
             }
 
             if (m_favoriteGenres.isEmpty()) {
-                GenreSelectionDialog dialog(this);
+                GenreSelectionDialog dialog({}, this); // first run — nothing pre-selected yet
                 if (dialog.exec() == QDialog::Accepted) {
                     m_favoriteGenres = dialog.selectedGenres();
-
-                    QJsonObject req;
-                    req["action"] = "user_set_favorite_genres";
-                    req["userId"] = m_userId;
-
-                    QJsonArray arr;
-                    for (const QString &genre : m_favoriteGenres) {
-                        arr.append(genre);
-                    }
-                    req["genres"] = arr;
-                    sendRequest(req);
+                    saveFavoriteGenres();
                 }
             }
 
+            updateGenresLabel();
             rebuildHomeSections();
         }
         else if (type == "favorite_genres_saved" && responseObj["success"].toBool()) {
+            updateGenresLabel();
             rebuildHomeSections();
         }
         else if (type == "user_info" && responseObj["status"].toString() == "success") {
@@ -1991,6 +2015,49 @@ void UserPanel::handleEditProfile(){
         req["newPassword"] = dialog.newPassword();
         sendRequest(req);
     }
+}
+
+void UserPanel::updateGenresLabel()
+{
+    if (!m_genresLabel) return;
+
+    if (m_favoriteGenres.isEmpty()) {
+        m_genresLabel->setText("Favorite genres: not set yet");
+        return;
+    }
+
+    // Keep the sidebar tidy — show a few, then "+N more" if there are lots
+    const int maxShown = 3;
+    QStringList shown = m_favoriteGenres.mid(0, maxShown);
+    QString text = "Favorite: " + shown.join(", ");
+    if (m_favoriteGenres.size() > maxShown)
+        text += QString(" +%1 more").arg(m_favoriteGenres.size() - maxShown);
+    m_genresLabel->setText(text);
+}
+
+void UserPanel::saveFavoriteGenres()
+{
+    QJsonObject req;
+    req["action"] = "user_set_favorite_genres";
+    req["userId"] = m_userId;
+
+    QJsonArray arr;
+    for (const QString &genre : std::as_const(m_favoriteGenres))
+        arr.append(genre);
+    req["genres"] = arr;
+    sendRequest(req);
+}
+
+void UserPanel::handleEditGenres()
+{
+    GenreSelectionDialog dialog(m_favoriteGenres, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    m_favoriteGenres = dialog.selectedGenres();
+    updateGenresLabel();
+    saveFavoriteGenres();
+    rebuildHomeSections();
 }
 
 void UserPanel::openBookReader(int bookId)

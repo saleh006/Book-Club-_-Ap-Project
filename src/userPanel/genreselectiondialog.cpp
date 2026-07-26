@@ -82,20 +82,27 @@ QIcon makeGenreCard(const QString &imagePath, const QString &name,
 
 } // namespace
 
-GenreSelectionDialog::GenreSelectionDialog(QWidget *parent)
+GenreSelectionDialog::GenreSelectionDialog(const QStringList &preSelectedGenres, QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle("Choose Your Interests");
+    const bool isEditMode = !preSelectedGenres.isEmpty();
+
+    setWindowTitle(isEditMode ? "Edit Your Interests" : "Choose Your Interests");
     setFixedSize(560, 560);
     setStyleSheet("QDialog { background-color: #060508; }");
-    // first-run step — user must pick, no X-button escape
-    setWindowFlags(windowFlags() & ~Qt::WindowCloseButtonHint);
+    if (isEditMode) {
+        // editing later — user already has genres, so let them close/cancel freely
+        setWindowFlags(windowFlags() | Qt::WindowCloseButtonHint);
+    } else {
+        // first-run step — user must pick, no X-button escape
+        setWindowFlags(windowFlags() & ~Qt::WindowCloseButtonHint);
+    }
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(30, 25, 30, 25);
     layout->setSpacing(8);
 
-    auto *title = new QLabel("What do you like to read? 📚", this);
+    auto *title = new QLabel(isEditMode ? "Update your favorite genres 📚" : "What do you like to read? 📚", this);
     title->setStyleSheet("color: #FFFFFF; font-size: 20px; font-weight: bold; background: transparent;");
     auto *subtitle = new QLabel(
         QString("Pick at least %1 genres — we'll use them to recommend books you'll love.")
@@ -114,6 +121,8 @@ GenreSelectionDialog::GenreSelectionDialog(QWidget *parent)
     grid->setSpacing(10);
     int i = 0;
     for (const auto &entry : kGenres) {
+        const bool preSelected = preSelectedGenres.contains(QString(entry.name), Qt::CaseInsensitive);
+
         auto *btn = new QPushButton(this);
         btn->setCheckable(true);
         btn->setCursor(Qt::PointingHandCursor);
@@ -121,7 +130,7 @@ GenreSelectionDialog::GenreSelectionDialog(QWidget *parent)
         btn->setIconSize(kCardSize);
         btn->setStyleSheet(cardStyle);
         btn->setProperty("genreName", entry.name);
-        btn->setIcon(makeGenreCard(entry.image, entry.name, kCardSize, false));
+        btn->setIcon(makeGenreCard(entry.image, entry.name, kCardSize, preSelected));
 
         const QString img = entry.image;
         const QString name = entry.name;
@@ -129,6 +138,7 @@ GenreSelectionDialog::GenreSelectionDialog(QWidget *parent)
             btn->setIcon(makeGenreCard(img, name, kCardSize, on));
             updateContinueButton();
         });
+        btn->setChecked(preSelected);
 
         grid->addWidget(btn, i / kColumns, i % kColumns);
         m_genreButtons.push_back(btn);
@@ -154,6 +164,8 @@ GenreSelectionDialog::GenreSelectionDialog(QWidget *parent)
     bottomRow->addStretch();
     bottomRow->addWidget(m_continueBtn);
     layout->addLayout(bottomRow);
+
+    updateContinueButton(); // reflect any pre-selected genres now that both widgets exist
 }
 
 QStringList GenreSelectionDialog::selectedGenres() const
@@ -167,6 +179,9 @@ QStringList GenreSelectionDialog::selectedGenres() const
 
 void GenreSelectionDialog::updateContinueButton()
 {
+    if (!m_counterLabel || !m_continueBtn)
+        return; // called from setChecked() while the grid is still being built
+
     const int n = selectedGenres().size();
     m_counterLabel->setText(n >= kMinSelection
                                 ? QString("%1 selected ✓").arg(n)
