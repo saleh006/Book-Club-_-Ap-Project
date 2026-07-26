@@ -12,8 +12,6 @@ HoverCard::HoverCard(QWidget *parent)
 {
     setAttribute(Qt::WA_Hover, true);
     setFrameShape(QFrame::NoFrame);
-    // The frame paints its own rounded background/border in paintEvent();
-    // this stylesheet just makes sure Qt doesn't draw anything underneath it.
     setStyleSheet("background: transparent; border: none;");
 
     m_backgroundColor = QColor("#181320");

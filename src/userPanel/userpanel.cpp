@@ -1063,6 +1063,10 @@ void UserPanel::onReadyRead()
                 b.publisherName = bo["publisherName"].toString();
                 qDebug() << b.title << "-> publisher:" << b.publisherName;
                 m_storeBooks.push_back(b);
+                QJsonObject pubReq;
+                pubReq["action"] = "get_publisher_by_book";
+                pubReq["bookId"] = b.id;
+                sendRequest(pubReq);
             }
             rebuildHomeSections();
             m_wishlistPage->setCatalog(m_storeBooks);
@@ -1417,6 +1421,16 @@ void UserPanel::onReadyRead()
                     m_readingProgressByBookId[po["bookId"].toInt()] = po["lastPage"].toInt();
                 }
                 rebuildContinueReadingItems();
+            }
+        }
+        else if (action == "get_publisher_by_book_response" && responseObj["status"].toString() == "success") {
+            int bookId = responseObj["bookId"].toInt();
+            QString publisherName = responseObj["publisherName"].toString();
+            for (Book &b : m_storeBooks) {
+                if (b.id == bookId) {
+                    b.publisherName = publisherName;
+                    break;
+                }
             }
         }
     }

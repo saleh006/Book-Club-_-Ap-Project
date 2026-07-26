@@ -197,3 +197,30 @@ bool DatabaseManager::fetchPublisherSalesTrend(int publisherId, const QString &g
     return true;
 }
 
+
+bool DatabaseManager::fetchPublisherNameByBookId(int bookId, QString &outPublisherName, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare(R"(
+        SELECT u.full_name, u.username
+        FROM users u
+        JOIN books b ON b.publisher_id = u.id
+        WHERE b.id = :bookId
+    )");
+    query.bindValue(":bookId", bookId);
+
+    if (query.exec()) {
+        if (query.next()) {
+            QString fullName = query.value("full_name").toString();
+            QString username = query.value("username").toString();
+            outPublisherName = fullName.isEmpty() ? username : fullName;
+            return true;
+        } else {
+            errorMsg = "Book or publisher not found.";
+            return false;
+        }
+    } else {
+        errorMsg = query.lastError().text();
+        return false;
+    }
+}

@@ -210,6 +210,22 @@ bool ClientHandler::handleBookActions(const QString &action, const QJsonObject &
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "get_publisher_by_book") {
+        responseObj["action"] = "get_publisher_by_book_response";
+        int bookId = requestObj["bookId"].toInt();
+
+        QString publisherName;
+        QString errorMsg;
+
+        if (DatabaseManager::instance().fetchPublisherNameByBookId(bookId, publisherName, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["bookId"] = bookId;
+            responseObj["publisherName"] = publisherName;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg.isEmpty() ? "Publisher not found." : errorMsg;
+        }
+    }
     else {
         return false;
     }
