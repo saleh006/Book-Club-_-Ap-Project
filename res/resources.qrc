@@ -59,5 +59,19 @@
         <file>quastion icon.png</file>
         <file>success icon.png</file>
         <file>warning.png</file>
+        <file>icons/magnifying-glass-solid.png</file>
+        <file>icons/computer-solid.png</file>
+        <file>icons/memory-solid.png</file>
+        <file>icons/arrow-trend-down-solid.png</file>
+        <file>icons/arrow-trend-up-solid.png</file>
+        <file>icons/chart-bar-solid.png</file>
+        <file>icons/delicious-brands-solid.png</file>
+        <file>icons/star-solid.png</file>
+        <file>icons/trophy-solid.png</file>
+        <file>icons/chart-pie-solid.png</file>
+        <file>icons/book1.png</file>
+        <file>icons/book-stack.png</file>
+        <file>icons/link.png</file>
+        <file>icons/folder.png</file>
     </qresource>
 </RCC>

@@ -606,7 +606,10 @@ QWidget *UserPanel::createHomePage()
 
     // ---------- search bar (subtle glow on focus) ----------
     m_searchEdit = new QLineEdit(page);
-    m_searchEdit->setPlaceholderText("🔍  Search by title, author, or publisher...");
+    m_searchEdit->setPlaceholderText("Search by title, author, or publisher...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_searchEdit);
+    m_searchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_searchEdit->setFixedHeight(44);
     m_searchEdit->setStyleSheet(QString(
                                     "QLineEdit{background-color:%1;border:1px solid %2;border-radius:22px;"
@@ -2025,7 +2028,6 @@ void UserPanel::updateGenresLabel()
         m_genresLabel->setText("Favorite genres: not set yet");
         return;
     }
-
     // Keep the sidebar tidy — show a few, then "+N more" if there are lots
     const int maxShown = 3;
     QStringList shown = m_favoriteGenres.mid(0, maxShown);

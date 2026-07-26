@@ -63,44 +63,128 @@ void ServerWindow::setupUi()
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(15,15,15,15);
     mainLayout->setSpacing(12);
+
     QGridLayout *statsGrid = new QGridLayout();
     statsGrid->setSpacing(8);
 
+
     m_statusLabel = new QLabel("⚪ Server Status: Checking...", this);
-    m_clientCountLabel = new QLabel("👥 Active Clients: 0", this);
-    m_cpuLabel = new QLabel("💻 CPU Usage: -- %", this);
-    m_ramLabel = new QLabel("🎛️ RAM Usage: -- %", this);
+
+
+    // -------- Client --------
+    QWidget *clientWidget = new QWidget(this);
+    QHBoxLayout *clientLayout = new QHBoxLayout(clientWidget);
+
+    QLabel *clientIcon = new QLabel(clientWidget);
+    clientIcon->setPixmap(QPixmap(":/icons/users-solid.png")
+                              .scaled(20,20,Qt::KeepAspectRatio,Qt::SmoothTransformation));
+
+    m_clientCountLabel = new QLabel("Active Clients: 0", clientWidget);
+
+    clientLayout->addWidget(clientIcon);
+    clientLayout->addWidget(m_clientCountLabel);
+    clientLayout->setAlignment(Qt::AlignCenter);
+    clientLayout->setContentsMargins(0,0,0,0);
+
+
+    // -------- CPU --------
+    QWidget *cpuWidget = new QWidget(this);
+    QHBoxLayout *cpuLayout = new QHBoxLayout(cpuWidget);
+
+    QLabel *cpuIcon = new QLabel(cpuWidget);
+    cpuIcon->setPixmap(QPixmap(":/icons/computer-solid.png")
+                           .scaled(20,20,Qt::KeepAspectRatio,Qt::SmoothTransformation));
+
+    m_cpuLabel = new QLabel("CPU Usage: -- %", cpuWidget);
+
+    cpuLayout->addWidget(cpuIcon);
+    cpuLayout->addWidget(m_cpuLabel);
+    cpuLayout->setAlignment(Qt::AlignCenter);
+    cpuLayout->setContentsMargins(0,0,0,0);
+
+
+    // -------- RAM --------
+    QWidget *ramWidget = new QWidget(this);
+    QHBoxLayout *ramLayout = new QHBoxLayout(ramWidget);
+
+    QLabel *ramIcon = new QLabel(ramWidget);
+    ramIcon->setPixmap(QPixmap(":/icons/memory-solid.png")
+                           .scaled(20,20,Qt::KeepAspectRatio,Qt::SmoothTransformation));
+
+    m_ramLabel = new QLabel("RAM Usage: -- %", ramWidget);
+
+    ramLayout->addWidget(ramIcon);
+    ramLayout->addWidget(m_ramLabel);
+    ramLayout->setAlignment(Qt::AlignCenter);
+    ramLayout->setContentsMargins(0,0,0,0);
+
 
     QString cardStyle =
-        "QLabel { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
-        "padding: 8px; font-size: 14px; font-weight: bold; ";
+        "QLabel { "
+        "background-color: #120E14;"
+        "border: 1px solid #1F1724;"
+        "border-radius: 6px;"
+        "padding: 8px;"
+        "font-size: 14px;"
+        "font-weight: bold;"
+        "}";
 
-    m_statusLabel->setStyleSheet(cardStyle + "color: #f39c12; }");
-    m_clientCountLabel->setStyleSheet(cardStyle + "color: #3498db }");
-    m_cpuLabel->setStyleSheet(cardStyle + "color: #f1c40f }");
-    m_ramLabel->setStyleSheet(cardStyle + "color: #9b59b6 }");
+
+    m_statusLabel->setStyleSheet(cardStyle + "color:#f39c12;");
+    m_clientCountLabel->setStyleSheet(cardStyle + "color:#3498db;");
+    m_cpuLabel->setStyleSheet(cardStyle + "color:#f1c40f;");
+    m_ramLabel->setStyleSheet(cardStyle + "color:#9b59b6;");
+
 
     m_statusLabel->setAlignment(Qt::AlignCenter);
     m_clientCountLabel->setAlignment(Qt::AlignCenter);
     m_cpuLabel->setAlignment(Qt::AlignCenter);
     m_ramLabel->setAlignment(Qt::AlignCenter);
 
+
     statsGrid->addWidget(m_statusLabel,0,0);
-    statsGrid->addWidget(m_clientCountLabel,0,1);
-    statsGrid->addWidget(m_cpuLabel,1,0);
-    statsGrid->addWidget(m_ramLabel,1,1);
+    statsGrid->addWidget(clientWidget,0,1);
+
+    statsGrid->addWidget(cpuWidget,1,0);
+    statsGrid->addWidget(ramWidget,1,1);
+
+
     mainLayout->addLayout(statsGrid);
 
+
+
     QGroupBox *logGroup = new QGroupBox("Live Activity Logs (Real-time)", this);
-    logGroup->setStyleSheet("QGroupBox { font-weight: bold; color: #e0e0e0; border: 1px solid #3a3a4c; border-radius: 8px; margin-top: 5px; padding-top: 15px; }");
+
+    logGroup->setStyleSheet(
+        "QGroupBox {"
+        "font-weight:bold;"
+        "color:#e0e0e0;"
+        "border:1px solid #3a3a4c;"
+        "border-radius:8px;"
+        "margin-top:5px;"
+        "padding-top:15px;"
+        "}"
+        );
+
+
     QVBoxLayout *logGroupLayout = new QVBoxLayout(logGroup);
     logGroupLayout->setContentsMargins(10,10,10,10);
 
+
     m_logDisplay = new QTextEdit(this);
     m_logDisplay->setReadOnly(true);
-    m_logDisplay->setStyleSheet("background-color: #0f0f12; color: #a3be8c; border: none; font-family: 'Consolas', monospace; font-size: 13px;");
+
+    m_logDisplay->setStyleSheet(
+        "background-color:#0f0f12;"
+        "color:#a3be8c;"
+        "border:none;"
+        "font-family:'Consolas', monospace;"
+        "font-size:13px;"
+        );
+
 
     logGroupLayout->addWidget(m_logDisplay);
+
     mainLayout->addWidget(logGroup);
 }
 
@@ -113,18 +197,18 @@ void ServerWindow::onNewLogReceived(const QString &message)
 }
 void ServerWindow::onClientCountUpdated(int count)
 {
-    m_clientCountLabel->setText(QString("👥 Active Clients: %1").arg(count));
+    m_clientCountLabel->setText(QString("Active Clients: %1").arg(count));
 }
 void ServerWindow::updateSystemUsage()
 {
 #ifdef Q_OS_WIN
     double cpuPercent = getCpuUsage();
-    m_cpuLabel->setText(QString("💻 CPU Usage: %1 %").arg(cpuPercent, 0, 'f', 1));
+    m_cpuLabel->setText(QString("CPU Usage: %1 %").arg(cpuPercent, 0, 'f', 1));
     MEMORYSTATUSEX memInfo;
     memInfo.dwLength = sizeof(MEMORYSTATUSEX);
     if (GlobalMemoryStatusEx(&memInfo)) {
         int ramPercent = memInfo.dwMemoryLoad;
-        m_ramLabel->setText(QString("🎛️ RAM Usage: %1 %").arg(ramPercent));
+        m_ramLabel->setText(QString("RAM Usage: %1 %").arg(ramPercent));
     }
 #else
     m_cpuLabel->setText("💻 CPU Usage: N/A");

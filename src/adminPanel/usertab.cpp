@@ -42,7 +42,10 @@ QWidget* UsersTab::setupUi()
     layout->setSpacing(12);
 
     m_searchEdit = new QLineEdit(page);
-    m_searchEdit->setPlaceholderText("🔍 Search users by username ...");
+    m_searchEdit->setPlaceholderText("Search users by username ...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_searchEdit);
+    m_searchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_searchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"

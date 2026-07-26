@@ -293,7 +293,10 @@ QWidget* BookTab::setupUi()
     layout->setSpacing(12);
 
     m_bookSearchEdit = new QLineEdit(page);
-    m_bookSearchEdit->setPlaceholderText("🔍 Search books by title or author...");
+    m_bookSearchEdit->setPlaceholderText("Search books by title or author...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_bookSearchEdit);
+    m_bookSearchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_bookSearchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"

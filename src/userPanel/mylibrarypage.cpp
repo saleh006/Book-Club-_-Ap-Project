@@ -116,8 +116,20 @@ QWidget *MyLibraryPage::buildHeader()
     auto *topRow = new QHBoxLayout;
     topRow->setSpacing(16);
 
-    auto *iconBubble = new QLabel(QStringLiteral("\U0001F4D6"), header);
+    auto *iconBubble = new QLabel(header);
+
     iconBubble->setFixedSize(52, 52);
+    iconBubble->setAlignment(Qt::AlignCenter);
+
+    iconBubble->setPixmap(
+        QPixmap(":/icons/book1.png")
+            .scaled(
+                24,
+                24,
+                Qt::KeepAspectRatio,
+                Qt::SmoothTransformation
+                )
+        );
     iconBubble->setAlignment(Qt::AlignCenter);
     iconBubble->setStyleSheet(
         "background-color: rgba(255,255,255,20); border-radius: 14px; font-size: 24px; border:none;");
@@ -135,9 +147,26 @@ QWidget *MyLibraryPage::buildHeader()
     topRow->addLayout(titleCol);
     topRow->addStretch();
 
-    auto *decoration = new QLabel(QStringLiteral("\U0001F4DA"), header);
+    auto *decoration = new QLabel(header);
+
     decoration->setAttribute(Qt::WA_TransparentForMouseEvents);
-    decoration->setStyleSheet("color: rgba(255,255,255,25); font-size:96px; background:transparent; border:none;");
+
+    decoration->setPixmap(
+        QPixmap(":/icons/book-stack.png")
+            .scaled(
+                96,
+                96,
+                Qt::KeepAspectRatio,
+                Qt::SmoothTransformation
+                )
+        );
+
+    decoration->setStyleSheet(
+        "QLabel {"
+        "background:transparent;"
+        "border:none;"
+        "}"
+        );
     topRow->addWidget(decoration);
 
     v->addLayout(topRow);
@@ -206,7 +235,10 @@ QWidget *MyLibraryPage::buildTabsAndToolbar()
     toolbar->setSpacing(12);
 
     m_searchEdit = new QLineEdit(wrap);
-    m_searchEdit->setPlaceholderText(QStringLiteral("\U0001F50D  Search my library..."));
+    m_searchEdit->setPlaceholderText("Search my library...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_searchEdit);
+    m_searchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_searchEdit->setFixedHeight(40);
     m_searchEdit->setStyleSheet(
         "QLineEdit{background-color:#181320; border:1px solid rgba(255,255,255,20);"

@@ -29,7 +29,10 @@ QWidget* ReviewsTab::setupUi()
     topBar->setSpacing(10);
 
     m_reviewSearchEdit = new QLineEdit(page);
-    m_reviewSearchEdit->setPlaceholderText("🔍 Search reviews by book title or username...");
+    m_reviewSearchEdit->setPlaceholderText("Search reviews by book title or username...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_reviewSearchEdit);
+    m_reviewSearchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_reviewSearchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"

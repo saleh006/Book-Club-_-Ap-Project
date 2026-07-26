@@ -80,10 +80,12 @@ BookCard::BookCard(const Book &book, QWidget *parent)
     auto *btnRow = new QHBoxLayout;
     btnRow->setSpacing(6);
 
-    auto *readBtn = makeIconButton(QStringLiteral("\U0001F4D6"), QStringLiteral("Read"));
+    auto *readBtn = makeIconButton(":/icons/link.png",
+                                   QStringLiteral("Read"));
     connect(readBtn, &QPushButton::clicked, this, [this] { emit readRequested(m_book.id); });
 
-    auto *shelfBtn = makeIconButton(QStringLiteral("\U0001F4C1"), QStringLiteral("Move to shelf"));
+    auto *shelfBtn = makeIconButton(":/icons/folder.png",
+                                    QStringLiteral("Move to shelf"));
     connect(shelfBtn, &QPushButton::clicked, this, [this] { emit moveToShelfRequested(m_book.id); });
 
     m_favoriteBtn = makeIconButton(QStringLiteral("\u2661"), QStringLiteral("Favorite"));
@@ -101,16 +103,33 @@ BookCard::BookCard(const Book &book, QWidget *parent)
     connect(this, &HoverCard::clicked, this, [this] { emit openRequested(m_book.id); });
 }
 
-QPushButton *BookCard::makeIconButton(const QString &text, const QString &tooltip)
+QPushButton *BookCard::makeIconButton(const QString &iconPath,
+                                      const QString &tooltip)
 {
-    auto *btn = new QPushButton(text, this);
+    auto *btn = new QPushButton(this);
+
     btn->setFixedSize(30, 28);
     btn->setCursor(Qt::PointingHandCursor);
     btn->setToolTip(tooltip);
+
+    if (iconPath.startsWith(":/"))
+    {
+        btn->setIcon(QIcon(iconPath));
+        btn->setIconSize(QSize(16,16));
+    }
+    else
+    {
+        btn->setText(iconPath);
+    }
+
     btn->setStyleSheet(
-        "QPushButton{background-color:#231B2F;border:1px solid rgba(255,255,255,20);"
+        "QPushButton{background-color:#231B2F;"
+        "border:1px solid rgba(255,255,255,20);"
         "border-radius:8px;color:#EAEAEA;font-size:12px;}"
-        "QPushButton:hover{background-color:#A855F7;border-color:#C084FC;color:white;}");
+        "QPushButton:hover{background-color:#A855F7;"
+        "border-color:#C084FC;color:white;}"
+        );
+
     return btn;
 }
 

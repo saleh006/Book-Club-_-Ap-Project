@@ -300,7 +300,10 @@ QWidget* PublisherPanel::createBooksPage()
     layout->setSpacing(12);
 
     m_bookSearchEdit = new QLineEdit(page);
-    m_bookSearchEdit->setPlaceholderText("🔍 Search your books by title...");
+    m_bookSearchEdit->setPlaceholderText("Search your books by title...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_bookSearchEdit);
+    m_bookSearchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_bookSearchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"
@@ -918,24 +921,79 @@ QWidget *PublisherPanel::makeStatCard(const QString &icon, const QString &iconBg
     return card;
 }
 
-QWidget *PublisherPanel::makeSectionCard(const QString &icon, const QString &title,
-                                         QWidget *content, QWidget *headerRight)
+QWidget *PublisherPanel::makeSectionCard(const QString &icon,
+                                         const QString &title,
+                                         QWidget *content,
+                                         QWidget *headerRight)
 {
     auto *card = new QWidget(this);
-    card->setStyleSheet(QString("QWidget{background-color:%1;border:1px solid %2;border-radius:10px;}")
-                            .arg(kCardBg, kCardBorder));
+
+    card->setStyleSheet(
+        QString(
+            "QWidget{"
+            "background-color:%1;"
+            "border:1px solid %2;"
+            "border-radius:10px;"
+            "}"
+            ).arg(kCardBg, kCardBorder)
+        );
+
+
     auto *v = new QVBoxLayout(card);
     v->setContentsMargins(16, 14, 16, 14);
     v->setSpacing(10);
 
-    auto *header = new QHBoxLayout;
-    auto *titleLabel = new QLabel(icon + "  " + title, card);
-    titleLabel->setStyleSheet("color:#EAEAEA;font-size:13px;font-weight:bold;border:none;background:transparent;");
+
+    // Header
+    auto *headerWidget = new QWidget(card);
+    headerWidget->setStyleSheet("background:transparent;border:none;");
+
+    auto *header = new QHBoxLayout(headerWidget);
+    header->setContentsMargins(0,0,0,0);
+    header->setSpacing(8);
+
+
+    // Icon
+    auto *iconLabel = new QLabel(headerWidget);
+
+    iconLabel->setPixmap(
+        QPixmap(icon).scaled(
+            18,
+            18,
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation
+            )
+        );
+
+    iconLabel->setFixedSize(22,22);
+    iconLabel->setAlignment(Qt::AlignCenter);
+
+
+    // Title
+    auto *titleLabel = new QLabel(title, headerWidget);
+
+    titleLabel->setStyleSheet(
+        "color:#EAEAEA;"
+        "font-size:13px;"
+        "font-weight:bold;"
+        "border:none;"
+        "background:transparent;"
+        );
+
+
+    header->addWidget(iconLabel);
     header->addWidget(titleLabel);
     header->addStretch();
-    if (headerRight) header->addWidget(headerRight);
-    v->addLayout(header);
+
+
+    if (headerRight)
+        header->addWidget(headerRight);
+
+
+    v->addWidget(headerWidget);
     v->addWidget(content);
+
+
     return card;
 }
 
@@ -1030,17 +1088,66 @@ QWidget *PublisherPanel::createStatsPage()
 
     auto *grid = new QGridLayout;
     grid->setSpacing(18);
-    grid->addWidget(makeSectionCard("🏆", "Top 5 Best Selling Books", m_bestTable),            0, 0);
-    grid->addWidget(makeSectionCard("📈", "Sales Trend", m_trendView, m_trendCombo),           0, 1);
-    grid->addWidget(makeSectionCard("📉", "Top 5 Worst Selling Books", m_worstTable),          1, 0);
-    grid->addWidget(makeSectionCard("📊", "Sales Comparison (Top 5 Books)", m_cmpView),        1, 1);
-    grid->addWidget(makeSectionCard("⭐", "Average Rating per Book", m_ratingView),            2, 0);
-    grid->addWidget(makeSectionCard("🥧", "Revenue Share per Book", pieRow),                   2, 1);
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/trophy-solid.png",
+            "Top 5 Best Selling Books",
+            m_bestTable
+            ),
+        0, 0
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/chart-bar-solid.png",
+            "Sales Trend",
+            m_trendView,
+            m_trendCombo
+            ),
+        0, 1
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/arrow-trend-down-solid.png",
+            "Top 5 Worst Selling Books",
+            m_worstTable
+            ),
+        1, 0
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/arrow-trend-up-solid.png",
+            "Sales Comparison (Top 5 Books)",
+            m_cmpView
+            ),
+        1, 1
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/star-solid.png",
+            "Average Rating per Book",
+            m_ratingView
+            ),
+        2, 0
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/chart-pie-solid.png",
+            "Revenue Share per Book",
+            pieRow
+            ),
+        2, 1
+        );
+
     grid->setColumnStretch(0, 2);
     grid->setColumnStretch(1, 3);
-    layout->addLayout(grid);
-    layout->addStretch();
 
+    layout->addLayout(grid);
     scroll->setWidget(page);
     return scroll;
 }

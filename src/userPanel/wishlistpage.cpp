@@ -262,7 +262,10 @@ void WishlistPage::buildUi()
     headerLayout->addLayout(titleColumn, 1);
 
     m_searchEdit = new QLineEdit(this);
-    m_searchEdit->setPlaceholderText(tr("Search in wishlist...  🔍"));
+    m_searchEdit->setPlaceholderText(tr("Search in wishlist..."));
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_searchEdit);
+    m_searchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_searchEdit->setFixedSize(280, 44);
     m_searchEdit->setClearButtonEnabled(true);
     m_searchEdit->setStyleSheet(

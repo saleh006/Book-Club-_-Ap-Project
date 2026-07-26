@@ -42,7 +42,10 @@ QWidget* PublishersTab::setupUi()
     layout->setSpacing(12);
 
     m_publisherSearchEdit = new QLineEdit(page);
-    m_publisherSearchEdit->setPlaceholderText("🔍 Search publishers by username or name ...");
+    m_publisherSearchEdit->setPlaceholderText("Search publishers by username or name ...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_publisherSearchEdit);
+    m_publisherSearchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_publisherSearchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"
