@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include "styledmessagebox.h"
 
 UsersTab::UsersTab(QTcpSocket *socket, QWidget *parent)
     : QWidget(parent), m_socket(socket)
@@ -198,10 +199,9 @@ void UsersTab::handleDeleteUser()
     if (currentRow < 0) return;
 
     QString username = m_usersTable->item(currentRow, 1)->text();
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
-                                                              "Are you sure you want to completely delete user: " + username + "?",
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
+    bool confirmed = StyledMessageBox::question(this, "Confirm Delete",
+                                                "Are you sure you want to completely delete user: " + username + "?");
+    if (confirmed) {
         QJsonObject packet;
         packet["action"] = "delete_account";
         packet["username"] = username;
@@ -254,7 +254,7 @@ void UsersTab::handleServerResponse(const QJsonObject &response)
         showUserDetailsDialog(response["data"].toObject());
     }
     else if (action == "delete_account_response" && response["status"] == "success") {
-        QMessageBox::information(this, "Success", "Account deleted successfully from the database.");
+        StyledMessageBox::success(this, "Success", "Account deleted successfully from the database.");
         refreshTable();
     }
 }

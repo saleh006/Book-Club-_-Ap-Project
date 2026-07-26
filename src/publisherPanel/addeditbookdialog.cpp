@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include "QMessageBox"
+#include "styledmessagebox.h"
 
 static bool uploadFileToServer(const QString &localFilePath, const QString &fileType,
                                QString &outServerPath, QString &errorMsg)
@@ -186,7 +187,7 @@ void AddEditBookDialogPub::setupUi(bool isEditMode)
         if (uploadFileToServer(localPath, "cover", serverPath, errorMsg)) {
             m_coverPathEdit->setText(serverPath);
         } else {
-            QMessageBox::warning(this, "Upload failed", errorMsg);
+            StyledMessageBox::error(this, "Upload failed", errorMsg);
         }
     });
 
@@ -199,7 +200,7 @@ void AddEditBookDialogPub::setupUi(bool isEditMode)
         if (uploadFileToServer(localPath, "pdf", serverPath, errorMsg)) {
             m_pdfPathEdit->setText(serverPath);
         } else {
-            QMessageBox::warning(this, "Upload failed", errorMsg);
+            StyledMessageBox::error(this, "Upload failed", errorMsg);
         }
     });
 

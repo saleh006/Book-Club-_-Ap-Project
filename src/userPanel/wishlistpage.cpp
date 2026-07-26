@@ -14,6 +14,7 @@
 #include <QJsonDocument>
 #include <QTcpSocket>
 #include <QSet>
+#include "styledmessagebox.h"
 
 WishlistItemWidget::WishlistItemWidget(const WishlistDisplayItem &item, bool listMode, QWidget *parent)
     : QFrame(parent), m_item(item), m_listMode(listMode)
@@ -644,7 +645,7 @@ void WishlistPage::handleServerResponse(const QJsonObject &response)
 void WishlistPage::handleWishlistFetchResponse(const QJsonObject &response)
 {
     if (response["status"].toString() != "success") {
-        QMessageBox::warning(this, tr("Wishlist"), response["message"].toString());
+        StyledMessageBox::error(this, tr("Wishlist"), response["message"].toString());
         return;
     }
 
@@ -670,7 +671,7 @@ void WishlistPage::handleWishlistFetchResponse(const QJsonObject &response)
 void WishlistPage::handleMutationResponse(const QJsonObject &response)
 {
     if (response["status"].toString() != "success") {
-        QMessageBox::warning(this, tr("Wishlist"), response["message"].toString());
+        StyledMessageBox::error(this, tr("Wishlist"), response["message"].toString());
         refreshWishlist();
         return;
     }

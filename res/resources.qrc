@@ -54,5 +54,10 @@
         <file>icons/view.png</file>
         <file>icons/reject.png</file>
         <file>icons/unlocked.png</file>
+        <file>error icon.png</file>
+        <file>information icon.png</file>
+        <file>quastion icon.png</file>
+        <file>success icon.png</file>
+        <file>warning.png</file>
     </qresource>
 </RCC>

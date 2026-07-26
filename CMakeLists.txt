@@ -124,6 +124,7 @@ qt_add_qml_module(BookClubClient
         SOURCES src/userPanel/statisticscard.h src/userPanel/statisticscard.cpp
         SOURCES src/userPanel/mylibrarypage.h src/userPanel/mylibrarypage.cpp
         SOURCES src/userPanel/pdfreaderdialog.h src/userPanel/pdfreaderdialog.cpp
+        SOURCES src/shared/styledmessagebox.h src/shared/styledmessagebox.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE

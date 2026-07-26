@@ -13,6 +13,7 @@
 #include <QPdfDocument>
 #include <QPdfView>
 #include <QPdfPageNavigator>
+#include "styledmessagebox.h"
 
 static QString friendlyDocError(QPdfDocument::Error error)
 {
@@ -279,7 +280,7 @@ void PdfReaderDialog::showLoadError(const QString &message)
 {
     m_documentValid = false;
     m_pageCountLabel->setText(tr("\u2014"));
-    QMessageBox::warning(this, tr("Unable to open book"), message);
+    StyledMessageBox::error(this, tr("Unable to open book"), message);
 }
 
 void PdfReaderDialog::closeEvent(QCloseEvent *event)

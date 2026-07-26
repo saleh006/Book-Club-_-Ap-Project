@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include "styledmessagebox.h"
 
 PublishersTab::PublishersTab(QTcpSocket *socket, QWidget *parent)
     : QWidget(parent), m_socket(socket)
@@ -192,10 +193,9 @@ void PublishersTab::handleDeletePublisher()
     if (currentRow < 0) return;
 
     QString username = m_publishersTable->item(currentRow, 1)->text();
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
-                                                              "Are you sure you want to completely delete publisher: " + username + "?",
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
+    bool confirmed = StyledMessageBox::question(this, "Confirm Delete",
+                                                "Are you sure you want to completely delete publisher: " + username + "?");
+    if (confirmed) {
         QJsonObject packet;
         packet["action"] = "delete_account";
         packet["username"] = username;

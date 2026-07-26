@@ -12,6 +12,7 @@
 #include "src/publisherPanel/editprofiledialog.h"
 #include "mylibrarypage.h"
 #include "shelfcard.h"
+#include "styledmessagebox.h"
 
 static const char *kCardBg     = "#120E14";
 static const char *kCardBorder = "#1F1724";
@@ -133,7 +134,7 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
 void UserPanel::sendRequest(const QJsonObject &requestObj)
 {
     if (m_socket->state() != QAbstractSocket::ConnectedState) {
-        QMessageBox::warning(this, "Not connected", "Not connected to the server.");
+        StyledMessageBox::error(this, "Not connected", "Not connected to the server.");
         return;
     }
     m_socket->write(QJsonDocument(requestObj).toJson(QJsonDocument::Compact) + "\n");
@@ -348,8 +349,8 @@ void UserPanel::setupUi()
     });
     connect(m_detailsPage, &BookDetailsPage::reviewSubmitted, this,[this](int id, int rating, const QString &text) {
         if (rating <= 0) {
-            QMessageBox::warning(this, "Rating Required",
-                                 "Please select a star rating before submitting your review.");
+            StyledMessageBox::error(this, "Rating Required",
+                                    "Please select a star rating before submitting your review.");
             return;
         }
         QJsonObject req;
@@ -1148,16 +1149,16 @@ void UserPanel::onReadyRead()
                 }
                 m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
 
-                QMessageBox::information(this, "Profile", "Profile updated successfully.");
+                StyledMessageBox::success(this, "Profile", "Profile updated successfully.");
             } else {
-                QMessageBox::warning(this, "Profile", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Profile", responseObj["message"].toString());
             }
         }
         else if (type == "password_change_result") {
             if (responseObj["success"].toBool()) {
-                QMessageBox::information(this, "Password", "Password changed successfully.");
+                StyledMessageBox::success(this, "Password", "Password changed successfully.");
             } else {
-                QMessageBox::warning(this, "Password", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Password", responseObj["message"].toString());
             }
         }
         else if (action == "book_reviews_response" && responseObj["status"].toString() == "success") {
@@ -1177,11 +1178,11 @@ void UserPanel::onReadyRead()
         }
         else if (action == "submit_review_response") {
             if (responseObj["status"].toString() == "success") {
-                QMessageBox::information(this, "Review Submitted",
-                                         "Thanks! Your review has been submitted and is awaiting admin approval.");
+                StyledMessageBox::success(this, "Review Submitted",
+                                          "Thanks! Your review has been submitted and is awaiting admin approval.");
                 m_detailsPage->clearReviewForm();
             } else {
-                QMessageBox::warning(this, "Submission Failed", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Submission Failed", responseObj["message"].toString());
             }
         }
         else if (type == "notifications_list" && responseObj["status"].toString() == "success") {
@@ -1326,7 +1327,7 @@ void UserPanel::onReadyRead()
                 sendRequest(reqShelves);
             } else {
                 m_pendingFavoriteBookId = -1;
-                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Shelf", responseObj["message"].toString());
             }
         }
         else if (action == "shelf_add_book_response") {
@@ -1336,7 +1337,7 @@ void UserPanel::onReadyRead()
                 reqShelves["userId"] = m_userId;
                 sendRequest(reqShelves);
             } else {
-                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Shelf", responseObj["message"].toString());
             }
         }
         else if (action == "progress_fetch_response" || (action.isEmpty() && responseObj.contains("lastPage"))) {
@@ -1371,7 +1372,7 @@ void UserPanel::onReadyRead()
                     sendRequest(req);
                 }
             } else {
-                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Shelf", responseObj["message"].toString());
             }
         }
         else if (action == "shelf_update_response") {
@@ -1381,7 +1382,7 @@ void UserPanel::onReadyRead()
                 reqShelves["userId"] = m_userId;
                 sendRequest(reqShelves);
             } else {
-                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Shelf", responseObj["message"].toString());
             }
         }
         else if (action == "shelf_delete_response") {
@@ -1396,7 +1397,7 @@ void UserPanel::onReadyRead()
                 reqShelves["userId"] = m_userId;
                 sendRequest(reqShelves);
             } else {
-                QMessageBox::warning(this, "Shelf", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Shelf", responseObj["message"].toString());
             }
         }
     }
@@ -1837,7 +1838,7 @@ void UserPanel::addToCart(int bookId)       {
 
     sendRequest(req);
 
-    QMessageBox::information(this, "Added to Cart", "Book successfully added to your cart!");
+    StyledMessageBox::success(this, "Added to Cart", "Book successfully added to your cart!");
 }
 
 void UserPanel::openBookDetails(int bookId)
@@ -1962,13 +1963,13 @@ void UserPanel::handleEditProfile(){
 void UserPanel::openBookReader(int bookId)
 {
     if (!m_ownedBookIds.contains(bookId)) {
-        QMessageBox::warning(this, "Not Purchased", "You need to purchase this book before you can read it.");
+        StyledMessageBox::error(this, "Not Purchased", "You need to purchase this book before you can read it.");
         return;
     }
 
     const QString remotePdfPath = m_ownedBookPdfPaths.value(bookId);
     if (remotePdfPath.isEmpty()) {
-        QMessageBox::warning(this, "Book Unavailable", "This book has no associated PDF file.");
+        StyledMessageBox::error(this, "Book Unavailable", "This book has no associated PDF file.");
         return;
     }
 
@@ -1983,8 +1984,8 @@ void UserPanel::openBookReader(int bookId)
 
     QString errorMsg;
     if (!downloadFileFromServer(remotePdfPath, localPath, errorMsg)) {
-        QMessageBox::warning(this, "Unable to Open Book",
-                             errorMsg.isEmpty() ? "Failed to download this book's PDF file." : errorMsg);
+        StyledMessageBox::error(this, "Unable to Open Book",
+                                errorMsg.isEmpty() ? "Failed to download this book's PDF file." : errorMsg);
         return;
     }
 

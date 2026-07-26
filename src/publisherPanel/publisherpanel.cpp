@@ -24,6 +24,7 @@
 #include <QGridLayout>
 #include <QTimer>
 #include <QCoreApplication>
+#include "styledmessagebox.h"
 
 static const char *kCardBg     = "#120E14";
 static const char *kCardBorder = "#1F1724";
@@ -99,7 +100,7 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
 void PublisherPanel::sendRequest(const QJsonObject &requestObj)
 {
     if (m_socket->state() != QAbstractSocket::ConnectedState) {
-        QMessageBox::warning(this, "Not connected", "Not connected to the server.");
+        StyledMessageBox::error(this, "Not connected", "Not connected to the server.");
         return;
     }
     m_socket->write(QJsonDocument(requestObj).toJson(QJsonDocument::Compact) + "\n");
@@ -415,10 +416,9 @@ void PublisherPanel::handleEditBook(int bookId)
 
 void PublisherPanel::handleDeleteBook(int bookId)
 {
-    auto reply = QMessageBox::question(this, "Delete Book",
-                                       "Are you sure you want to remove this book? It will be hidden from readers.",
-                                       QMessageBox::Yes | QMessageBox::No);
-    if (reply != QMessageBox::Yes) return;
+    bool confirmed = StyledMessageBox::question(this, "Delete Book",
+                                                "Are you sure you want to remove this book? It will be hidden from readers.");
+    if (!confirmed) return;
 
     QJsonObject req;
     req["action"] = "publisher_delete_book";
@@ -443,7 +443,7 @@ void PublisherPanel::handleSetOffer(int bookId)
         Discount d = dialog.resultDiscount();
 
         if (d.startDate >= d.endDate) {
-            QMessageBox::warning(this, "Invalid dates", "Start time must be before end time.");
+            StyledMessageBox::error(this, "Invalid dates", "Start time must be before end time.");
             return;
         }
 
@@ -731,7 +731,7 @@ void PublisherPanel::onReadyRead()
                 requestBooks();
                 requestStats();
             } else {
-                QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Action failed", responseObj["message"].toString());
             }
         }
         else if (type == "publisher_sales_trend") {
@@ -753,16 +753,16 @@ void PublisherPanel::onReadyRead()
                 }
                 m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
                 if (m_welcomeLabel) m_welcomeLabel->setText(QString("Welcome back, %1!").arg(m_fullName));
-                QMessageBox::information(this, "Profile", "Profile updated successfully.");
+                StyledMessageBox::success(this, "Profile", "Profile updated successfully.");
             } else {
-                QMessageBox::warning(this, "Profile", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Profile", responseObj["message"].toString());
             }
         }
         else if (type == "password_change_result") {
             if (responseObj["success"].toBool())
-                QMessageBox::information(this, "Password", "Password changed successfully.");
+                StyledMessageBox::success(this, "Password", "Password changed successfully.");
             else
-                QMessageBox::warning(this, "Password", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Password", responseObj["message"].toString());
         }
         else if (type == "notifications_list" && responseObj["status"].toString() == "success") {
             m_notifications.clear();
@@ -811,7 +811,7 @@ void PublisherPanel::onReadyRead()
                 requestBooks();
                 requestStats();
             } else if (status == "error") {
-                QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
+                StyledMessageBox::error(this, "Action failed", responseObj["message"].toString());
             }
         }
     }

@@ -170,9 +170,6 @@ ContinueReadingCard::ContinueReadingCard(const ContinueReadingItem &item, QWidge
     authorLbl->setStyleSheet(
         "color: rgba(255,255,255,140); font-size:10px; background:transparent; border:none;");
 
-    // Progress bar: two widgets sharing the row with stretch factors
-    // matching the percentage, so it's layout-driven rather than
-    // manually positioned (keeps it correct across resizes for free).
     auto *progressWrap = new QWidget(this);
     progressWrap->setFixedHeight(6);
     progressWrap->setAttribute(Qt::WA_TransparentForMouseEvents);

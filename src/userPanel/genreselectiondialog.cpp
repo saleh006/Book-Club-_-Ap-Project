@@ -34,13 +34,11 @@ constexpr int kMinSelection = 3;
 constexpr int kColumns = 4;
 const QSize kCardSize(118, 84);
 
-// Renders one genre card: image (center-cropped), dark gradient, name,
-// and — when selected — a purple tint plus a checkmark badge.
 QIcon makeGenreCard(const QString &imagePath, const QString &name,
                     const QSize &size, bool selected)
 {
     QPixmap canvas(size);
-    canvas.fill(QColor("#120E14"));   // visible fallback if the image is missing
+    canvas.fill(QColor("#120E14"));
 
     QPainter p(&canvas);
     p.setRenderHint(QPainter::Antialiasing);

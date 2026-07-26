@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QColor>
 #include <QTimer>
+#include "styledmessagebox.h"
 
 ReviewsTab::ReviewsTab(QTcpSocket *socket, QWidget *parent)
     : QWidget(parent), m_socket(socket)
@@ -177,12 +178,8 @@ void ReviewsTab::handleDeleteReview()
     int reviewId = m_reviewsTable->item(currentRow, 0)->text().toInt();
     QString bookTitle = m_reviewsTable->item(currentRow, 1)->text();
 
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "Confirm Delete",
-        "Are you sure you want to remove this review for \"" + bookTitle + "\"?",
-        QMessageBox::Yes | QMessageBox::No);
-
-    if (reply == QMessageBox::Yes) {
+    if (StyledMessageBox::question(this, "Confirm Delete",
+                                   "Are you sure you want to remove this review for \"" + bookTitle + "\"?")) {
         QJsonObject packet;
         packet["action"] = "review_delete";
         packet["reviewId"] = reviewId;
@@ -206,15 +203,15 @@ void ReviewsTab::handleServerResponse(const QJsonObject &response)
         if (response["status"].toString() == "success") {
             refreshTable();
         } else {
-            QMessageBox::warning(this, "Approve Failed", response["message"].toString());
+            StyledMessageBox::error(this, "Approve Failed", response["message"].toString());
         }
     }
     else if (action == "review_delete_response") {
         if (response["status"].toString() == "success") {
-            QMessageBox::information(this, "Success", "Review removed successfully.");
+            StyledMessageBox::success(this, "Success", "Review removed successfully.");
             refreshTable();
         } else {
-            QMessageBox::warning(this, "Delete Failed", response["message"].toString());
+            StyledMessageBox::error(this, "Delete Failed", response["message"].toString());
         }
     }
 }

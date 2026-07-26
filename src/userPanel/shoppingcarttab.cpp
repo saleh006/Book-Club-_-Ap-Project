@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QTcpSocket>
+#include "styledmessagebox.h"
 
 
 CartItemWidget::CartItemWidget(const CartDisplayItem &item, QWidget *parent)
@@ -353,7 +354,7 @@ void ShoppingCartPage::handleServerResponse(const QJsonObject &response)
 void ShoppingCartPage::handleCartFetchResponse(const QJsonObject &response)
 {
     if (response["status"].toString() != "success") {
-        QMessageBox::warning(this, tr("Cart"), response["message"].toString());
+        StyledMessageBox::error(this, tr("Cart"), response["message"].toString());
         return;
     }
 
@@ -385,7 +386,7 @@ void ShoppingCartPage::handleCartFetchResponse(const QJsonObject &response)
 void ShoppingCartPage::handleMutationResponse(const QJsonObject &response)
 {
     if (response["status"].toString() != "success") {
-        QMessageBox::warning(this, tr("Cart"), response["message"].toString());
+        StyledMessageBox::error(this, tr("Cart"), response["message"].toString());
         return;
     }
     refreshCart();
@@ -394,12 +395,12 @@ void ShoppingCartPage::handleMutationResponse(const QJsonObject &response)
 void ShoppingCartPage::handleCheckoutResponse(const QJsonObject &response)
 {
     if (response["status"].toString() != "success") {
-        QMessageBox::warning(this, tr("Checkout"), response["message"].toString());
+        StyledMessageBox::error(this, tr("Checkout"), response["message"].toString());
         return;
     }
 
     const int purchaseId = response["purchaseId"].toInt();
-    QMessageBox::information(this, tr("Checkout"), tr("Purchase completed successfully!"));
+    StyledMessageBox::success(this, tr("Checkout"), tr("Purchase completed successfully!"));
     emit checkoutCompleted(purchaseId);
     refreshCart();
 }

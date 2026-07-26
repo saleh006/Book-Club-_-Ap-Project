@@ -15,6 +15,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QMessageBox>
+#include "styledmessagebox.h"
 
 static bool uploadFileToServer(const QString &localFilePath, const QString &fileType,
                                QString &outServerPath, QString &errorMsg)
@@ -188,7 +189,7 @@ void AddEditBookDialog::setupUi(bool isEditMode)
         if (uploadFileToServer(localPath, "cover", serverPath, errorMsg)) {
             m_coverPathEdit->setText(serverPath);
         } else {
-            QMessageBox::warning(this, "Upload failed", errorMsg);
+            StyledMessageBox::error(this, "Upload failed", errorMsg);
         }
     });
 
@@ -201,7 +202,7 @@ void AddEditBookDialog::setupUi(bool isEditMode)
         if (uploadFileToServer(localPath, "pdf", serverPath, errorMsg)) {
             m_pdfPathEdit->setText(serverPath);
         } else {
-            QMessageBox::warning(this, "Upload failed", errorMsg);
+            StyledMessageBox::error(this, "Upload failed", errorMsg);
         }
     });
 
@@ -444,10 +445,9 @@ void BookTab::handleDeleteBook()
     if (currentRow < 0) return;
     int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
 
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
-                                                              "Are you sure you want to completely delete this book from the database?",
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
+    bool confirmed = StyledMessageBox::question(this, "Confirm Delete",
+                                                "Are you sure you want to completely delete this book from the database?");
+    if (confirmed) {
         QJsonObject packet;
         packet["action"] = "admin_set_book_status";
         packet["bookId"] = bookId;
@@ -481,100 +481,6 @@ void BookTab::handleEditBook()
     packet["bookId"] = bookId;
     m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
 }
-
-// void BookTab::handleServerResponse(const QJsonObject &response)
-// {
-//     QString action = response["action"].toString();
-
-//     if (response.contains("type") && response["type"].toString() == "table_refresh_required") {
-//         if (response["target_table"].toString() == "book") {
-//             refreshTable();
-//         }
-//         return;
-//     }
-
-//     if (action == "books_list_response" && response["status"] == "success") {
-//         QJsonArray books = response["data"].toArray();
-//         m_booksTable->setRowCount(0);
-
-//         for (int i = 0; i < books.size(); ++i) {
-//             QJsonObject b = books[i].toObject();
-//             m_booksTable->insertRow(i);
-
-//             m_booksTable->setItem(i, 0, new QTableWidgetItem(QString::number(b["id"].toInt())));
-//             m_booksTable->setItem(i, 1, new QTableWidgetItem(b["title"].toString()));
-//             m_booksTable->setItem(i, 2, new QTableWidgetItem(b["author"].toString()));
-
-//             bool isActive = b["isActive"].toInt();
-//             m_booksTable->setItem(i, 3, new QTableWidgetItem(isActive ? "Approved" : "Pending/Rejected"));
-
-//             if (!isActive) setRowDimmed(m_booksTable, i, true);
-//         }
-//     }
-//     else if (action == "admin_set_book_status_response") {
-//         if (response["status"].toString() == "success") {
-//             int bookId = response["bookId"].toInt();
-//             int status = response["book_status"].toInt();
-
-//             for (int i = 0; i < m_booksTable->rowCount(); ++i) {
-//                 if (m_booksTable->item(i, 0)->text().toInt() == bookId) {
-//                     if (status == -1) {
-//                         m_booksTable->removeRow(i);
-//                         QMessageBox::information(this, "Success", "Book deleted successfully.");
-//                     } else {
-//                         m_booksTable->item(i, 3)->setText(status == 1 ? "Approved" : "Pending/Rejected");
-//                         setRowDimmed(m_booksTable, i, status != 1);
-//                     }
-//                     break;
-//                 }
-//             }
-//         } else {
-//             QMessageBox::warning(this, "Action Failed", response["message"].toString());
-//         }
-//     }
-//     else if (action == "book_details_response" && response["status"].toString() == "success") {
-//         QJsonObject data = response["data"].toObject();
-//         if (m_pendingBookDetailPurpose == "edit") {
-//             Book b;
-//             b.id = data["id"].toInt();
-//             b.title = data["title"].toString();
-//             b.author = data["author"].toString();
-//             b.genre = data["genre"].toString();
-//             b.description = data["description"].toString();
-//             b.price = data["price"].toDouble();
-//             b.coverImagePath = data["coverImagePath"].toString();
-//             b.pdfPath = data["pdfPath"].toString();
-//             b.averageRating = data["averageRating"].toDouble();
-//             b.status = data["isActive"].toInt();
-
-//             AddEditBookDialog dialog(b, this);
-//             if (dialog.exec() == QDialog::Accepted) {
-//                 Book updated = dialog.resultBook();
-//                 QJsonObject packet;
-//                 packet["action"] = "book_update";
-//                 packet["id"] = updated.id;
-//                 packet["title"] = updated.title;
-//                 packet["author"] = updated.author;
-//                 packet["genre"] = updated.genre;
-//                 packet["description"] = updated.description;
-//                 packet["price"] = updated.price;
-//                 packet["coverImagePath"] = updated.coverImagePath;
-//                 packet["pdfPath"] = updated.pdfPath;
-//                 m_socket->write(QJsonDocument(packet).toJson(QJsonDocument::Compact) + "\n");
-//             }
-//         } else {
-//             showBookDetailsDialog(response["data"].toObject());
-//         }
-//     }
-//     else if (action == "book_update_response") {
-//         if (response["status"].toString() == "success") {
-//             QMessageBox::information(this, "Success", "Book information updated successfully.");
-//             refreshTable();
-//         } else {
-//             QMessageBox::warning(this, "Update Failed", response["message"].toString());
-//         }
-//     }
-// }
 
 void BookTab::handleServerResponse(const QJsonObject &response)
 {
@@ -638,13 +544,13 @@ void BookTab::handleServerResponse(const QJsonObject &response)
                     setRowDimmed(m_booksTable, i, status != 1);
 
                     if (status == -1) {
-                        QMessageBox::information(this, "Success", "Book marked as deleted.");
+                        StyledMessageBox::success(this, "Success", "Book marked as deleted.");
                     }
                     break;
                 }
             }
         } else {
-            QMessageBox::warning(this, "Action Failed", response["message"].toString());
+            StyledMessageBox::error(this, "Action Failed", response["message"].toString());
         }
     }
     else if (action == "book_details_response" && response["status"].toString() == "success") {
@@ -683,10 +589,10 @@ void BookTab::handleServerResponse(const QJsonObject &response)
     }
     else if (action == "book_update_response") {
         if (response["status"].toString() == "success") {
-            QMessageBox::information(this, "Success", "Book information updated successfully.");
+            StyledMessageBox::success(this, "Success", "Book information updated successfully.");
             refreshTable();
         } else {
-            QMessageBox::warning(this, "Update Failed", response["message"].toString());
+            StyledMessageBox::error(this, "Update Failed", response["message"].toString());
         }
     }
 }
