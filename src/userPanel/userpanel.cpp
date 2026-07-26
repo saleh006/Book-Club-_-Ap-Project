@@ -550,6 +550,7 @@ void UserPanel::finalizeShelfSummaries()
         m_libraryPage->setFavoriteBookIds(m_favoriteBookIds);
         m_libraryPage->setStatistics(m_ownedBooksFull.size(), m_shelves.size(),
                                      m_readingProgressByBookId.size(), m_favoriteBookIds.size());
+        rebuildContinueReadingItems();
     }
 }
 

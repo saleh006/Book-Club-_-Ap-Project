@@ -16,6 +16,8 @@
 #include <QResizeEvent>
 #include <QFrame>
 #include <algorithm>
+#include <QTimer>
+#include <QPointer>
 
 namespace {
 const char *kTabButtonStyle =
@@ -424,6 +426,7 @@ void MyLibraryPage::setStatistics(int totalBooks, int totalShelves, int currentl
 
 void MyLibraryPage::setContinueReading(const QVector<ContinueReadingItem> &items)
 {
+    qDebug() << "setContinueReading called with" << items.size() << "items";
     m_continueReading = items;
     rebuildContinueReadingRow();
     updateSectionVisibility();
@@ -568,6 +571,12 @@ void MyLibraryPage::rebuildContinueReadingRow()
         m_continueRow->addWidget(card);
     }
     m_continueRow->addStretch();
+
+    QPointer<QWidget> host = m_continueRowHost;
+    QHBoxLayout *rowLayout = m_continueRow;
+    QTimer::singleShot(0, this, [host, rowLayout] {
+        if (host) host->resize(rowLayout->sizeHint());
+    });
 }
 
 void MyLibraryPage::rebuildBooksGrid()
