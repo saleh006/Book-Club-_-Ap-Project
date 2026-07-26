@@ -23,7 +23,7 @@ public:
     bool isDocumentValid() const;
 
 signals:
-    void readingProgressChanged(int bookId, int lastPage);
+    void readingProgressChanged(int id, int lastPage, int pageCount);
 
 protected:
     void closeEvent(QCloseEvent *event) override;

@@ -88,6 +88,9 @@ private:
     // PDF reader
     void openBookReader(int bookId);
     void launchPdfReader(int bookId, const QString &localPdfPath, const QString &title, int startPage);
+    void rebuildContinueReadingItems();
+    QMap<int, int> m_readingProgressByBookId;
+    QMap<int, int> m_totalPagesByBookId;
 
     // User Session Fields
     int m_userId;

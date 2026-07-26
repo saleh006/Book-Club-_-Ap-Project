@@ -255,3 +255,23 @@ bool DatabaseManager::deleteShelf(int shelfId, QString &errorMsg)
     }
     return true;
 }
+
+bool DatabaseManager::fetchAllReadingProgress(int userId, QVector<ReadingProgress> &outProgress, QString &errorMsg)
+{
+    outProgress.clear();
+    QSqlQuery q(database());
+    q.prepare("SELECT book_id, last_page FROM reading_progress WHERE user_id = :userId");
+    q.bindValue(":userId", userId);
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    while (q.next()) {
+        ReadingProgress p;
+        p.userId = userId;
+        p.bookId = q.value("book_id").toInt();
+        p.lastPage = q.value("last_page").toInt();
+        outProgress.push_back(p);
+    }
+    return true;
+}

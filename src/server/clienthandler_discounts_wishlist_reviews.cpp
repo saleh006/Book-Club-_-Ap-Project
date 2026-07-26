@@ -259,6 +259,41 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "progress_update") {
+        responseObj["action"] = "progress_update_response";
+        int userId = requestObj["userId"].toInt();
+        int bookId = requestObj["bookId"].toInt();
+        int lastPage = requestObj["lastPage"].toInt();
+        responseObj["bookId"] = bookId;
+        QString errorMsg;
+        if (DatabaseManager::instance().updateReadingProgress(userId, bookId, lastPage, errorMsg)) {
+            responseObj["status"] = "success";
+            responseObj["message"] = "Reading progress updated successfully.";
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "progress_fetch_all") {
+        responseObj["action"] = "progress_fetch_all_response";
+        int userId = requestObj["userId"].toInt();
+        QVector<ReadingProgress> progressList;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchAllReadingProgress(userId, progressList, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray arr;
+            for (const ReadingProgress &p : progressList) {
+                QJsonObject po;
+                po["bookId"] = p.bookId;
+                po["lastPage"] = p.lastPage;
+                arr.append(po);
+            }
+            responseObj["progress"] = arr;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
     else {
         return false;
     }

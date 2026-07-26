@@ -125,6 +125,11 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
         reqShelves["action"] = "shelves_fetch";
         reqShelves["userId"] = m_userId;
         sendRequest(reqShelves);
+
+        QJsonObject reqProgress;
+        reqProgress["action"] = "progress_fetch_all";
+        reqProgress["userId"] = m_userId;
+        sendRequest(reqProgress);
     });
 
     m_socket->connectToHost("127.0.0.1", 1234);
@@ -394,7 +399,7 @@ void UserPanel::setupMyLibraryPage()
     connect(m_libraryPage, &MyLibraryPage::bookOpenRequested, this, &UserPanel::openBookDetails);
 
     connect(m_libraryPage, &MyLibraryPage::bookReadRequested, this, [this](int bookId) {
-        openBookDetails(bookId);
+        openBookReader(bookId);
     });
 
     connect(m_libraryPage, &MyLibraryPage::moveBookToShelfRequested, this, [this](int bookId, int shelfId) {
@@ -512,7 +517,7 @@ void UserPanel::finalizeShelfSummaries()
         m_libraryPage->setShelves(summaries);
         m_libraryPage->setFavoriteBookIds(m_favoriteBookIds);
         m_libraryPage->setStatistics(m_ownedBooksFull.size(), m_shelves.size(),
-                                     0, m_favoriteBookIds.size());
+                                     m_readingProgressByBookId.size(), m_favoriteBookIds.size());
     }
 }
 
@@ -546,6 +551,11 @@ void UserPanel::switchPage(int index)
         reqShelves["action"] = "shelves_fetch";
         reqShelves["userId"] = m_userId;
         sendRequest(reqShelves);
+
+        QJsonObject reqProgress;                    // add this block
+        reqProgress["action"] = "progress_fetch_all";
+        reqProgress["userId"] = m_userId;
+        sendRequest(reqProgress);
     }
 }
 
@@ -1249,7 +1259,7 @@ void UserPanel::onReadyRead()
                 if (m_libraryPage) {
                     m_libraryPage->setMyBooks(m_ownedBooksFull);
                     m_libraryPage->setStatistics(m_ownedBooksFull.size(), m_shelves.size(),
-                                                 0, m_favoriteBookIds.size());
+                                                 m_readingProgressByBookId.size(), m_favoriteBookIds.size());
                 }
             }
         }
@@ -1398,6 +1408,15 @@ void UserPanel::onReadyRead()
                 sendRequest(reqShelves);
             } else {
                 StyledMessageBox::error(this, "Shelf", responseObj["message"].toString());
+            }
+        }
+        else if (action == "progress_fetch_all_response") {
+            if (responseObj["status"].toString() == "success") {
+                for (const QJsonValue &val : responseObj["progress"].toArray()) {
+                    QJsonObject po = val.toObject();
+                    m_readingProgressByBookId[po["bookId"].toInt()] = po["lastPage"].toInt();
+                }
+                rebuildContinueReadingItems();
             }
         }
     }
@@ -2003,13 +2022,39 @@ void UserPanel::openBookReader(int bookId)
 void UserPanel::launchPdfReader(int bookId, const QString &localPdfPath, const QString &title, int startPage)
 {
     auto *reader = new PdfReaderDialog(localPdfPath, title, bookId, startPage, this);
-    connect(reader, &PdfReaderDialog::readingProgressChanged, this, [this](int id, int lastPage) {
+    connect(reader, &PdfReaderDialog::readingProgressChanged, this, [this](int id, int lastPage, int pageCount) {
+        m_readingProgressByBookId[id] = lastPage;
+        m_totalPagesByBookId[id] = pageCount;
+
         QJsonObject req;
         req["action"] = "progress_update";
         req["userId"] = m_userId;
         req["bookId"] = id;
         req["lastPage"] = lastPage;
         sendRequest(req);
+
+        rebuildContinueReadingItems();
     });
     reader->showFullScreen();
+}
+
+void UserPanel::rebuildContinueReadingItems()
+{
+    QVector<ContinueReadingItem> items;
+    for (const Book &b : m_ownedBooksFull) {
+        auto progIt = m_readingProgressByBookId.constFind(b.id);
+        if (progIt == m_readingProgressByBookId.constEnd() || progIt.value() <= 0)
+            continue;
+
+        int totalPages = m_totalPagesByBookId.value(b.id, 0);
+        int percent = totalPages > 0 ? qBound(0, (progIt.value() * 100) / totalPages, 100) : 0;
+        if (totalPages > 0 && percent >= 100) continue;   // fully read
+
+        ContinueReadingItem item;
+        item.book = b;
+        item.lastPage = progIt.value();
+        item.progressPercent = percent;
+        items.push_back(item);
+    }
+    if (m_libraryPage) m_libraryPage->setContinueReading(items);
 }

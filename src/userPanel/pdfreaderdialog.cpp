@@ -285,7 +285,14 @@ void PdfReaderDialog::showLoadError(const QString &message)
 
 void PdfReaderDialog::closeEvent(QCloseEvent *event)
 {
-    if (m_documentValid && m_view && m_view->pageNavigator())
-        emit readingProgressChanged(m_bookId, m_view->pageNavigator()->currentPage());
+    if (m_documentValid && m_view && m_view->pageNavigator() && m_document)
+    {
+        emit readingProgressChanged(
+            m_bookId,
+            m_view->pageNavigator()->currentPage(),
+            m_document->pageCount()
+            );
+    }
+
     QDialog::closeEvent(event);
 }

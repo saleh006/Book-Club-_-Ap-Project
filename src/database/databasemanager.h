@@ -159,6 +159,7 @@ public:
     bool fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, bool activeOnly = true);
     bool fetchBooksByGenre(const QString &genre, QVector<Book> &outBooks, QString &errorMsg);
     bool setBookStatus(int bookId, int status, QString &errorMsg); // 1=active, 0=inactive/pending, -1=deleted
+    bool fetchPublisherNameByBookId(int bookId, QString &outPublisherName, QString &errorMsg);
 
     //discounts
 
@@ -190,6 +191,7 @@ public:
     bool removeBookFromShelf(int shelfId, int bookId, QString &errorMsg);
     bool updateShelf(int shelfId, const QString &newTitle, QString &errorMsg);
     bool deleteShelf(int shelfId, QString &errorMsg);
+    bool fetchAllReadingProgress(int userId, QVector<ReadingProgress> &outProgress, QString &errorMsg);
 
     // wishlist
     bool addToWishlist(int userId, int bookId, QString &errorMsg);
