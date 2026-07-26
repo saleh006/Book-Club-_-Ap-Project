@@ -26,6 +26,8 @@ private slots:
     void updateSystemUsage();
     void onReadyRead();
     void onConnected();
+    void onDisconnected();
+    void onSocketError(QAbstractSocket::SocketError socketError);
 
 private:
     QTimer *m_sysTimer;
@@ -36,6 +38,9 @@ private:
     QLabel *m_cpuLabel;
     QLabel *m_ramLabel;
     void setupUi();
+    QTimer *m_reconnectTimer;
+    QWidget* createStatCard(const QString &iconPath, QLabel *&textLabel,
+                            const QString &initialText, const QString &textColor);
 
 #ifdef Q_OS_WIN
     FILETIME m_preIdleTime;

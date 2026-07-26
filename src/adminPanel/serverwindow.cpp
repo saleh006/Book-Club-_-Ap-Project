@@ -15,6 +15,19 @@ ServerWindow::ServerWindow( QWidget *parent )
     m_socket = new QTcpSocket(this);
     connect(m_socket, &QTcpSocket::connected, this, &ServerWindow::onConnected);
     connect(m_socket, &QTcpSocket::readyRead, this, &ServerWindow::onReadyRead);
+    connect(m_socket, &QTcpSocket::disconnected, this, &ServerWindow::onDisconnected);
+    connect(m_socket, &QTcpSocket::errorOccurred, this, &ServerWindow::onSocketError);
+
+    m_reconnectTimer = new QTimer(this);
+    m_reconnectTimer->setInterval(2000);
+    m_reconnectTimer->setInterval(2000); // retry every 2s
+    connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
+        if (m_socket->state() == QAbstractSocket::UnconnectedState) {
+            m_socket->connectToHost("127.0.0.1", 1234);
+        }
+    });
+    m_reconnectTimer->start();
+
     m_socket->connectToHost("127.0.0.1", 1234);
 
     m_statusLabel->setText("🟡 Connecting to Server...");
@@ -67,87 +80,18 @@ void ServerWindow::setupUi()
     QGridLayout *statsGrid = new QGridLayout();
     statsGrid->setSpacing(8);
 
+    QWidget *statusCard = createStatCard("", m_statusLabel, "⚪ Server Status: Checking...", "#f39c12");
+    QWidget *clientCard = createStatCard(":/icons/users-solid.png", m_clientCountLabel, "Active Clients: 0", "#3498db");
+    QWidget *cpuCard    = createStatCard(":/icons/computer-solid.png", m_cpuLabel, "CPU Usage: -- %", "#f1c40f");
+    QWidget *ramCard    = createStatCard(":/icons/memory-solid.png", m_ramLabel, "RAM Usage: -- %", "#9b59b6");
 
-    m_statusLabel = new QLabel("⚪ Server Status: Checking...", this);
+    statsGrid->addWidget(statusCard, 0, 0);
+    statsGrid->addWidget(clientCard, 0, 1);
+    statsGrid->addWidget(cpuCard,    1, 0);
+    statsGrid->addWidget(ramCard,    1, 1);
 
-
-    // -------- Client --------
-    QWidget *clientWidget = new QWidget(this);
-    QHBoxLayout *clientLayout = new QHBoxLayout(clientWidget);
-
-    QLabel *clientIcon = new QLabel(clientWidget);
-    clientIcon->setPixmap(QPixmap(":/icons/users-solid.png")
-                              .scaled(20,20,Qt::KeepAspectRatio,Qt::SmoothTransformation));
-
-    m_clientCountLabel = new QLabel("Active Clients: 0", clientWidget);
-
-    clientLayout->addWidget(clientIcon);
-    clientLayout->addWidget(m_clientCountLabel);
-    clientLayout->setAlignment(Qt::AlignCenter);
-    clientLayout->setContentsMargins(0,0,0,0);
-
-
-    // -------- CPU --------
-    QWidget *cpuWidget = new QWidget(this);
-    QHBoxLayout *cpuLayout = new QHBoxLayout(cpuWidget);
-
-    QLabel *cpuIcon = new QLabel(cpuWidget);
-    cpuIcon->setPixmap(QPixmap(":/icons/computer-solid.png")
-                           .scaled(20,20,Qt::KeepAspectRatio,Qt::SmoothTransformation));
-
-    m_cpuLabel = new QLabel("CPU Usage: -- %", cpuWidget);
-
-    cpuLayout->addWidget(cpuIcon);
-    cpuLayout->addWidget(m_cpuLabel);
-    cpuLayout->setAlignment(Qt::AlignCenter);
-    cpuLayout->setContentsMargins(0,0,0,0);
-
-
-    // -------- RAM --------
-    QWidget *ramWidget = new QWidget(this);
-    QHBoxLayout *ramLayout = new QHBoxLayout(ramWidget);
-
-    QLabel *ramIcon = new QLabel(ramWidget);
-    ramIcon->setPixmap(QPixmap(":/icons/memory-solid.png")
-                           .scaled(20,20,Qt::KeepAspectRatio,Qt::SmoothTransformation));
-
-    m_ramLabel = new QLabel("RAM Usage: -- %", ramWidget);
-
-    ramLayout->addWidget(ramIcon);
-    ramLayout->addWidget(m_ramLabel);
-    ramLayout->setAlignment(Qt::AlignCenter);
-    ramLayout->setContentsMargins(0,0,0,0);
-
-
-    QString cardStyle =
-        "QLabel { "
-        "background-color: #120E14;"
-        "border: 1px solid #1F1724;"
-        "border-radius: 6px;"
-        "padding: 8px;"
-        "font-size: 14px;"
-        "font-weight: bold;"
-        "}";
-
-
-    m_statusLabel->setStyleSheet(cardStyle + "color:#f39c12;");
-    m_clientCountLabel->setStyleSheet(cardStyle + "color:#3498db;");
-    m_cpuLabel->setStyleSheet(cardStyle + "color:#f1c40f;");
-    m_ramLabel->setStyleSheet(cardStyle + "color:#9b59b6;");
-
-
-    m_statusLabel->setAlignment(Qt::AlignCenter);
-    m_clientCountLabel->setAlignment(Qt::AlignCenter);
-    m_cpuLabel->setAlignment(Qt::AlignCenter);
-    m_ramLabel->setAlignment(Qt::AlignCenter);
-
-
-    statsGrid->addWidget(m_statusLabel,0,0);
-    statsGrid->addWidget(clientWidget,0,1);
-
-    statsGrid->addWidget(cpuWidget,1,0);
-    statsGrid->addWidget(ramWidget,1,1);
-
+    statsGrid->setColumnStretch(0, 1);
+    statsGrid->setColumnStretch(1, 1);
 
     mainLayout->addLayout(statsGrid);
 
@@ -235,13 +179,62 @@ void ServerWindow::onReadyRead()
 
 void ServerWindow::onConnected(){
     m_statusLabel->setText("🟢 Server Status: ACTIVE ");
-    QString cardStyle =
-        "QLabel { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
-        "padding: 8px; font-size: 12px; font-weight: bold; color: #2ecc71; }";
 
-    m_statusLabel->setStyleSheet(cardStyle);
+    m_statusLabel->setStyleSheet("color: #2ecc71; font-weight: bold; font-size: 14px; border: none; background: transparent;");
     onNewLogReceived("System: Connected to the remote server core successfully.");
     QJsonObject req;
     req["action"] = "admin_subscribe";
     m_socket->write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void ServerWindow::onDisconnected()
+{
+    m_statusLabel->setText("🔴 Server Status: OFFLINE");
+
+    m_statusLabel->setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 14px; border: none; background: transparent;");
+    onNewLogReceived("System: Lost connection to the server core.");
+    m_clientCountLabel->setText("Active Clients: 0");
+}
+
+void ServerWindow::onSocketError(QAbstractSocket::SocketError socketError)
+{
+    Q_UNUSED(socketError);
+    m_statusLabel->setText("🔴 Server Status: UNREACHABLE");
+    QString cardStyle =
+        "QLabel { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
+        "padding: 8px; font-size: 12px; font-weight: bold; color: #e74c3c; }";
+    m_statusLabel->setStyleSheet(cardStyle);
+}
+
+QWidget* ServerWindow::createStatCard(const QString &iconPath, QLabel *&textLabel,
+                                      const QString &initialText, const QString &textColor)
+{
+    QFrame *card = new QFrame(this);
+    card->setStyleSheet(QString(
+        "QFrame {"
+        "background-color: #120E14;"
+        "border: 1px solid #1F1724;"
+        "border-radius: 6px;"
+        "}"
+        ));
+
+    QHBoxLayout *layout = new QHBoxLayout(card);
+    layout->setContentsMargins(10, 8, 10, 8);
+    layout->setSpacing(8);
+    layout->setAlignment(Qt::AlignCenter);
+
+    if (!iconPath.isEmpty()) {
+        QLabel *icon = new QLabel(card);
+        icon->setFixedSize(20, 20);
+        icon->setPixmap(QPixmap(iconPath)
+                            .scaled(20, 20, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        layout->addWidget(icon);
+    }
+
+    textLabel = new QLabel(initialText, card);
+    textLabel->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 14px; border: none; background: transparent;")
+                                 .arg(textColor));
+    layout->addWidget(textLabel);
+
+    return card;
 }

@@ -642,6 +642,32 @@ void WishlistPage::handleServerResponse(const QJsonObject &response)
     } else if (action == "wishlist_add_response"
                || action == "wishlist_remove_response") {
         handleMutationResponse(response);
+    }else if ((action == "books_fetch_owned_response" || action == "books_fetch_owned")
+               && response["status"].toString() == "success") {
+        QSet<int> ownedIds;
+        for (const QJsonValue &value : response["books"].toArray())
+            ownedIds.insert(value.toObject()["id"].toInt());
+        syncOwnedBooks(ownedIds);
+    }
+}
+
+void WishlistPage::syncOwnedBooks(const QSet<int> &ownedIds)
+{
+    m_ownedBookIds = ownedIds;
+
+    bool changed = false;
+    for (int i = m_items.size() - 1; i >= 0; --i) {
+        if (m_ownedBookIds.contains(m_items[i].bookId)) {
+            const int bookId = m_items[i].bookId;
+            m_items.removeAt(i);
+            sendRequest("wishlist_remove", {{"bookId", bookId}});
+            changed = true;
+        }
+    }
+
+    if (changed) {
+        rebuildGrid();
+        emit wishlistUpdated();
     }
 }
 
@@ -662,6 +688,10 @@ void WishlistPage::handleWishlistFetchResponse(const QJsonObject &response)
         const QJsonObject o = value.toObject();
         WishlistDisplayItem item;
         item.bookId = o["id"].toInt();
+        if(m_ownedBookIds.contains(item.bookId)){
+            sendRequest("wishlist_remove", {{"bookId", item.bookId}});
+            continue;
+        }
         item.title = o["title"].toString();
         item.author = o["author"].toString();
         enrichFromCatalog(item);

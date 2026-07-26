@@ -214,47 +214,14 @@ void PublisherPanel::setupUi()
     m_notifPage = createNotificationsPage();
     m_stackedWidget->addWidget(m_notifPage);
 
-    mainLayout->addWidget(m_stackedWidget);
     mainLayout->addWidget(sidebar);
+    mainLayout->addWidget(m_stackedWidget);
 
     connect(m_btnStats, &QPushButton::clicked, this, [this]() { switchPage(0); requestStats(); });
     connect(m_btnBooks, &QPushButton::clicked, this, [this]() { switchPage(1); });
     connect(m_btnNotifications, &QPushButton::clicked, this, [this]() { switchPage(2); });
     connect(m_btnLogout, &QPushButton::clicked, this, &PublisherPanel::logoutRequested);
 }
-
-// QWidget* PublisherPanel::createStatsPage()
-// {
-//     QWidget *page = new QWidget(this);
-//     QVBoxLayout *layout = new QVBoxLayout(page);
-//     layout->setContentsMargins(30, 30, 30, 30);
-//     layout->setSpacing(16);
-
-//     auto makeStatCard = [page](const QString &title, QLabel *&valueLabelOut) -> QWidget* {
-//         QWidget *card = new QWidget(page);
-//         card->setStyleSheet("background-color: #120E14; border: 1px solid #1F1724; border-radius: 10px;");
-//         QVBoxLayout *cardLayout = new QVBoxLayout(card);
-//         QLabel *titleLabel = new QLabel(title, card);
-//         titleLabel->setStyleSheet("color: #A594B3; font-size: 12px;");
-//         valueLabelOut = new QLabel("—", card);
-//         valueLabelOut->setStyleSheet("color: #EAEAEA; font-size: 24px; font-weight: bold;");
-//         cardLayout->addWidget(titleLabel);
-//         cardLayout->addWidget(valueLabelOut);
-//         return card;
-//     };
-
-//     QGridLayout *statsGrid = new QGridLayout();
-//     statsGrid->setSpacing(16);
-//     statsGrid->addWidget(makeStatCard("Total Books", m_statBookCount), 0, 0);
-//     statsGrid->addWidget(makeStatCard("Total Sales", m_statTotalSales), 0, 1);
-//     statsGrid->addWidget(makeStatCard("Average Rating", m_statAvgRating), 1, 0);
-//     statsGrid->addWidget(makeStatCard("Total Income", m_statTotalIncome), 1, 1);
-
-//     layout->addLayout(statsGrid);
-//     layout->addStretch();
-
-//     return page;
-// }
 
 QWidget* PublisherPanel::createBooksPage()
 {

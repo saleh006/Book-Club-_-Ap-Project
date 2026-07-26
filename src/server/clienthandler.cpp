@@ -108,10 +108,13 @@ void ClientHandler::onDisconnected(){
 
 void ClientHandler::sendToClient(const QJsonObject &msg)
 {
-    if (m_socket && m_socket->isOpen()) {
-        m_socket->write(QJsonDocument(msg).toJson(QJsonDocument::Compact) + "\n");
-        m_socket->flush();
-    }
+    if (!m_socket) return;
+    QMetaObject::invokeMethod(m_socket, [this, msg]() {
+        if (m_socket && m_socket->isOpen()) {
+            m_socket->write(QJsonDocument(msg).toJson(QJsonDocument::Compact) + "\n");
+            m_socket->flush();
+        }
+    }, Qt::QueuedConnection);
 }
 
 void ClientHandler::notifyUser(int userId, const QString &title, const QString &message)
@@ -135,4 +138,11 @@ void ClientHandler::notifyUser(int userId, const QString &title, const QString &
     payload["notification"] = notif;
 
     emit notificationReady(userId, payload);
+}
+
+void ClientHandler::disconnectClient()
+{
+    if (m_socket) {
+        m_socket->disconnectFromHost();
+    }
 }

@@ -118,6 +118,9 @@ private:
     QLabel *m_emptyLabel = nullptr;
     QWidget *m_discoverCard = nullptr;
     int m_columns = 1;
+
+    QSet<int> m_ownedBookIds;
+    void syncOwnedBooks(const QSet<int> &ownedIds);
 };
 
 #endif // WISHLISTPAGE_H

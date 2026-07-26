@@ -523,7 +523,21 @@ void BookTab::handleServerResponse(const QJsonObject &response)
 
             m_booksTable->setItem(i, 3, new QTableWidgetItem(statusText));
 
-            if (status != 1) {
+            if (status == 1) {
+                setRowDimmed(m_booksTable, i, false);
+            } else if (status == -1) {
+                for (int col = 0; col < m_booksTable->columnCount(); ++col) {
+                    QTableWidgetItem *item = m_booksTable->item(i, col);
+                    if (item) {
+                        item->setForeground(QColor("#E74C3C"));
+                        item->setBackground(QColor("#1A0F14"));
+
+                        QFont f = item->font();
+                        f.setStrikeOut(true);
+                        item->setFont(f);
+                    }
+                }
+            } else {
                 setRowDimmed(m_booksTable, i, true);
             }
         }
@@ -543,8 +557,26 @@ void BookTab::handleServerResponse(const QJsonObject &response)
                         statusText = "Deleted";
                     }
 
+                    if (status == 1) {
+                        statusText = "Approved";
+                        setRowDimmed(m_booksTable, i, false);
+                    } else if (status == -1) {
+                        statusText = "Deleted";
+                        for (int col = 0; col < m_booksTable->columnCount(); ++col) {
+                            QTableWidgetItem *cell = m_booksTable->item(i, col);
+                            if (cell) {
+                                cell->setForeground(QColor("#E74C3C"));
+                                cell->setBackground(QColor("#1A0F14"));
+                                QFont f = cell->font();
+                                f.setStrikeOut(true);
+                                cell->setFont(f);
+                            }
+                        }
+                    } else {
+                        statusText = "Pending/Rejected";
+                        setRowDimmed(m_booksTable, i, true);
+                    }
                     m_booksTable->item(i, 3)->setText(statusText);
-                    setRowDimmed(m_booksTable, i, status != 1);
 
                     if (status == -1) {
                         StyledMessageBox::success(this, "Success", "Book marked as deleted.");

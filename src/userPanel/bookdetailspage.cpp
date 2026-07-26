@@ -366,6 +366,7 @@ void BookDetailsPage::setOwned(bool owned)
 {
     m_cartBtn->setVisible(!owned);
     m_openBtn->setVisible(owned);
+    m_wishBtn->setVisible(!owned);
 }
 
 void BookDetailsPage::setWishlisted(bool on)

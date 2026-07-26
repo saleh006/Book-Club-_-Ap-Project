@@ -29,6 +29,7 @@ private slots:
 
 public slots:
     void sendToClient(const QJsonObject &msg);
+    void disconnectClient();
 
 private:
     bool handleUserActions(const QString &action, const QJsonObject &requestObj, QJsonObject &responseObj);

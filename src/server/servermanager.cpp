@@ -2,8 +2,8 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
-#include "clienthandler.h"
 #include "servermanager.h"
+#include "clienthandler.h"
 
 ServerManager::ServerManager(QObject *parent)
     : QTcpServer(parent)
@@ -50,6 +50,8 @@ bool ServerManager::startServer(int port)
 
 void ServerManager::stopServer()
 {
+    emit disconnectAllClientsSignal();
+
     if (this->isListening()) {
         this->close();
         qDebug() << "Server stopped listening on port" << this->serverPort();
@@ -58,7 +60,7 @@ void ServerManager::stopServer()
 
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
-    ClientHandler *handler = new ClientHandler(socketDescriptor,this);
+    ClientHandler *handler = new ClientHandler(socketDescriptor,nullptr);
     QString connectLog = QString("<font color='#7f8c8d'><b>[SYS]</b></font> New client connected. User: <b>Anonymous</b> | Descriptor: %1")
                              .arg(socketDescriptor);
     emit serverLogEvent(connectLog);
@@ -71,11 +73,12 @@ void ServerManager::incomingConnection(qintptr socketDescriptor)
     connect(handler, &ClientHandler::notificationReady, this, &ServerManager::pushToUser);
     connect(handler, &ClientHandler::broadcastTargetedUpdate, this, &ServerManager::onBroadcastReceived);
     connect(this, &ServerManager::sendToAllClientsSignal, handler, &ClientHandler::sendToClient);
+    connect(this, &ServerManager::disconnectAllClientsSignal, handler, &ClientHandler::disconnectClient);
 
     connect(handler, &ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc,const QString &username){
         if(m_activeClients > 0) m_activeClients--;
         emit clientCountChanged(m_activeClients);
-        emit serverLogEvent(QString("<font color='#7f8c8d'><b>[SYS]</b></font> User <b>%1</b> disconnected.").arg(username));
+        emit serverLogEvent(QString("<font color='#7f8c8d'><b>[SYS]</b></font> User <b>%1</b> disconnected.").arg(username));   
     });
 
     connect(handler, &ClientHandler::finished, handler, &ClientHandler::deleteLater);

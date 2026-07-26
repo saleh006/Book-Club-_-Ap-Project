@@ -137,8 +137,8 @@ void AdminPanel::setupUi()
     m_stackedWidget->addWidget(m_booksTab);
     m_stackedWidget->addWidget(m_reviewsTab);
 
-    mainLayout->addWidget(m_stackedWidget);
     mainLayout->addWidget(sidebar);
+    mainLayout->addWidget(m_stackedWidget);    
 
     connect(m_btnMonitor, &QPushButton::clicked, this, [this](){ switchPage(0); });
     connect(m_btnUsers, &QPushButton::clicked, this, [this](){ switchPage(1); });

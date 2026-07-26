@@ -5,6 +5,7 @@
 #include <QTcpSocket>
 #include <QList>
 
+
 class ServerManager : public QTcpServer
 {
     Q_OBJECT
@@ -20,6 +21,7 @@ signals:
     void broadcastToAdmins(const QJsonObject &msg);
     void sendToAllClientsSignal(const QJsonObject &msg);
     void pushToUser(int userId, const QJsonObject &payload);
+    void disconnectAllClientsSignal();
 
 public slots:
     void onBroadcastReceived(const QJsonObject &msg);
