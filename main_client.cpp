@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
         recoveryWin->clearFields();
         recoveryWin->hide();
         loginWin->show();
-        loginWin->showSuccessMessage("Password changed successfully! Please log in.");
+        loginWin->showSuccessMessage("Password changed successfully!");
     });
 
     QObject::connect(signupWin, &SignupWindow::signupSuccessful, [&](const QString &username) {

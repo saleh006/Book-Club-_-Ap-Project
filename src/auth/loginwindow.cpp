@@ -10,7 +10,9 @@
 #include <QColor>
 #include <QPixmap>
 #include <QDebug>
-#include <QQuickWidget>
+#include <QMetaObject>
+#include <QVariant>
+#include <QQuickItem>
 
 LoginWindow::LoginWindow(QWidget *parent)
     : QWidget(parent)
@@ -25,12 +27,12 @@ LoginWindow::LoginWindow(QWidget *parent)
     QVBoxLayout *leftLayout = new QVBoxLayout(leftPanel);
     leftLayout->setContentsMargins(0, 0, 0, 0);
 
-    QQuickWidget *qmlStickerWidget = new QQuickWidget(leftPanel);
+   m_qmlStickerWidget = new QQuickWidget(leftPanel);
 
-    qmlStickerWidget->setSource(QUrl::fromLocalFile(":/StickerView.qml"));
-    qmlStickerWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    m_qmlStickerWidget->setSource(QUrl::fromLocalFile(":/StickerView.qml"));
+    m_qmlStickerWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
 
-    leftLayout->addWidget(qmlStickerWidget);
+    leftLayout->addWidget(m_qmlStickerWidget);
 
     QWidget *rightPanel = new QWidget(this);
     rightPanel->setObjectName("rightPanel");
@@ -226,9 +228,14 @@ void LoginWindow::clearFields()
 
 void LoginWindow::showSuccessMessage(const QString &message)
 {
-    m_statusLabel->setStyleSheet("color: #2ECC71; font-size: 12px;");
-    m_statusLabel->setText(message);
-    m_statusLabel->setVisible(true);
+    m_statusLabel->setVisible(false);
+    m_statusLabel->clear();
+
+    if (m_qmlStickerWidget && m_qmlStickerWidget->rootObject()) {
+        QMetaObject::invokeMethod(m_qmlStickerWidget->rootObject(),
+                                  "showNotification",
+                                  Q_ARG(QVariant, message));
+    }
 }
 
 QString LoginWindow::loggedInRole() const

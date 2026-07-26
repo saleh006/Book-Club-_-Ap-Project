@@ -22,6 +22,8 @@
 #include <QHeaderView>
 #include <QScrollArea>
 #include <QGridLayout>
+#include <QTimer>
+#include <QCoreApplication>
 
 static const char *kCardBg     = "#120E14";
 static const char *kCardBorder = "#1F1724";
@@ -674,6 +676,11 @@ void PublisherPanel::onReadyRead()
         const QString type = responseObj["type"].toString();
         const QString action = responseObj["action"].toString();
 
+        if (action == "notify_account_blocked") {
+            showBlockedOverlay();
+            return;
+        }
+
         if (type == "table_refresh_required") {
             if (responseObj["target_table"].toString() == "book") {
                 requestBooks();
@@ -1240,4 +1247,41 @@ void PublisherPanel::handleEditProfile()
         req["newPassword"] = dialog.newPassword();
         sendRequest(req);
     }
+}
+
+void PublisherPanel::showBlockedOverlay()
+{
+    if (m_blockOverlay) return;
+
+    this->setEnabled(false);
+
+    m_blockOverlay = new QWidget(this);
+    m_blockOverlay->setGeometry(this->rect());
+    m_blockOverlay->setStyleSheet("background-color: rgba(6, 5, 8, 220);");
+    m_blockOverlay->setEnabled(true);
+
+    QLabel *msgLabel = new QLabel(
+        "Your account has been blocked by an administrator.", m_blockOverlay);
+    msgLabel->setStyleSheet(
+        "color: #EAEAEA; font-size: 18px; font-weight: bold; background: transparent;");
+    msgLabel->setAlignment(Qt::AlignCenter);
+    msgLabel->setWordWrap(true);
+
+    QVBoxLayout *overlayLayout = new QVBoxLayout(m_blockOverlay);
+    overlayLayout->setContentsMargins(60, 0, 60, 0);
+    overlayLayout->addWidget(msgLabel);
+
+    m_blockOverlay->raise();
+    m_blockOverlay->show();
+
+    QTimer::singleShot(10000, this, []() {
+        qApp->quit();
+    });
+}
+
+void PublisherPanel::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    if (m_blockOverlay)
+        m_blockOverlay->setGeometry(this->rect());
 }

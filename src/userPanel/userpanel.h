@@ -47,6 +47,9 @@ public:
 signals:
     void logoutRequested();
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private slots:
     void onReadyRead();
     void onSocketError();
@@ -176,6 +179,10 @@ private:
     QString m_pendingReaderTitle;
     QPushButton *m_heroOpenBtn;
     void showFullList(const QString &title, const QVector<Book> &books);
+
+    //Block method
+    QWidget *m_blockOverlay = nullptr;
+    void showBlockedOverlay();
 };
 
 static bool downloadFileFromServer(const QString &serverFilePath, const QString &localSavePath, QString &errorMsg)

@@ -1,9 +1,10 @@
 import QtQuick
+import QtQuick.Layouts
 
 Rectangle {
     id: root
     anchors.fill: parent
-    color: "#1A1A1A"   // background color
+    color: "#1A1A1A"
     FontLoader {
         id: rubstampFont
         source: ":/RUBSTAMP.TTF"
@@ -153,5 +154,75 @@ Rectangle {
                 pulseAnim.start()
             }
         }
+    }
+
+    function showNotification(message) {
+        notificationText.text = message
+        notificationToast.opacity = 1.0
+        toastProgress.width = notificationToast.width - 4
+        progressAnim.restart()
+        notificationTimer.restart()
+    }
+    Rectangle {
+        id: notificationToast
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 30
+        width: 260
+        height: 46
+        radius: 12
+        color: "#1E3E2A"
+        border.color: "#2ECC71"
+        border.width: 1.5
+        opacity: 0
+        z: 999
+        Behavior on opacity {
+            NumberAnimation { duration: 300 }
+        }
+        Behavior on anchors.bottomMargin {
+            NumberAnimation { duration: 350; easing.type: Easing.OutBack }
+        }
+
+        RowLayout {
+            anchors.centerIn: parent
+            spacing: 11
+            Text {
+                text: "✓"
+                color: "#2ECC71"
+                font.bold: true
+                font.pixelSize: 16
+            }
+             Text {
+                id: notificationText
+                color: "#EAEAEA"
+                font.family: "Segoe UI, sans-serif"
+                font.pixelSize: 13
+                font.bold: true
+            }
+        }
+        Rectangle {
+            id: toastProgress
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: 2
+            anchors.bottomMargin: 2
+            height: 3
+            radius: 1.5
+            color: "#2ECC71"
+            width: parent.width - 4
+        }
+        NumberAnimation {
+            id: progressAnim
+            target: toastProgress
+            property: "width"
+            to: 0
+            duration: 3000
+            easing.type: Easing.Linear
+        }
+    }
+    Timer {
+        id: notificationTimer
+        interval: 3000
+        onTriggered: notificationToast.opacity = 0.0
     }
 }

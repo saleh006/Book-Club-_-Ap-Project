@@ -1025,6 +1025,11 @@ void UserPanel::onReadyRead()
         const QString action = responseObj["action"].toString();
         QString type = responseObj["type"].toString();
 
+        if (action == "notify_account_blocked") {
+            showBlockedOverlay();
+            return;
+        }
+
         if (responseObj.contains("action")) {
             m_cartPage->handleServerResponse(responseObj);
             m_wishlistPage->handleServerResponse(responseObj);
@@ -1400,6 +1405,43 @@ void UserPanel::onReadyRead()
 void UserPanel::onSocketError()
 {
     qWarning() << "UserPanel socket error: " << m_socket->errorString();
+}
+
+void UserPanel::showBlockedOverlay()
+{
+    if (m_blockOverlay) return;
+
+    this->setEnabled(false);
+
+    m_blockOverlay = new QWidget(this);
+    m_blockOverlay->setGeometry(this->rect());
+    m_blockOverlay->setStyleSheet("background-color: rgba(6, 5, 8, 220);");
+    m_blockOverlay->setEnabled(true);
+
+    QLabel *msgLabel = new QLabel(
+        "Your account has been blocked by an administrator.", m_blockOverlay);
+    msgLabel->setStyleSheet(
+        "color: #EAEAEA; font-size: 18px; font-weight: bold; background: transparent;");
+    msgLabel->setAlignment(Qt::AlignCenter);
+    msgLabel->setWordWrap(true);
+
+    QVBoxLayout *overlayLayout = new QVBoxLayout(m_blockOverlay);
+    overlayLayout->setContentsMargins(60, 0, 60, 0);
+    overlayLayout->addWidget(msgLabel);
+
+    m_blockOverlay->raise();
+    m_blockOverlay->show();
+
+    QTimer::singleShot(10000, this, []() {
+        qApp->quit();
+    });
+}
+
+void UserPanel::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    if (m_blockOverlay)
+        m_blockOverlay->setGeometry(this->rect());
 }
 
 QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut,

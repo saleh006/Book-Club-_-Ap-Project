@@ -27,6 +27,9 @@ public:
 signals:
     void logoutRequested();
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private slots:
     void switchPage(int index);
     void onReadyRead();
@@ -110,6 +113,10 @@ private:
     QVBoxLayout *m_pieLegendLayout = nullptr;
     QComboBox *m_trendCombo = nullptr;
     QMap<int, double> m_incomeByBookId;
+
+    //Block method
+    QWidget *m_blockOverlay = nullptr;
+    void showBlockedOverlay();
 };
 
 #endif

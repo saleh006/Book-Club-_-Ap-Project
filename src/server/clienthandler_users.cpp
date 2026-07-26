@@ -79,6 +79,16 @@ bool ClientHandler::handleUserActions(const QString &action, const QJsonObject &
             QString logMsg = QString("[ADMIN] User '%1' block status updated to: %2")
                                  .arg(username).arg(blockStatus ? "Blocked" : "Active");
             emit logProduced(logMsg);
+
+            if (blockStatus) {
+                User targetUser;
+                QString fetchErr;
+                if (DatabaseManager::instance().fetchUser(username, targetUser, fetchErr)) {
+                    QJsonObject blockPayload;
+                    blockPayload["action"] = "notify_account_blocked";
+                    emit notificationReady(targetUser.id, blockPayload);
+                }
+            }
         }
         else {
             QJsonObject response;
