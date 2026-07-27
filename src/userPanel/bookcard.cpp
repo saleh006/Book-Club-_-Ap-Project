@@ -10,9 +10,6 @@
 
 namespace {
 
-// Fallback cover art for books that have no downloaded cover image yet -
-// a colored tile with the title, same idea as the placeholder already
-// used on the Home page for store book covers.
 QPixmap placeholderCover(const Book &b, const QSize &size)
 {
     static const QStringList colors = {"#3B2A4D", "#4D2A3E", "#2A3E4D", "#2A4D3B", "#4D3B2A"};

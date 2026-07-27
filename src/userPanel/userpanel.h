@@ -28,6 +28,7 @@
 #include <QSet>
 #include <QMap>
 #include <QHash>
+#include <QProgressBar>
 #include "models.h"
 #include "shoppingcarttab.h"
 #include "bookdetailspage.h"
@@ -60,6 +61,16 @@ private:
     void setupUi();
     void sendRequest(const QJsonObject &requestObj);
     void switchPage(int index);
+
+    QWidget      *m_startupLoader        = nullptr;
+    QLabel       *m_loaderStatusLabel    = nullptr;
+    QProgressBar *m_loaderProgressBar    = nullptr;
+    bool          m_startupLoaderActive  = true;
+    int           m_coversExpected       = 0;
+    int           m_coversLoaded         = 0;
+    QSet<int>     m_coversLoadedIds;
+
+    void updateStartupProgress(const QString &statusText, int loaded, int total);
 
     // My Library
     void setupMyLibraryPage();

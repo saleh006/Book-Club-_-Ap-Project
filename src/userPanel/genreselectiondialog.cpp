@@ -180,7 +180,7 @@ QStringList GenreSelectionDialog::selectedGenres() const
 void GenreSelectionDialog::updateContinueButton()
 {
     if (!m_counterLabel || !m_continueBtn)
-        return; // called from setChecked() while the grid is still being built
+        return;
 
     const int n = selectedGenres().size();
     m_counterLabel->setText(n >= kMinSelection

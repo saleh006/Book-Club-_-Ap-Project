@@ -24,7 +24,6 @@ static const char *kDisplayFont = "'Georgia','Iowan Old Style','Times New Roman'
 static const int kRadiusCard = 16;
 static const int kRadiusBtn  = 10;
 
-// same placeholder logic as UserPanel — consider moving to a shared coverutils.h later
 static QPixmap roundedPixmap(const QPixmap &src, int radius)
 {
     QPixmap out(src.size());

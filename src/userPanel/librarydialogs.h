@@ -12,9 +12,6 @@ class QButtonGroup;
 class QPushButton;
 class QAbstractButton;
 
-// "Create New Shelf" / "Edit Shelf" dialog: name, optional description,
-// and a row of color swatches. The same dialog is reused for editing an
-// existing shelf (editMode=true, fields pre-filled).
 class CreateShelfDialog : public QDialog
 {
     Q_OBJECT

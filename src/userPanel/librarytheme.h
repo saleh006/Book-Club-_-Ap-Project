@@ -3,9 +3,6 @@
 
 #include <QColor>
 
-// Shared visual constants for the "My Library" feature (dark-purple theme,
-// 18px card radius, Segoe UI). Centralised so every widget in this feature
-// stays in sync if the palette ever needs to change.
 namespace LibraryTheme {
 inline const QColor kBackground    = QColor("#09070D");
 inline const QColor kCard          = QColor("#181320");

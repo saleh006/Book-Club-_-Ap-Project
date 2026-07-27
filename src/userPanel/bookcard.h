@@ -10,17 +10,8 @@
 class QLabel;
 class QPushButton;
 
-// Supplies an already-rendered cover pixmap for a book (e.g. downloaded and
-// cached from the server, the same way the rest of this app already does
-// via makeCoverPixmap()/downloadFileFromServer() in userpanel.cpp) at the
-// requested target size. The integrator supplies this; these widgets never
-// touch the network themselves. Returning a null QPixmap tells the card to
-// keep its built-in colored placeholder.
 using CoverProvider = std::function<QPixmap(const Book &book, const QSize &size)>;
 
-// A single item in the horizontally-scrolling "Continue Reading" strip.
-// This widget is purely presentational: it does not know how progress is
-// tracked server-side, it just displays whatever percentage it is given.
 struct ContinueReadingItem
 {
     Book book;
@@ -28,9 +19,6 @@ struct ContinueReadingItem
     int progressPercent = 0;   // 0-100, computed by the caller
 };
 
-// Grid card used in "My Books" and inside a shelf's book grid. Clicking the
-// cover/title/rating area opens the book; the four small action buttons at
-// the bottom (Read, Move to Shelf, Favorite, More) fire their own signals.
 class BookCard : public HoverCard
 {
     Q_OBJECT
@@ -57,9 +45,6 @@ private:
     bool m_favorite = false;
 };
 
-// A single row-style card in the "Continue Reading" horizontal strip:
-// small cover, title/author, a progress bar with percentage, and a
-// circular "continue" play button.
 class ContinueReadingCard : public HoverCard
 {
     Q_OBJECT

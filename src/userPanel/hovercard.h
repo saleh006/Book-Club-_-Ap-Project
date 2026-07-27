@@ -7,19 +7,6 @@
 class QPropertyAnimation;
 class QGraphicsDropShadowEffect;
 
-// Reusable "premium card" surface used throughout the My Library page
-// (BookCard, ShelfCard, ContinueReadingCard, StatisticsCard, AddShelfCard).
-//
-// Qt stylesheets cannot animate a `transition`, so this widget paints its
-// own rounded background/border in paintEvent() and exposes the border
-// color as a Q_PROPERTY. That lets us drive a real QPropertyAnimation on
-// hover (150ms border-color + shadow-elevation transition) instead of the
-// instant QSS swap used elsewhere for simple buttons.
-//
-// Non-interactive children (QLabel) placed on top should have
-// Qt::WA_TransparentForMouseEvents set so a click on them still reaches
-// this widget's mousePressEvent/clicked() signal; interactive children
-// (QPushButton) keep receiving their own clicks normally.
 class HoverCard : public QFrame
 {
     Q_OBJECT

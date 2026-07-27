@@ -8,8 +8,6 @@ StatisticsCard::StatisticsCard(const QString &icon, const QString &value,
                                const QString &label, QWidget *parent)
     : HoverCard(parent)
 {
-    // These sit inside the purple header banner, not on the page
-    // background, so they get a translucent look and no hover motion.
     setHoverEnabled(false);
     setBackgroundColor(QColor(0, 0, 0, 60));
     setBorderColors(QColor(255, 255, 255, 20), QColor(255, 255, 255, 20));

@@ -75,5 +75,6 @@
         <file>icons/link.png</file>
         <file>icons/folder.png</file>
         <file>icons/tag-solid.png</file>
+        <file>loading.gif</file>
     </qresource>
 </RCC>

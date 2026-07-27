@@ -6,8 +6,6 @@
 
 class QLabel;
 
-// Small stat display used in the My Library header banner
-// ("128 Books", "12 Shelves", "7 Currently Reading", "31 Favorites").
 class StatisticsCard : public HoverCard
 {
     Q_OBJECT

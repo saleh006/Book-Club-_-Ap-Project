@@ -37,7 +37,6 @@ static QPixmap makeCoverPixmap(const Book &b, const QSize &size)
         }
     }
 
-    // Fallback placeholder rendering (original logic)
     QPixmap canvas(size);
     static const QStringList colors = {"#3B2A4D", "#4D2A3E", "#2A3E4D", "#2A4D3B", "#4D3B2A"};
     canvas.fill(QColor(colors[qAbs(b.id) % colors.size()]));
@@ -55,6 +54,43 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
 {
     m_socket = new QTcpSocket(this);
     setupUi();
+
+    m_startupLoader = new QWidget(this);
+    m_startupLoader->setGeometry(this->rect());
+    m_startupLoader->setStyleSheet("background-color: #060508;");
+
+    QVBoxLayout *loaderLayout = new QVBoxLayout(m_startupLoader);
+    loaderLayout->setAlignment(Qt::AlignCenter);
+    loaderLayout->setSpacing(12);
+
+    QLabel *loaderIcon = new QLabel("📚", m_startupLoader);
+    loaderIcon->setStyleSheet("font-size:36px;background:transparent;");
+    loaderIcon->setAlignment(Qt::AlignCenter);
+
+    m_loaderStatusLabel = new QLabel("Connecting...", m_startupLoader);
+    m_loaderStatusLabel->setStyleSheet("color:#EAEAEA;font-size:13px;font-weight:bold;background:transparent;");
+    m_loaderStatusLabel->setAlignment(Qt::AlignCenter);
+
+    m_loaderProgressBar = new QProgressBar(m_startupLoader);
+    m_loaderProgressBar->setFixedWidth(240);
+    m_loaderProgressBar->setRange(0, 0); // indeterminate until we know how many covers to load
+    m_loaderProgressBar->setTextVisible(false);
+    m_loaderProgressBar->setStyleSheet(
+        "QProgressBar{background-color:#1A141F;border:1px solid #1F1724;border-radius:6px;height:8px;}"
+        "QProgressBar::chunk{background-color:#7C3E66;border-radius:6px;}");
+
+    loaderLayout->addWidget(loaderIcon);
+    loaderLayout->addWidget(m_loaderStatusLabel);
+    loaderLayout->addWidget(m_loaderProgressBar);
+
+    m_startupLoader->raise();
+    m_startupLoader->show();
+
+    // Safety net — if a cover download stalls/fails silently, don't leave the
+    // overlay stuck forever. Doesn't affect the progress logic if it completes normally.
+    QTimer::singleShot(4000, this, [this]() {
+        if (m_startupLoaderActive) updateStartupProgress(QString(), m_coversExpected, m_coversExpected);
+    });
 
     connect(m_socket, &QTcpSocket::readyRead, this, &UserPanel::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &UserPanel::onSocketError);
@@ -919,6 +955,13 @@ QWidget *UserPanel::makeBookCard(const Book &b)
     cover->setScaledContents(true);
     coverGrid->addWidget(cover, 0, 0);
 
+    if (m_startupLoaderActive && !m_coversLoadedIds.contains(b.id)) {
+        m_coversLoadedIds.insert(b.id);
+        m_coversLoaded++;
+        updateStartupProgress(QString("Loading... (%1/%2)").arg(m_coversLoaded).arg(m_coversExpected),
+                              m_coversLoaded, m_coversExpected);
+    }
+
     auto *heartBtn = new QPushButton(coverStack);
     heartBtn->setFixedSize(22, 22);
     heartBtn->setCursor(Qt::PointingHandCursor);
@@ -1077,6 +1120,14 @@ void UserPanel::onReadyRead()
                 pubReq["bookId"] = b.id;
                 sendRequest(pubReq);
             }
+            m_coversExpected = m_storeBooks.size();
+            m_coversLoaded = 0;
+            m_coversLoadedIds.clear();
+
+            if (m_coversExpected == 0)
+                updateStartupProgress(QString(), 0, 0); // nothing to load, close immediately
+            else
+                updateStartupProgress(QString("Loading %1 covers...").arg(m_coversExpected), 0, m_coversExpected);
             rebuildHomeSections();
             m_wishlistPage->setCatalog(m_storeBooks);
         }
@@ -2196,4 +2247,24 @@ void UserPanel::rebuildContinueReadingItems()
         items.push_back(item);
     }
     if (m_libraryPage) m_libraryPage->setContinueReading(items);
+}
+
+void UserPanel::updateStartupProgress(const QString &statusText, int loaded, int total)
+{
+    if (!m_startupLoaderActive || !m_startupLoader) return;
+
+    if (!statusText.isEmpty() && m_loaderStatusLabel)
+        m_loaderStatusLabel->setText(statusText);
+
+    if (total > 0) {
+        m_loaderProgressBar->setRange(0, total);
+        m_loaderProgressBar->setValue(loaded);
+    }
+
+    if (total > 0 && loaded >= total) {
+        m_startupLoaderActive = false;
+        m_startupLoader->hide();
+        m_startupLoader->deleteLater();
+        m_startupLoader = nullptr;
+    }
 }
