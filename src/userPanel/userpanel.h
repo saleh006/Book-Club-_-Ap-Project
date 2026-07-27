@@ -91,6 +91,7 @@ private:
     void rebuildContinueReadingItems();
     QMap<int, int> m_readingProgressByBookId;
     QMap<int, int> m_totalPagesByBookId;
+    QSet<int> m_pendingPageCountRequests;
 
     // User Session Fields
     int m_userId;

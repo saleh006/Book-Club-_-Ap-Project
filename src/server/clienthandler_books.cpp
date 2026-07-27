@@ -1,4 +1,6 @@
 #include <QJsonArray>
+#include <QPdfDocument>
+#include <QEventLoop>
 #include "databasemanager.h"
 #include "clienthandler.h"
 
@@ -224,6 +226,36 @@ bool ClientHandler::handleBookActions(const QString &action, const QJsonObject &
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg.isEmpty() ? "Publisher not found." : errorMsg;
+        }
+    }
+    else if (action == "get_book_page_count") {
+        responseObj["action"] = "get_book_page_count_response";
+        int bookId = requestObj["bookId"].toInt();
+        responseObj["bookId"] = bookId;
+
+        Book b;
+        QString errorMsg;
+        if (!DatabaseManager::instance().fetchBook(bookId, b, errorMsg)) {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg.isEmpty() ? "Book not found." : errorMsg;
+        } else if (b.pdfPath.isEmpty()) {
+            responseObj["status"] = "error";
+            responseObj["message"] = "This book has no PDF file.";
+        } else {
+            QPdfDocument doc;
+            doc.load(b.pdfPath);   // server reads its own local file directly - no download needed
+            if (doc.status() != QPdfDocument::Status::Ready && doc.status() != QPdfDocument::Status::Error) {
+                QEventLoop loop;
+                QObject::connect(&doc, &QPdfDocument::statusChanged, &loop, &QEventLoop::quit);
+                loop.exec();
+            }
+            if (doc.status() == QPdfDocument::Status::Ready) {
+                responseObj["status"] = "success";
+                responseObj["pageCount"] = doc.pageCount();
+            } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = "Could not read the PDF file.";
+            }
         }
     }
     else {

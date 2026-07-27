@@ -1,7 +1,8 @@
 #include "userpanel.h"
 #include "genreselectiondialog.h"
 #include "pdfreaderdialog.h"
-
+#include <QPdfDocument>
+#include <QEventLoop>
 #include <QMessageBox>
 #include <QPainter>
 #include <QFrame>
@@ -1311,6 +1312,13 @@ void UserPanel::onReadyRead()
                     }
                 }
             }
+            else if (action == "get_book_page_count_response") {
+                int bookId = responseObj["bookId"].toInt();
+                m_pendingPageCountRequests.remove(bookId);
+                m_totalPagesByBookId[bookId] = responseObj["status"].toString() == "success"
+                                                   ? responseObj["pageCount"].toInt() : 0;
+                rebuildContinueReadingItems();
+            }
         }
         else if (action == "shelf_fetch_books_response") {
             if (responseObj["status"].toString() == "success") {
@@ -1444,17 +1452,15 @@ void UserPanel::onReadyRead()
                 rebuildContinueReadingItems();
             }
         }
-        else if (action == "get_publisher_by_book_response" && responseObj["status"].toString() == "success") {
+        else if (action == "get_book_page_count_response") {
             int bookId = responseObj["bookId"].toInt();
-            QString publisherName = responseObj["publisherName"].toString();
-            for (Book &b : m_storeBooks) {
-                if (b.id == bookId) {
-                    b.publisherName = publisherName;
-                    break;
-                }
-            }
+            m_pendingPageCountRequests.remove(bookId);
+            m_totalPagesByBookId[bookId] = responseObj["status"].toString() == "success"
+                                               ? responseObj["pageCount"].toInt() : 0;
+            rebuildContinueReadingItems();
         }
     }
+
 }
 
 void UserPanel::onSocketError()
@@ -2166,9 +2172,22 @@ void UserPanel::rebuildContinueReadingItems()
         if (progIt == m_readingProgressByBookId.constEnd() || progIt.value() <= 0)
             continue;
 
-        int totalPages = m_totalPagesByBookId.value(b.id, 0);
-        int percent = totalPages > 0 ? qBound(0, (progIt.value() * 100) / totalPages, 100) : 0;
-        if (totalPages > 0 && percent >= 100) continue;   // fully read
+        int totalPages = m_totalPagesByBookId.value(b.id, -1);
+        if (totalPages < 0) {
+            if (!m_pendingPageCountRequests.contains(b.id)) {
+                m_pendingPageCountRequests.insert(b.id);
+                QJsonObject req;
+                req["action"] = "get_book_page_count";
+                req["bookId"] = b.id;
+                sendRequest(req);
+            }
+            continue;
+        }
+
+        int percent = totalPages > 0
+                          ? qBound(0, ((progIt.value() + 1) * 100) / totalPages, 100)
+                          : 0;
+        if (totalPages > 0 && percent >= 100) continue;
 
         ContinueReadingItem item;
         item.book = b;

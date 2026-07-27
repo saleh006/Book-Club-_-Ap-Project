@@ -64,6 +64,7 @@ target_link_libraries(BookClubServer PRIVATE
     Qt::Widgets
     Qt::Sql
     Qt::Network
+    Qt::PdfWidgets
 )
 
 install(TARGETS BookClubServer
