@@ -20,7 +20,7 @@ ServerWindow::ServerWindow( QWidget *parent )
 
     m_reconnectTimer = new QTimer(this);
     m_reconnectTimer->setInterval(2000);
-    m_reconnectTimer->setInterval(2000); // retry every 2s
+    m_reconnectTimer->setInterval(2000);
     connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
         if (m_socket->state() == QAbstractSocket::UnconnectedState) {
             m_socket->connectToHost("127.0.0.1", 1234);
@@ -162,18 +162,20 @@ void ServerWindow::updateSystemUsage()
 
 void ServerWindow::onReadyRead()
 {
-    QByteArray data = m_socket->readAll();
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    if (!doc.isObject()) return;
+    while (m_socket->canReadLine()) {
+        QByteArray line = m_socket->readLine().trimmed();
+        QJsonDocument doc = QJsonDocument::fromJson(line);
+        if (!doc.isObject()) continue;
 
-    QJsonObject response = doc.object();
-    QString type = response["type"].toString();
+        QJsonObject response = doc.object();
+        QString type = response["type"].toString();
 
-    if (type == "log") {
-        onNewLogReceived(response["message"].toString());
-    }
-    else if (type == "client_count") {
-        onClientCountUpdated(response["count"].toInt());
+        if (type == "log") {
+            onNewLogReceived(response["message"].toString());
+        }
+        else if (type == "client_count") {
+            onClientCountUpdated(response["count"].toInt());
+        }
     }
 }
 
@@ -185,6 +187,7 @@ void ServerWindow::onConnected(){
     QJsonObject req;
     req["action"] = "admin_subscribe";
     m_socket->write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
+    m_socket->flush();
 }
 
 void ServerWindow::onDisconnected()

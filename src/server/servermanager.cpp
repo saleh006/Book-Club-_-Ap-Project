@@ -56,17 +56,17 @@ void ServerManager::stopServer()
         this->close();
         qDebug() << "Server stopped listening on port" << this->serverPort();
     }
+
+    m_activeClients = 0;
+    emit clientCountChanged(m_activeClients);
 }
 
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
-    ClientHandler *handler = new ClientHandler(socketDescriptor,nullptr);
+    ClientHandler *handler = new ClientHandler(socketDescriptor,this);
     QString connectLog = QString("<font color='#7f8c8d'><b>[SYS]</b></font> New client connected. User: <b>Anonymous</b> | Descriptor: %1")
                              .arg(socketDescriptor);
     emit serverLogEvent(connectLog);
-
-    m_activeClients++;
-    emit clientCountChanged(m_activeClients);
 
     connect(handler,&ClientHandler::logProduced,this,&ServerManager::serverLogEvent);
     connect(handler, &ClientHandler::databaseUpdated,this,&ServerManager::databaseUpdated);
@@ -75,11 +75,21 @@ void ServerManager::incomingConnection(qintptr socketDescriptor)
     connect(this, &ServerManager::sendToAllClientsSignal, handler, &ClientHandler::sendToClient);
     connect(this, &ServerManager::disconnectAllClientsSignal, handler, &ClientHandler::disconnectClient);
 
-    connect(handler, &ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc,const QString &username){
-        if(m_activeClients > 0) m_activeClients--;
-        emit clientCountChanged(m_activeClients);
-        emit serverLogEvent(QString("<font color='#7f8c8d'><b>[SYS]</b></font> User <b>%1</b> disconnected.").arg(username));   
-    });
+    connect(handler, &ClientHandler::userLoggedIn,this,[this](int userId){
+        m_userConnectionCounts[userId]++;
+        emit clientCountChanged(m_userConnectionCounts.size());
+    }, Qt::QueuedConnection);
+
+    connect(handler,&ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc,const QString &username, bool wasAuthenticated, int userId){
+        if (wasAuthenticated){
+            auto it = m_userConnectionCounts.find(userId);
+            if (it != m_userConnectionCounts.end()) {
+                if (--it.value() <= 0) m_userConnectionCounts.erase(it);
+                emit clientCountChanged(m_userConnectionCounts.size());
+            }
+        }
+        emit serverLogEvent(QString("<font color='7f8c8d'><b>[SYS]</b></font> User <b>%1</b> disconnected").arg(username));
+    }, Qt::QueuedConnection);
 
     connect(handler, &ClientHandler::finished, handler, &ClientHandler::deleteLater);
     handler->start();

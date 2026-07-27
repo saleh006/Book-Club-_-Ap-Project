@@ -4,6 +4,7 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QList>
+#include <QHash>
 
 
 class ServerManager : public QTcpServer
@@ -31,6 +32,7 @@ protected:
 
 private:
     int m_activeClients = 0;
+    QHash<int,int> m_userConnectionCounts;
 };
 
 #endif // SERVERMANAGER_H

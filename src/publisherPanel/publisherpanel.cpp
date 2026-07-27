@@ -44,6 +44,7 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
         QJsonObject subReq;
         subReq["action"] = "user_subscribe";
         subReq["userId"] = m_publisherId;
+        subReq["username"] = m_username;
         sendRequest(subReq);
 
         requestNotifications();
@@ -58,7 +59,7 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
     });
     m_socket->connectToHost("127.0.0.1", 1234);
 
-    switchPage(0); // default to "My Books"
+    switchPage(0);
 }
 
 void PublisherPanel::sendRequest(const QJsonObject &requestObj)

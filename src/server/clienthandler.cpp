@@ -54,12 +54,12 @@ void ClientHandler::onReadyRead()
         QString action = requestObj["action"].toString();
         QJsonObject responseObj;
         QString clientIp = m_socket ? m_socket->peerAddress().toString() : "Unknown IP";
+        QString displayName = m_username;
         QString reqLog = QString("<font color='#3498db'><b>[REQ]</b></font> "
                                  "User: <b>%1</b> | IP: %2 | Action: <font color='#f1c40f'><b>%3</b></font>")
-                             .arg(m_username)
+                             .arg(displayName)
                              .arg(clientIp)
                              .arg(action);
-        emit logProduced(reqLog);
 
         bool handled = handleUserActions(action, requestObj, responseObj)
                        || handleBookActions(action, requestObj, responseObj)
@@ -90,14 +90,15 @@ void ClientHandler::onReadyRead()
             .arg(action)
                 .arg(msg.isEmpty() ? "Unknown Error" : msg);
         }
-        QString finalLog = resLog + "<hr style='border: 0; border-top: 1px solid #3a3a4c; margin: 4px 0;'>";
+        QString finalLog = reqLog + "<br>" + resLog + "<hr style='border: 0; border-top: 1px solid #3a3a4c; margin: 4px 0 0 0;'>";
         emit logProduced(finalLog);
     }
 }
 
 void ClientHandler::onDisconnected(){
     qDebug() << "Client disconnected. Cleaning up memory...";
-    emit clientDisconnectedSignal(m_socketDescriptor,m_username);
+    QString displayName = m_isAuthenticated ? m_username : "Anonymous";
+    emit clientDisconnectedSignal(m_socketDescriptor,displayName, m_isAuthenticated, m_userId);
     if(m_socket){
         m_socket->close();
         m_socket->deleteLater();
@@ -142,7 +143,10 @@ void ClientHandler::notifyUser(int userId, const QString &title, const QString &
 
 void ClientHandler::disconnectClient()
 {
-    if (m_socket) {
-        m_socket->disconnectFromHost();
-    }
+    if (!m_socket) return;
+    QMetaObject::invokeMethod(m_socket,[this]{
+        if (m_socket) {
+            m_socket->disconnectFromHost();
+        }
+    }, Qt::QueuedConnection);
 }

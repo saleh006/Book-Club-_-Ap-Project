@@ -42,6 +42,11 @@ bool ClientHandler::handleUserActions(const QString &action, const QJsonObject &
             responseObj["fullName"] = loggedInUser.fullName;
             responseObj["userId"] = loggedInUser.id;
             m_username = username;
+            m_userId = loggedInUser.id;
+            if(!m_isAuthenticated){
+                m_isAuthenticated = true;
+                emit userLoggedIn(m_userId);
+            }
         } else {
             responseObj["status"] = "error";
             responseObj["message"] = errorMsg;
@@ -206,25 +211,36 @@ bool ClientHandler::handleUserActions(const QString &action, const QJsonObject &
         }
     }
     else if (action == "admin_subscribe") {
+        if(m_username == "Anonymous") m_username = "Admin";
+        responseObj["status"] = "success";
+        responseObj["message"] = "Subscribed to admin broadcast";
         ServerManager *server = qobject_cast<ServerManager*>(parent());
-        if (server) {
+        if (server && !m_adminSubscribed) {
             connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
+            m_adminSubscribed = true;
         }
     }
     else if (action == "user_subscribe") {
         m_userId = requestObj["userId"].toInt();
+        QString username = requestObj["username"].toString();
+        if(!username.isEmpty()) m_username = username;
+        if(!m_isAuthenticated){
+            m_isAuthenticated = true;
+            emit userLoggedIn(m_userId);
+        }
         ServerManager *server = qobject_cast<ServerManager*>(parent());
-        if (server) {
+        if (server && !m_userSubscribed) {
             connect(server, &ServerManager::pushToUser, this, [this](int uid, const QJsonObject &payload) {
                 if (uid == m_userId) sendToClient(payload);
             });
+            m_userSubscribed = true;
         }
     }
     else if (action == "user_update_profile") {
-        int userId          = requestObj["userId"].toInt();
+        int userId = requestObj["userId"].toInt();
         QString newUsername = requestObj["newUsername"].toString();
-        QString fullName    = requestObj["fullName"].toString();
-        QString email       = requestObj["email"].toString();
+        QString fullName = requestObj["fullName"].toString();
+        QString email = requestObj["email"].toString();
         QString errorMsg;
         responseObj["type"] = "profile_update_result";
         if (DatabaseManager::instance().updateUserProfile(userId, newUsername, fullName, email, errorMsg)) {

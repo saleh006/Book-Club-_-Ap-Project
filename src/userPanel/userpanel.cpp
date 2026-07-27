@@ -24,7 +24,6 @@ static QPixmap makeCoverPixmap(const Book &b, const QSize &size)
 {
     if (!b.coverImagePath.isEmpty()) {
         QFileInfo info(b.coverImagePath);
-        // Cache path on user client side
         QString localCachePath = QCoreApplication::applicationDirPath() + "/cache/covers/" + info.fileName();
         QString errorMsg;
 
@@ -98,6 +97,7 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
         QJsonObject subReq;
         subReq["action"] = "user_subscribe";
         subReq["userId"] = m_userId;
+        subReq["username"] = m_username;
         sendRequest(subReq);
 
         requestNotifications();

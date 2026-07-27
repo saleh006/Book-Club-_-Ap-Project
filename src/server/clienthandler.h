@@ -15,10 +15,11 @@ public:
 
 signals:
     void logProduced(const QString &message);
-    void clientDisconnectedSignal(qintptr descriptor, const QString &username);
+    void clientDisconnectedSignal(qintptr Desc, const QString &username , bool wasAuthenticated, int userId);
     void databaseUpdated(const QString &type);
     void broadcastTargetedUpdate(const QJsonObject &msg);
     void notificationReady(int userId, const QJsonObject &payload);
+    void userLoggedIn(int userId);
 
 protected:
     void run() override;
@@ -45,8 +46,11 @@ private:
     qintptr m_socketDescriptor;
     QTcpSocket *m_socket;
     QByteArray m_buffer;
-    QString m_username = "Anonymous";
+    QString m_username = "Admin";
     int m_userId = -1;
+    bool m_isAuthenticated = false;
+    bool m_adminSubscribed = false;
+    bool m_userSubscribed  = false;
 };
 
 #endif // CLIENTHANDLER_H
