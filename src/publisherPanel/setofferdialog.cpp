@@ -13,6 +13,25 @@ SetOfferDialog::SetOfferDialog(int bookId, QWidget *parent)
     setupUi();
 }
 
+SetOfferDialog::SetOfferDialog(int bookId, const Discount &existing, QWidget *parent)
+    : QDialog(parent), m_bookId(bookId), m_discountId(existing.id)
+{
+    setupUi();
+    setWindowTitle("Edit Offer");
+    prefill(existing);
+}
+
+void SetOfferDialog::prefill(const Discount &existing)
+{
+    const int idx = m_typeCombo->findData(existing.type);
+    m_typeCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+    m_valueSpin->setValue(existing.value);
+    if (existing.startDate.isValid())
+        m_startEdit->setDateTime(existing.startDate);
+    if (existing.endDate.isValid())
+        m_endEdit->setDateTime(existing.endDate);
+}
+
 void SetOfferDialog::setupUi()
 {
     setWindowTitle("Set Offer");
@@ -27,39 +46,31 @@ void SetOfferDialog::setupUi()
         "QPushButton { background-color: #7C3E66; border: none; border-radius: 6px; padding: 8px 16px; color: white; font-weight: bold; }"
         "QPushButton:hover { background-color: #5F2E4F; }"
         );
-
     m_typeCombo = new QComboBox(this);
     m_typeCombo->addItem("Percent Off", "percent");
     m_typeCombo->addItem("Flat Amount Off", "flat");
-
     m_valueSpin = new QDoubleSpinBox(this);
     m_valueSpin->setRange(0.0, 100000.0);
     m_valueSpin->setDecimals(2);
     m_valueSpin->setValue(10.0);
-
     m_startEdit = new QDateTimeEdit(QDateTime::currentDateTime(), this);
     m_startEdit->setCalendarPopup(true);
     m_startEdit->setDisplayFormat("yyyy-MM-dd HH:mm");
-
     m_endEdit = new QDateTimeEdit(QDateTime::currentDateTime().addDays(7), this);
     m_endEdit->setCalendarPopup(true);
     m_endEdit->setDisplayFormat("yyyy-MM-dd HH:mm");
-
     QFormLayout *formLayout = new QFormLayout();
     formLayout->addRow("Discount Type", m_typeCombo);
     formLayout->addRow("Value", m_valueSpin);
     formLayout->addRow("Starts", m_startEdit);
     formLayout->addRow("Ends", m_endEdit);
-
     QDialogButtonBox *buttonBox = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
     connect(m_typeCombo, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_valueSpin->setPrefix("");
         m_valueSpin->setSuffix("");
-
         if (m_typeCombo->itemData(index).toString() == "percent") {
             m_valueSpin->setSuffix(" %");
             m_valueSpin->setRange(0.0, 100.0);
@@ -69,7 +80,6 @@ void SetOfferDialog::setupUi()
         }
     });
     m_valueSpin->setSuffix(" %");
-
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(20, 20, 20, 20);
     mainLayout->setSpacing(15);
@@ -80,6 +90,7 @@ void SetOfferDialog::setupUi()
 Discount SetOfferDialog::resultDiscount() const
 {
     Discount d;
+    d.id = m_discountId;
     d.bookId = m_bookId;
     d.type = m_typeCombo->currentData().toString();
     d.value = m_valueSpin->value();

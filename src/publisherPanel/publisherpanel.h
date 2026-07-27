@@ -13,6 +13,7 @@
 #include <QComboBox>
 #include <QMap>
 #include <QListWidget>
+#include <QJsonObject>
 #include "models.h"
 #include "QLineEdit"
 #include "src/userPanel/notificationtoast.h"
@@ -41,11 +42,16 @@ private slots:
     void handleSetOffer(int bookId);
     void filterBooks(const QString &text);
     void handleEditProfile();
+    void handleEditDiscount(int discountId);
+    void handleDeleteDiscount(int discountId);
 
 private:
     void setupUi();
     QWidget *createStatsPage();
     QWidget *createBooksPage();
+    QWidget *createDiscountsPage();
+    void requestDiscounts();
+    void populateDiscountsTable(const QJsonArray &discounts);
     void updateButtonStyles(int currentIndex);
     void requestBooks();
     void requestStats();
@@ -60,7 +66,13 @@ private:
     QStackedWidget *m_stackedWidget;
     QPushButton *m_btnStats;
     QPushButton *m_btnBooks;
+    QPushButton *m_btnDiscounts;
     QPushButton *m_btnLogout;
+
+    //Discounts
+    QWidget *m_discountsPage = nullptr;
+    QTableWidget *m_discountsTable = nullptr;
+    QMap<int, QJsonObject> m_discountRows; // discountId -> raw row data, for edit prefill
 
     //Notification
     QPushButton *m_btnNotifications;

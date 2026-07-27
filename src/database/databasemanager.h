@@ -44,6 +44,11 @@ struct ReviewAdminSummary {
     QString username;
 };
 
+struct DiscountPublisherSummary {
+    Discount discount;
+    QString bookTitle;
+};
+
 class DatabaseManager
 {
 public:
@@ -97,6 +102,10 @@ public:
 
     bool addDiscount(const Discount &discount, QString &errorMsg);
     bool fetchActiveDiscount(int bookId, Discount &outDiscount, QString &errorMsg);
+    bool fetchDiscount(int discountId, Discount &outDiscount, QString &errorMsg);
+    bool fetchDiscountsForPublisher(int publisherId, QVector<DiscountPublisherSummary> &outDiscounts, QString &errorMsg);
+    bool updateDiscount(const Discount &discount, QString &errorMsg);
+    bool deleteDiscount(int discountId, QString &errorMsg);
 
     //reviews
     bool addReview(const Review &review, QString &errorMsg);

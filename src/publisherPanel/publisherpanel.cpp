@@ -110,7 +110,19 @@ void PublisherPanel::setupUi()
     avatarRowLayout->setContentsMargins(0, 0, 0, 0);
     avatarRowLayout->setSpacing(8);
 
-    QLabel *avatarLabel = new QLabel("📖", avatarRow);
+    QLabel *avatarLabel = new QLabel(avatarRow);
+
+    avatarLabel->setPixmap(
+        QPixmap(":/pub.png")
+            .scaled(
+                100,
+                100,
+                Qt::KeepAspectRatio,
+                Qt::SmoothTransformation
+                )
+        );
+
+    avatarLabel->setAlignment(Qt::AlignCenter);
     avatarLabel->setStyleSheet("font-size: 40px; border: none; background: transparent;");
 
     QPushButton *editProfileBtn = new QPushButton(avatarRow);
@@ -161,6 +173,9 @@ void PublisherPanel::setupUi()
     m_btnNotifications = new QPushButton("Notifications", sidebar);
     m_btnNotifications->setIcon(QIcon(":/icons/bell.png"));
     m_btnNotifications->setIconSize(QSize(20, 20));
+    m_btnDiscounts = new QPushButton("Manage Discounts", sidebar);
+    m_btnDiscounts->setIcon(QIcon(":/icons/tag-solid.png"));
+    m_btnDiscounts->setIconSize(QSize(20, 20));
     m_btnLogout = new QPushButton("Logout", sidebar);
     m_btnLogout->setIcon(QIcon(":/icons/logout.png"));
     m_btnLogout->setIconSize(QSize(20, 20));
@@ -172,9 +187,11 @@ void PublisherPanel::setupUi()
     m_btnStats->setStyleSheet(menuBtnStyle);
     m_btnBooks->setStyleSheet(menuBtnStyle);
     m_btnNotifications->setStyleSheet(menuBtnStyle);
+    m_btnDiscounts->setStyleSheet(menuBtnStyle);
     m_btnStats->setCursor(Qt::PointingHandCursor);
     m_btnBooks->setCursor(Qt::PointingHandCursor);
     m_btnNotifications->setCursor(Qt::PointingHandCursor);
+    m_btnDiscounts->setCursor(Qt::PointingHandCursor);
 
     m_btnLogout->setCursor(Qt::PointingHandCursor);
     m_btnLogout->setStyleSheet(
@@ -204,6 +221,7 @@ void PublisherPanel::setupUi()
     sidebarLayout->addWidget(m_btnStats);
     sidebarLayout->addWidget(m_btnBooks);
     sidebarLayout->addWidget(m_btnNotifications);
+    sidebarLayout->addWidget(m_btnDiscounts);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(m_btnLogout);
 
@@ -212,7 +230,9 @@ void PublisherPanel::setupUi()
     m_stackedWidget->addWidget(createBooksPage()); // index 1
 
     m_notifPage = createNotificationsPage();
-    m_stackedWidget->addWidget(m_notifPage);
+    m_stackedWidget->addWidget(m_notifPage); // index 2
+
+    m_stackedWidget->addWidget(createDiscountsPage()); // index 3
 
     mainLayout->addWidget(sidebar);
     mainLayout->addWidget(m_stackedWidget);
@@ -220,6 +240,7 @@ void PublisherPanel::setupUi()
     connect(m_btnStats, &QPushButton::clicked, this, [this]() { switchPage(0); requestStats(); });
     connect(m_btnBooks, &QPushButton::clicked, this, [this]() { switchPage(1); });
     connect(m_btnNotifications, &QPushButton::clicked, this, [this]() { switchPage(2); });
+    connect(m_btnDiscounts, &QPushButton::clicked, this, [this]() { switchPage(3); requestDiscounts(); });
     connect(m_btnLogout, &QPushButton::clicked, this, &PublisherPanel::logoutRequested);
 }
 
@@ -391,6 +412,192 @@ void PublisherPanel::handleSetOffer(int bookId)
         req["endDate"] = d.endDate.toUTC().toString(Qt::ISODate);
         sendRequest(req);
     }
+}
+
+QWidget *PublisherPanel::createDiscountsPage()
+{
+    m_discountsPage = new QWidget(this);
+    auto *page = m_discountsPage;
+    page->setStyleSheet("background: transparent;");
+
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 25, 30, 25);
+    layout->setSpacing(14);
+
+    auto *titleRow = new QWidget(page);
+    titleRow->setStyleSheet("background:transparent;border:none;");
+
+    auto *titleLayout = new QHBoxLayout(titleRow);
+    titleLayout->setContentsMargins(0,0,0,0);
+    titleLayout->setSpacing(8);
+
+
+    auto *titleIcon = new QLabel(titleRow);
+
+    titleIcon->setPixmap(
+        QPixmap(":/icons/tag-solid.png")
+            .scaled(
+                24,
+                24,
+                Qt::KeepAspectRatio,
+                Qt::SmoothTransformation
+                )
+        );
+
+    titleIcon->setAlignment(Qt::AlignCenter);
+
+
+    auto *title = new QLabel("Manage Discounts", titleRow);
+
+    title->setStyleSheet(
+        "color:#FFEAD2;"
+        "font-size:20px;"
+        "font-weight:bold;"
+        "border:none;"
+        "background:transparent;"
+        );
+
+
+    titleLayout->addWidget(titleIcon);
+    titleLayout->addWidget(title);
+    titleLayout->addStretch();
+
+
+    layout->addWidget(titleRow);
+
+    auto *subtitle = new QLabel("View, edit, or remove discounts on your books", page);
+    subtitle->setStyleSheet(QString("color:%1;font-size:12px;border:none;background:transparent;").arg(kTextDim));
+    layout->addWidget(subtitle);
+
+    m_discountsTable = new QTableWidget(0, 6, page);
+    m_discountsTable->setHorizontalHeaderLabels({"Book", "Type", "Value", "Start", "End", ""});
+    m_discountsTable->verticalHeader()->setVisible(false);
+    m_discountsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_discountsTable->setSelectionMode(QAbstractItemView::NoSelection);
+    m_discountsTable->setFocusPolicy(Qt::NoFocus);
+    m_discountsTable->setShowGrid(false);
+    m_discountsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_discountsTable->setColumnWidth(5, 200);
+    m_discountsTable->verticalHeader()->setDefaultSectionSize(48);
+    m_discountsTable->setStyleSheet(QString(
+                                        "QTableWidget{background-color:%1;border:1px solid %2;border-radius:10px;color:#EAEAEA;font-size:12px;}"
+                                        "QTableWidget::item{border-bottom:1px solid %2;padding:6px;}"
+                                        "QHeaderView::section{background-color:#1A141F;color:%3;border:none;padding:8px;font-size:11px;}")
+                                        .arg(kCardBg, kCardBorder, kTextDim));
+
+    layout->addWidget(m_discountsTable);
+
+    return page;
+}
+
+void PublisherPanel::requestDiscounts()
+{
+    QJsonObject req;
+    req["action"] = "publisher_get_discounts";
+    req["publisherId"] = m_publisherId;
+    sendRequest(req);
+}
+
+void PublisherPanel::populateDiscountsTable(const QJsonArray &discounts)
+{
+    m_discountsTable->setRowCount(0);
+    m_discountRows.clear();
+
+    for (const QJsonValue &v : discounts) {
+        const QJsonObject d = v.toObject();
+        const int discountId = d["discountId"].toInt();
+        m_discountRows[discountId] = d;
+
+        const int row = m_discountsTable->rowCount();
+        m_discountsTable->insertRow(row);
+        m_discountsTable->setRowHeight(row, 48);
+
+        m_discountsTable->setItem(row, 0, new QTableWidgetItem(d["bookTitle"].toString()));
+        m_discountsTable->setItem(row, 1, new QTableWidgetItem(d["type"].toString()));
+        m_discountsTable->setItem(row, 2, new QTableWidgetItem(QString::number(d["value"].toDouble())));
+
+        const QDateTime start = QDateTime::fromString(d["startDate"].toString(), Qt::ISODate);
+        const QDateTime end = QDateTime::fromString(d["endDate"].toString(), Qt::ISODate);
+        m_discountsTable->setItem(row, 3, new QTableWidgetItem(start.isValid() ? start.toString("yyyy-MM-dd") : ""));
+        m_discountsTable->setItem(row, 4, new QTableWidgetItem(end.isValid() ? end.toString("yyyy-MM-dd") : ""));
+
+        auto *actions = new QWidget(m_discountsTable);
+        auto *actionsLayout = new QHBoxLayout(actions);
+        actionsLayout->setContentsMargins(6, 4, 6, 4);
+        actionsLayout->setSpacing(8);
+
+        auto *editBtn = new QPushButton("Edit", actions);
+        auto *deleteBtn = new QPushButton("Delete", actions);
+        editBtn->setCursor(Qt::PointingHandCursor);
+        deleteBtn->setCursor(Qt::PointingHandCursor);
+        editBtn->setMinimumSize(64, 32);
+        deleteBtn->setMinimumSize(64, 32);
+        editBtn->setStyleSheet(
+            "QPushButton{background-color:#3E5C7C;color:white;border:none;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:bold;}"
+            "QPushButton:hover{background-color:#4E70A0;}");
+        deleteBtn->setStyleSheet(
+            "QPushButton{background-color:#7C3E3E;color:white;border:none;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:bold;}"
+            "QPushButton:hover{background-color:#A05050;}");
+
+        connect(editBtn, &QPushButton::clicked, this, [this, discountId]() { handleEditDiscount(discountId); });
+        connect(deleteBtn, &QPushButton::clicked, this, [this, discountId]() { handleDeleteDiscount(discountId); });
+
+        actionsLayout->addWidget(editBtn);
+        actionsLayout->addWidget(deleteBtn);
+        actionsLayout->addStretch();
+
+        m_discountsTable->setCellWidget(row, 5, actions);
+    }
+}
+
+void PublisherPanel::handleEditDiscount(int discountId)
+{
+    if (!m_discountRows.contains(discountId))
+        return;
+
+    const QJsonObject row = m_discountRows.value(discountId);
+
+    Discount existing;
+    existing.id = discountId;
+    existing.bookId = row["bookId"].toInt();
+    existing.type = row["type"].toString();
+    existing.value = row["value"].toDouble();
+    existing.startDate = QDateTime::fromString(row["startDate"].toString(), Qt::ISODate);
+    existing.endDate = QDateTime::fromString(row["endDate"].toString(), Qt::ISODate);
+
+    SetOfferDialog dialog(existing.bookId, existing, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    Discount d = dialog.resultDiscount();
+
+    if (d.startDate >= d.endDate) {
+        StyledMessageBox::error(this, "Invalid dates", "Start time must be before end time.");
+        return;
+    }
+
+    QJsonObject req;
+    req["action"] = "publisher_update_discount";
+    req["publisherId"] = m_publisherId;
+    req["discountId"] = discountId;
+    req["type"] = d.type;
+    req["value"] = d.value;
+    req["startDate"] = d.startDate.toUTC().toString(Qt::ISODate);
+    req["endDate"] = d.endDate.toUTC().toString(Qt::ISODate);
+    sendRequest(req);
+}
+
+void PublisherPanel::handleDeleteDiscount(int discountId)
+{
+    bool confirmed = StyledMessageBox::question(this, "Delete Discount",
+                                                "Are you sure you want to remove this discount?");
+    if (!confirmed) return;
+
+    QJsonObject req;
+    req["action"] = "publisher_delete_discount";
+    req["publisherId"] = m_publisherId;
+    req["discountId"] = discountId;
+    sendRequest(req);
 }
 
 void PublisherPanel::requestNotifications()
@@ -796,6 +1003,18 @@ void PublisherPanel::onReadyRead()
                 StyledMessageBox::error(this, "Clear Failed", responseObj["message"].toString());
             }
         }
+        else if (type == "publisher_discounts_list") {
+            if (responseObj["status"].toString() == "success")
+                populateDiscountsTable(responseObj["discounts"].toArray());
+            else
+                StyledMessageBox::error(this, "Discounts", responseObj["message"].toString());
+        }
+        else if (type == "publisher_discount_action_result") {
+            if (responseObj["status"].toString() == "success")
+                requestDiscounts();
+            else
+                StyledMessageBox::error(this, "Discount", responseObj["message"].toString());
+        }
         else {
             const QString status = responseObj["status"].toString();
             if (status == "success") {
@@ -832,6 +1051,7 @@ void PublisherPanel::updateButtonStyles(int currentIndex)
     m_btnStats->setStyleSheet(currentIndex == 0 ? activeStyle : normalStyle);
     m_btnBooks->setStyleSheet(currentIndex == 1 ? activeStyle : normalStyle);
     m_btnNotifications->setStyleSheet(currentIndex == 2 ? activeStyle : normalStyle);
+    m_btnDiscounts->setStyleSheet(currentIndex == 3 ? activeStyle : normalStyle);
 }
 
 void PublisherPanel::filterBooks(const QString &text)
@@ -1053,7 +1273,7 @@ QWidget *PublisherPanel::createStatsPage()
     m_bestTable  = makeTopTable();
     m_worstTable = makeTopTable();
 
-     //(daily / weekly / monthly per the spec)
+    //(daily / weekly / monthly per the spec)
     m_trendCombo = new QComboBox(this);
     m_trendCombo->addItems({"Monthly", "Weekly", "Daily"});
     m_trendCombo->setStyleSheet(QString(

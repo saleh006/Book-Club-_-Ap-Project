@@ -42,6 +42,94 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
             responseObj["message"] = errorMsg;
         }
     }
+    else if (action == "publisher_get_discounts") {
+        responseObj["type"] = "publisher_discounts_list";
+        int publisherId = requestObj["publisherId"].toInt();
+
+        QVector<DiscountPublisherSummary> discounts;
+        QString errorMsg;
+        if (DatabaseManager::instance().fetchDiscountsForPublisher(publisherId, discounts, errorMsg)) {
+            responseObj["status"] = "success";
+            QJsonArray arr;
+            for (const DiscountPublisherSummary &s : discounts) {
+                QJsonObject dObj;
+                dObj["discountId"] = s.discount.id;
+                dObj["bookId"] = s.discount.bookId;
+                dObj["bookTitle"] = s.bookTitle;
+                dObj["type"] = s.discount.type;
+                dObj["value"] = s.discount.value;
+                dObj["startDate"] = s.discount.startDate.toString(Qt::ISODate);
+                dObj["endDate"] = s.discount.endDate.toString(Qt::ISODate);
+                arr.append(dObj);
+            }
+            responseObj["discounts"] = arr;
+        } else {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        }
+    }
+    else if (action == "publisher_update_discount") {
+        responseObj["type"] = "publisher_discount_action_result";
+        int publisherId = requestObj["publisherId"].toInt();
+        int discountId = requestObj["discountId"].toInt();
+
+        Discount existing;
+        QString errorMsg;
+        if (!DatabaseManager::instance().fetchDiscount(discountId, existing, errorMsg)) {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        } else {
+            Book b;
+            QString bookErr;
+            if (!DatabaseManager::instance().fetchBook(existing.bookId, b, bookErr) || b.publisherId != publisherId) {
+                responseObj["status"] = "error";
+                responseObj["message"] = "You do not have permission to edit this discount.";
+            } else {
+                Discount d = existing;
+                if (requestObj.contains("value"))
+                    d.value = requestObj["value"].toDouble();
+                if (requestObj.contains("type"))
+                    d.type = requestObj["type"].toString();
+                if (requestObj.contains("startDate"))
+                    d.startDate = QDateTime::fromString(requestObj["startDate"].toString(), Qt::ISODate);
+                if (requestObj.contains("endDate"))
+                    d.endDate = QDateTime::fromString(requestObj["endDate"].toString(), Qt::ISODate);
+
+                if (DatabaseManager::instance().updateDiscount(d, errorMsg)) {
+                    responseObj["status"] = "success";
+                    responseObj["message"] = "Discount updated successfully.";
+                } else {
+                    responseObj["status"] = "error";
+                    responseObj["message"] = errorMsg;
+                }
+            }
+        }
+    }
+    else if (action == "publisher_delete_discount") {
+        responseObj["type"] = "publisher_discount_action_result";
+        int publisherId = requestObj["publisherId"].toInt();
+        int discountId = requestObj["discountId"].toInt();
+
+        Discount existing;
+        QString errorMsg;
+        if (!DatabaseManager::instance().fetchDiscount(discountId, existing, errorMsg)) {
+            responseObj["status"] = "error";
+            responseObj["message"] = errorMsg;
+        } else {
+            Book b;
+            QString bookErr;
+            if (!DatabaseManager::instance().fetchBook(existing.bookId, b, bookErr) || b.publisherId != publisherId) {
+                responseObj["status"] = "error";
+                responseObj["message"] = "You do not have permission to delete this discount.";
+            } else if (DatabaseManager::instance().deleteDiscount(discountId, errorMsg)) {
+                responseObj["status"] = "success";
+                responseObj["message"] = "Discount deleted successfully.";
+            } else {
+                responseObj["status"] = "error";
+                responseObj["message"] = errorMsg;
+            }
+        }
+    }
     else if (action == "wishlist_add") {
         responseObj["action"] = "wishlist_add_response";
         int userId = requestObj["userId"].toInt();

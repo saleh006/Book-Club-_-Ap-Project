@@ -2,6 +2,7 @@
     <qresource prefix="/">
         <file>StickerView.qml</file>
         <file>RUBSTAMP.TTF</file>
+        <file>pub.png</file>
         <file>bookclublogo.png</file>
         <file>gif.gif</file>
         <file>heroback.png</file>
@@ -73,5 +74,6 @@
         <file>icons/book-stack.png</file>
         <file>icons/link.png</file>
         <file>icons/folder.png</file>
+        <file>icons/tag-solid.png</file>
     </qresource>
 </RCC>
