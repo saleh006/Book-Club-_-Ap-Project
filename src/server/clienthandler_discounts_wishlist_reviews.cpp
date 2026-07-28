@@ -171,6 +171,7 @@ bool ClientHandler::handleDiscount_Wishlist_ReviewsActions(const QString &action
                 bObj["id"] = b.id;
                 bObj["title"] = b.title;
                 bObj["author"] = b.author;
+                bObj["status"] = b.status;
                 bookArray.append(bObj);
             }
             responseObj["books"] = bookArray;

@@ -64,6 +64,10 @@ void ServerManager::stopServer()
 void ServerManager::incomingConnection(qintptr socketDescriptor)
 {
     ClientHandler *handler = new ClientHandler(socketDescriptor,this);
+
+    m_activeClients++;
+    emit clientCountChanged(m_activeClients);
+
     QString connectLog = QString("<font color='#7f8c8d'><b>[SYS]</b></font> New client connected. User: <b>Anonymous</b> | Descriptor: %1")
                              .arg(socketDescriptor);
     emit serverLogEvent(connectLog);
@@ -75,19 +79,10 @@ void ServerManager::incomingConnection(qintptr socketDescriptor)
     connect(this, &ServerManager::sendToAllClientsSignal, handler, &ClientHandler::sendToClient);
     connect(this, &ServerManager::disconnectAllClientsSignal, handler, &ClientHandler::disconnectClient);
 
-    connect(handler, &ClientHandler::userLoggedIn,this,[this](int userId){
-        m_userConnectionCounts[userId]++;
-        emit clientCountChanged(m_userConnectionCounts.size());
-    }, Qt::QueuedConnection);
-
     connect(handler,&ClientHandler::clientDisconnectedSignal,this,[this](qintptr desc,const QString &username, bool wasAuthenticated, int userId){
-        if (wasAuthenticated){
-            auto it = m_userConnectionCounts.find(userId);
-            if (it != m_userConnectionCounts.end()) {
-                if (--it.value() <= 0) m_userConnectionCounts.erase(it);
-                emit clientCountChanged(m_userConnectionCounts.size());
-            }
-        }
+        if(m_activeClients>0) m_activeClients--;
+        emit clientCountChanged(m_activeClients);
+
         emit serverLogEvent(QString("<font color='7f8c8d'><b>[SYS]</b></font> User <b>%1</b> disconnected").arg(username));
     }, Qt::QueuedConnection);
 

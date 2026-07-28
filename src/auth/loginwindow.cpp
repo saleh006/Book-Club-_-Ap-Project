@@ -203,6 +203,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     connect(m_socket, &QTcpSocket::errorOccurred, this, &LoginWindow::onSocketError);
 
     connect(m_loginButton, &QPushButton::clicked, this, &LoginWindow::handleLoginClicked);
+    m_loginButton->setShortcut(QKeySequence(Qt::Key_Return));
 
     connect(signupLabel, &QLabel::linkActivated, this, [this](const QString &) {
         emit switchToSignUpRequested();

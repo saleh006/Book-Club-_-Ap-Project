@@ -91,7 +91,7 @@ void PublisherPanel::requestStats()
 void PublisherPanel::setupUi()
 {
     setStyleSheet("background-color: #060508; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
-    this->resize(800, 500);
+    this->showFullScreen();
 
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);

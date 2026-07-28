@@ -679,13 +679,16 @@ void WishlistPage::handleWishlistFetchResponse(const QJsonObject &response)
     }
 
     QSet<int> previousIds;
-    for (const WishlistDisplayItem &existing : std::as_const(m_items))
+    for (const WishlistDisplayItem &existing : m_items)
         previousIds.insert(existing.bookId);
 
     QList<WishlistDisplayItem> items;
     const QJsonArray rawBooks = response["books"].toArray();
     for (const QJsonValue &value : rawBooks) {
         const QJsonObject o = value.toObject();
+        if (o.contains("status") && o["status"].toInt() != 1) {
+            continue;
+        }
         WishlistDisplayItem item;
         item.bookId = o["id"].toInt();
         if(m_ownedBookIds.contains(item.bookId)){

@@ -13,17 +13,11 @@ AdminPanel::AdminPanel(QWidget *parent)
     connect(m_socket,&QTcpSocket::readyRead,this,&AdminPanel::onReadyRead);
     m_socket->connectToHost("127.0.0.1" , 1234);
 
-    connect(m_socket, &QTcpSocket::connected, this, [this]() {
-        QJsonObject subscribeReq;
-        subscribeReq["action"] = "admin_subscribe";
-        m_socket->write(QJsonDocument(subscribeReq).toJson(QJsonDocument::Compact) + "\n");
-        m_socket->flush();
-    });
 }
 
 void AdminPanel::setupUi()
 {
-    this->resize(800, 500);
+    this->showFullScreen();
     this->setStyleSheet("background-color: #060508; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
 
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
@@ -124,8 +118,8 @@ void AdminPanel::setupUi()
 
     m_stackedWidget = new QStackedWidget(this);
 
-    ServerWindow *serverPage = new ServerWindow(this);
-    m_stackedWidget->addWidget(serverPage);
+    m_serverWindow = new ServerWindow(m_socket,this);
+    m_stackedWidget->addWidget(m_serverWindow);
 
     m_userTab = new UsersTab(m_socket,this);
     m_publishersTab = new PublishersTab(m_socket,this);
@@ -196,6 +190,7 @@ void AdminPanel::onReadyRead()
 
         QJsonObject response = doc.object();
 
+        m_serverWindow->handleServerResponse(response);
         m_userTab->handleServerResponse(response);
         m_booksTab->handleServerResponse(response);
         m_publishersTab->handleServerResponse(response);

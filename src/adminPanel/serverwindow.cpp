@@ -7,28 +7,31 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
-ServerWindow::ServerWindow( QWidget *parent )
-    : QWidget(parent)
+ServerWindow::ServerWindow(QTcpSocket *socket, QWidget *parent )
+    : QWidget(parent),m_socket(socket)
 {
     setupUi();
 
-    m_socket = new QTcpSocket(this);
-    connect(m_socket, &QTcpSocket::connected, this, &ServerWindow::onConnected);
-    connect(m_socket, &QTcpSocket::readyRead, this, &ServerWindow::onReadyRead);
-    connect(m_socket, &QTcpSocket::disconnected, this, &ServerWindow::onDisconnected);
-    connect(m_socket, &QTcpSocket::errorOccurred, this, &ServerWindow::onSocketError);
+    if(m_socket){
+        connect(m_socket, &QTcpSocket::connected, this, &ServerWindow::onConnected);
+        connect(m_socket, &QTcpSocket::disconnected, this, &ServerWindow::onDisconnected);
+        connect(m_socket, &QTcpSocket::errorOccurred, this, &ServerWindow::onSocketError);
 
-    m_reconnectTimer = new QTimer(this);
-    m_reconnectTimer->setInterval(2000);
-    m_reconnectTimer->setInterval(2000);
-    connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
-        if (m_socket->state() == QAbstractSocket::UnconnectedState) {
-            m_socket->connectToHost("127.0.0.1", 1234);
+        if (m_socket->state() == QAbstractSocket::ConnectedState) {
+            onConnected();
+        }else if (m_socket->state() == QAbstractSocket::UnconnectedState) {
+            m_statusLabel->setText("Connecting to Server...");
         }
-    });
-    m_reconnectTimer->start();
 
-    m_socket->connectToHost("127.0.0.1", 1234);
+        m_reconnectTimer = new QTimer(this);
+        m_reconnectTimer->setInterval(2000);
+        connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
+            if (m_socket->state() == QAbstractSocket::UnconnectedState) {
+                m_socket->connectToHost("127.0.0.1", 1234);
+            }
+        });
+        m_reconnectTimer->start();
+    }
 
     m_statusLabel->setText("🟡 Connecting to Server...");
     m_statusLabel->setStyleSheet("color: #f39c12; font-weight: bold; font-size: 14px;");
@@ -160,22 +163,15 @@ void ServerWindow::updateSystemUsage()
 #endif
 }
 
-void ServerWindow::onReadyRead()
+void ServerWindow::handleServerResponse(const QJsonObject &response)
 {
-    while (m_socket->canReadLine()) {
-        QByteArray line = m_socket->readLine().trimmed();
-        QJsonDocument doc = QJsonDocument::fromJson(line);
-        if (!doc.isObject()) continue;
+    QString type = response["type"].toString();
 
-        QJsonObject response = doc.object();
-        QString type = response["type"].toString();
-
-        if (type == "log") {
-            onNewLogReceived(response["message"].toString());
-        }
-        else if (type == "client_count") {
-            onClientCountUpdated(response["count"].toInt());
-        }
+    if (type == "log") {
+        onNewLogReceived(response["message"].toString());
+    }
+    else if (type == "client_count") {
+        onClientCountUpdated(response["count"].toInt());
     }
 }
 

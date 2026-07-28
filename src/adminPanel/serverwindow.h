@@ -17,14 +17,14 @@ class ServerWindow : public QWidget
     Q_OBJECT
 
 public:
-    explicit ServerWindow(QWidget *parent = nullptr);
+    explicit ServerWindow(QTcpSocket *socket, QWidget *parent = nullptr);
     ~ServerWindow();
+    void handleServerResponse(const QJsonObject &response);
 
 private slots:
     void onNewLogReceived(const QString &message);
     void onClientCountUpdated(int count);
     void updateSystemUsage();
-    void onReadyRead();
     void onConnected();
     void onDisconnected();
     void onSocketError(QAbstractSocket::SocketError socketError);

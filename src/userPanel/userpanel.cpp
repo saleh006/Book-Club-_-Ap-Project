@@ -72,7 +72,7 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
 
     m_loaderProgressBar = new QProgressBar(m_startupLoader);
     m_loaderProgressBar->setFixedWidth(240);
-    m_loaderProgressBar->setRange(0, 0); // indeterminate until we know how many covers to load
+    m_loaderProgressBar->setRange(0, 0);
     m_loaderProgressBar->setTextVisible(false);
     m_loaderProgressBar->setStyleSheet(
         "QProgressBar{background-color:#1A141F;border:1px solid #1F1724;border-radius:6px;height:8px;}"
@@ -85,8 +85,6 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
     m_startupLoader->raise();
     m_startupLoader->show();
 
-    // Safety net — if a cover download stalls/fails silently, don't leave the
-    // overlay stuck forever. Doesn't affect the progress logic if it completes normally.
     QTimer::singleShot(4000, this, [this]() {
         if (m_startupLoaderActive) updateStartupProgress(QString(), m_coversExpected, m_coversExpected);
     });
@@ -106,7 +104,6 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
         m_cartPage->refreshCart();
         m_wishlistPage->refreshWishlist();
 
-        // Fetch User profile info & favorite genres
         QJsonObject reqUser;
         reqUser["action"] = "user_fetch";
         reqUser["username"] = m_username;
@@ -156,7 +153,7 @@ void UserPanel::requestAllBooks()
 void UserPanel::setupUi()
 {
     setStyleSheet("background-color: #060508; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
-    this->resize(1000, 700);
+    this->showFullScreen();
 
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);

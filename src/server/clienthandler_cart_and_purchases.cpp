@@ -73,6 +73,7 @@ bool ClientHandler::handleCart_PurchaseActions(const QString &action, const QJso
                     itemObj["coverImagePath"] = book.coverImagePath;
                     itemObj["originalPrice"] = book.price;
                     itemObj["genre"] = book.genre;
+                    itemObj["status"] = book.status;
 
                     QVector<Book> wishlist;
                     QString wishErr;

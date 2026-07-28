@@ -39,6 +39,7 @@ private:
     QPushButton *m_btnPublishers;
     QPushButton *m_btnReviews;
 
+    ServerWindow *m_serverWindow;
     UsersTab *m_userTab;
     BookTab *m_booksTab;
     PublishersTab *m_publishersTab;

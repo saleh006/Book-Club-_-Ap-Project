@@ -362,6 +362,10 @@ void ShoppingCartPage::handleCartFetchResponse(const QJsonObject &response)
     const QJsonArray rawItems = response["items"].toArray();
     for (const QJsonValue &value : rawItems) {
         const QJsonObject o = value.toObject();
+        if (o.contains("status") && o["status"].toInt() != 1) {
+            continue;
+        }
+
         CartDisplayItem item;
         item.bookId = o["bookId"].toInt();
         item.title = o["title"].toString();
