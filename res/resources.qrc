@@ -78,6 +78,5 @@
         <file>loading.gif</file>
         <file>BoocClubServer.jpg</file>
         <file>BookClubClient.jpg</file>
-        <file>BookClubServer.ico</file>
     </qresource>
 </RCC>

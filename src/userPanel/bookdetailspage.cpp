@@ -56,15 +56,22 @@ static QPixmap coverPixmap(const Book &b, const QSize &size)
         p.drawText(base.rect().adjusted(10, 10, -10, -10), Qt::AlignCenter | Qt::TextWordWrap, b.title);
         p.end();
     }
-    // Qt's stylesheet border-radius does NOT clip a QLabel's pixmap content,
-    // so the rounding has to be baked into the pixmap itself.
     return roundedPixmap(base, 12);
 }
 
 static QString starGlyphs(double rating)
 {
-    int filled = qBound(0, qRound(rating), 5);
-    return QString("★").repeated(filled) + QString("☆").repeated(5 - filled);
+    double clamped = qBound(0.0, rating, 5.0);
+    int fullStars = static_cast<int>(clamped);
+    bool halfStar = (clamped - fullStars) >= 0.5;
+    int emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+
+    QString stars = QString("★").repeated(fullStars);
+    if (halfStar) {
+        stars += "⯨";
+    }
+    stars += QString("☆").repeated(emptyStars);
+    return stars;
 }
 
 static void applyElevation(QWidget *w, qreal blur, qreal yOffset, int alpha)
@@ -76,9 +83,6 @@ static void applyElevation(QWidget *w, qreal blur, qreal yOffset, int alpha)
     w->setGraphicsEffect(shadow);
 }
 
-// hero = true gives the card a raised look and a signature accent ribbon
-// on the left edge, so the top card reads as the primary object on the
-// page and the rest read as supporting detail.
 static void styleCard(QWidget *card, bool hero)
 {
     QString qss = QString(

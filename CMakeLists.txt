@@ -29,6 +29,7 @@ qt_add_resources(RESOURCES
 )
 
 qt_add_executable(BookClubServer
+    server.rc
     main_server.cpp
     src/shared/models.h
     src/database/databasemanager.h
@@ -82,6 +83,7 @@ install(SCRIPT ${deploy_script_server})
 
 qt_add_executable(BookClubClient
     WIN32 MACOSX_BUNDLE
+    client.rc
     main_client.cpp
     src/adminPanel/serverwindow.h
     src/adminPanel/serverwindow.cpp

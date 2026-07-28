@@ -6,6 +6,22 @@
 #include <QFrame>
 #include <QMessageBox>
 #include "styledmessagebox.h"
+#include <QRegularExpression>
+
+static QString validatePasswordStrength(const QString &password)
+{
+    if (password.length() < 8)
+        return "Password must be at least 8 characters long.";
+    if (!password.contains(QRegularExpression("[A-Z]")))
+        return "Password must contain at least one uppercase letter.";
+    if (!password.contains(QRegularExpression("[a-z]")))
+        return "Password must contain at least one lowercase letter.";
+    if (!password.contains(QRegularExpression("[0-9]")))
+        return "Password must contain at least one number.";
+    if (!password.contains(QRegularExpression("[^A-Za-z0-9]")))
+        return "Password must contain at least one special character.";
+    return QString();
+}
 
 EditProfileDialog::EditProfileDialog(const QString &username, const QString &fullName,
                                      const QString &email, QWidget *parent) : QDialog(parent)
@@ -105,7 +121,8 @@ void EditProfileDialog::accept()
             StyledMessageBox::error(this, "Invalid input", "Enter your current password to change it.");
             return;
         }
-        if (m_newPassEdit->text().length() < 6) {
+        const QString passwordError = validatePasswordStrength(m_newPassEdit->text());
+        if (!passwordError.isEmpty()) {
             StyledMessageBox::error(this, "Invalid input", "New password must be at least 6 characters.");
             return;
         }

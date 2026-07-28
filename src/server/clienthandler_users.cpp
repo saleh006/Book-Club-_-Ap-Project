@@ -215,9 +215,15 @@ bool ClientHandler::handleUserActions(const QString &action, const QJsonObject &
         responseObj["status"] = "success";
         responseObj["message"] = "Subscribed to admin broadcast";
         ServerManager *server = qobject_cast<ServerManager*>(parent());
-        if (server && !m_adminSubscribed) {
-            connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
-            m_adminSubscribed = true;
+        if (server){
+            if(!m_adminSubscribed) {
+                connect(server, &ServerManager::broadcastToAdmins, this, &ClientHandler::sendToClient);
+                m_adminSubscribed = true;
+            }
+            QJsonObject countMsg;
+            countMsg["type"] = "client_count";
+            countMsg["count"] = server->activeClientCount();
+            sendToClient(countMsg);
         }
     }
     else if (action == "user_subscribe") {

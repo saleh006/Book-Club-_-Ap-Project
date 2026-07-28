@@ -42,27 +42,6 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             responseObj["message"] = errorMsg;
         }
     }
-    // else if (action == "publisher_get_stats") {
-    //     int publisherId = requestObj["publisherId"].toInt();
-    //     int bookCount = 0;
-    //     int totalSales = 0;
-    //     double averageRating = 0.0;
-    //     double totalIncome = 0.0;
-    //     QString errorMsg;
-
-    //     bool statsSuccess = DatabaseManager::instance().fetchPublisherStats(publisherId, bookCount, totalSales, averageRating, errorMsg);
-    //     bool incomeSuccess = DatabaseManager::instance().fetchPublisherIncome(publisherId, totalIncome, errorMsg);
-    //     if (statsSuccess && incomeSuccess) {
-    //         responseObj["status"] = "success";
-    //         responseObj["bookCount"] = bookCount;
-    //         responseObj["totalSales"] = totalSales;
-    //         responseObj["averageRating"] = averageRating;
-    //         responseObj["totalIncome"] = totalIncome;
-    //     } else {
-    //         responseObj["status"] = "error";
-    //         responseObj["message"] = errorMsg.isEmpty() ? "Error fetching publisher stats." : errorMsg;
-    //     }
-    // }
     else if (action == "book_set_ownership") {
         int bookId = requestObj["bookId"].toInt();
         int publisherId = requestObj["publisherId"].toInt();
@@ -116,33 +95,6 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
         responseObj["averageRating"] = avgRating;
         responseObj["totalIncome"] = totalIncome;
     }
-
-    // else if (action == "publisher_add_book") {
-    //     Book book;
-    //     book.publisherId = requestObj["publisherId"].toInt();
-    //     book.title = requestObj["title"].toString();
-    //     book.author = requestObj["author"].toString();
-    //     book.genre = requestObj["genre"].toString();
-    //     book.description = requestObj["description"].toString();
-    //     book.price = requestObj["price"].toDouble();
-    //     book.coverImagePath = requestObj["coverImagePath"].toString();
-    //     book.pdfPath = requestObj["pdfPath"].toString();
-
-    //     int newBookId = -1;
-    //     QString errorMsg;
-    //     if (DatabaseManager::instance().addBook(book, newBookId, errorMsg)) {
-    //         responseObj["type"] = "action_result";
-    //         responseObj["success"] = true;
-    //         responseObj["newBookId"] = newBookId;
-    //         responseObj["message"] = "Book added.";
-    //         emit databaseUpdated("book");
-    //     } else {
-    //         responseObj["type"] = "action_result";
-    //         responseObj["success"] = false;
-    //         responseObj["message"] = errorMsg;
-    //     }
-    // }
-
     else if (action == "publisher_add_book") {
         Book book;
         book.publisherId = requestObj["publisherId"].toInt();
@@ -190,29 +142,6 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             responseObj["message"] = errorMsg;
         }
     }
-
-    // else if (action == "publisher_update_book") {
-    //     Book book;
-    //     book.id = requestObj["id"].toInt();
-    //     book.publisherId = requestObj["publisherId"].toInt();
-    //     book.title = requestObj["title"].toString();
-    //     book.author = requestObj["author"].toString();
-    //     book.genre = requestObj["genre"].toString();
-    //     book.description = requestObj["description"].toString();
-    //     book.price = requestObj["price"].toDouble();
-    //     book.coverImagePath = requestObj["coverImagePath"].toString();
-    //     book.pdfPath = requestObj["pdfPath"].toString();
-    //     // remove the "book.isActive = true;" line entirely,
-    //     // OR if publishers should be able to resubmit for review:
-    //     book.status = requestObj.contains("status") ? requestObj["status"].toInt() : 1;
-
-    //     QString errorMsg;
-    //     bool ok = DatabaseManager::instance().updateBook(book, errorMsg);
-    //     responseObj["type"] = "action_result";
-    //     responseObj["success"] = ok;
-    //     responseObj["message"] = ok ? "Book updated." : errorMsg;
-    //     emit databaseUpdated("book");
-    // }
     else if (action == "publisher_update_book") {
         Book book;
         book.id = requestObj["id"].toInt();
@@ -247,16 +176,6 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             emit broadcastTargetedUpdate(broadcastObj);
         }
     }
-
-    // else if (action == "publisher_delete_book") {
-    //     int bookId = requestObj["bookId"].toInt();
-    //     QString errorMsg;
-    //     bool ok = DatabaseManager::instance().deleteBook(bookId, errorMsg);
-    //     responseObj["type"] = "action_result";
-    //     responseObj["success"] = ok;
-    //     responseObj["message"] = ok ? "Book removed." : errorMsg;
-    //     emit databaseUpdated("book");
-    // }
     else if (action == "publisher_delete_book") {
         int bookId = requestObj["bookId"].toInt();
         QString errorMsg;
@@ -273,32 +192,11 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             emit broadcastTargetedUpdate(broadcastObj);
         }
     }
-    // else if (action == "admin_set_book_status") {
-    //     responseObj["action"] = "admin_set_book_status_response";
-    //     int bookId = requestObj["bookId"].toInt();
-    //     int status = requestObj["status"].toInt(); // 1, 0, or -1
-    //     QString errorMsg;
-
-    //     if (DatabaseManager::instance().setBookStatus(bookId, status, errorMsg)) {
-    //         responseObj["status"] = "success";
-    //         responseObj["bookId"] = bookId;
-    //         responseObj["book_status"] = status;
-
-    //         QString actionLabel = status == -1 ? "deleted" : (status == 1 ? "approved" : "rejected");
-    //         responseObj["message"] = QString("Book %1 successfully.").arg(actionLabel);
-
-    //         emit databaseUpdated("book");
-    //         emit logProduced(QString("[ADMIN] Book ID %1 was %2.").arg(bookId).arg(actionLabel));
-    //     } else {
-    //         responseObj["status"] = "error";
-    //         responseObj["message"] = errorMsg;
-    //     }
-    // }
 
     else if (action == "admin_set_book_status") {
         responseObj["action"] = "admin_set_book_status_response";
         int bookId = requestObj["bookId"].toInt();
-        int status = requestObj["status"].toInt(); // 1 (approved), 0 (rejected), -1 (deleted)
+        int status = requestObj["status"].toInt();
         QString errorMsg;
 
         if (DatabaseManager::instance().setBookStatus(bookId, status, errorMsg)) {
@@ -336,49 +234,6 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
             responseObj["message"] = errorMsg;
         }
     }
-
-    // else if (action == "publisher_set_book_status") {
-    //     int bookId = requestObj["bookId"].toInt();
-    //     int publisherId = requestObj["publisherId"].toInt();
-    //     int status = requestObj["status"].toInt();
-
-    //     if (status != 0 && status != 1) {
-    //         responseObj["type"] = "action_result";
-    //         responseObj["success"] = false;
-    //         responseObj["message"] = "Publishers can only set active/inactive.";
-    //     }
-    //     else {
-    //         Book b;
-    //         QString fetchErr;
-    //         if (!DatabaseManager::instance().fetchBook(bookId, b, fetchErr) || b.publisherId != publisherId) {
-    //         } else {
-    //             QString errorMsg;
-    //             bool ok = DatabaseManager::instance().setBookStatus(bookId, status, errorMsg);
-    //             responseObj["type"] = "action_result";
-    //             responseObj["success"] = ok;
-    //             responseObj["message"] = ok ? "Book status updated." : errorMsg;
-    //             emit databaseUpdated("book");
-    //             if (ok) {
-    //                 QJsonObject broadcastObj;
-    //                 if (status == 1) {
-    //                     broadcastObj["action"] = "notify_book_updated";
-    //                     broadcastObj["bookId"] = b.id;
-    //                     broadcastObj["title"] = b.title;
-    //                     broadcastObj["author"] = b.author;
-    //                     broadcastObj["genre"] = b.genre;
-    //                     broadcastObj["price"] = b.price;
-    //                     broadcastObj["coverImagePath"] = b.coverImagePath;
-    //                     broadcastObj["isActive"] = true;
-    //                 } else { // غیرفعال شده
-    //                     broadcastObj["action"] = "notify_book_removed";
-    //                     broadcastObj["bookId"] = bookId;
-    //                 }
-    //                 emit broadcastTargetedUpdate(broadcastObj);
-    //             }
-    //         }
-    //     }
-    // }
-
     else if (action == "publisher_set_book_status") {
         int bookId = requestObj["bookId"].toInt();
         int publisherId = requestObj["publisherId"].toInt();
@@ -429,7 +284,6 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
         int publisherId = requestObj["publisherId"].toInt();
         int bookId = requestObj["bookId"].toInt();
 
-        // Verify the book actually belongs to this publisher before allowing a discount on it
         Book b;
         QString fetchErr;
         if (!DatabaseManager::instance().fetchBook(bookId, b, fetchErr) || b.publisherId != publisherId) {
@@ -463,13 +317,13 @@ bool ClientHandler::handlePublisherActions(const QString &action, const QJsonObj
         }
     }
     else if (action == "upload_file") {
-        QString fileType = requestObj["fileType"].toString(); // "cover" or "pdf"
+        QString fileType = requestObj["fileType"].toString();
         QString fileName = requestObj["fileName"].toString();
         QByteArray fileBytes = QByteArray::fromBase64(requestObj["fileData"].toString().toUtf8());
 
         QString subfolder = (fileType == "cover") ? "covers" : "pdfs";
         QString storageDir = QCoreApplication::applicationDirPath() + "/uploads/" + subfolder;
-        QDir().mkpath(storageDir); // creates the folder if it doesn't exist yet
+        QDir().mkpath(storageDir);
         QString uniqueName = QString::number(QDateTime::currentMSecsSinceEpoch()) + "_" + fileName;
         QString fullPath = storageDir + "/" + uniqueName;
 

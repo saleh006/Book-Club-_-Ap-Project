@@ -13,6 +13,7 @@ public:
     explicit ServerManager(QObject *parent = nullptr);
     bool startServer(int port);
     void stopServer();
+    int activeClientCount() const { return m_activeClients; }
 
 signals:
     void serverLogEvent(const QString &message);
@@ -31,7 +32,6 @@ protected:
 
 private:
     int m_activeClients = 0;
-    int activeClientsCount() const { return m_activeClients; }
 };
 
 #endif // SERVERMANAGER_H

@@ -81,7 +81,7 @@ bool DatabaseManager::fetchPublisherStats(int publisherId, int &outBookCount, in
     query.prepare(R"(
         SELECT COUNT(*) AS bookCount,
                COALESCE(SUM(total_sales), 0) AS totalSales,
-               COALESCE(AVG(average_rating), 0) AS avgRating
+               COALESCE(AVG(CASE WHEN average_rating > 0 THEN average_rating END), 0) AS avgRating
         FROM books
         WHERE publisher_id = :pid AND is_active = 1
     )");

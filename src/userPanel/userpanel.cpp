@@ -434,6 +434,15 @@ void UserPanel::setupUi()
         updateHero();
         if (m_stackedWidget->currentWidget() == m_detailsPage)
             m_detailsPage->setWishlisted(m_wishlistPage->containsBook(m_detailsPage->currentBookId()));
+
+        QList<QPushButton*> allWishlistBtns = this->findChildren<QPushButton*>("wishlistBtn");
+        for (QPushButton* btn : allWishlistBtns) {
+            int bId = btn->property("bookId").toInt();
+            if (bId > 0) {
+                bool inWishlist = m_wishlistPage->containsBook(bId);
+                btn->setText(inWishlist ? "♥" : "♡");
+            }
+        }
     });
     m_stackedWidget->addWidget(m_wishlistPage);
 
@@ -988,6 +997,8 @@ QWidget *UserPanel::makeBookCard(const Book &b)
     }
 
     auto *heartBtn = new QPushButton(coverStack);
+    heartBtn->setObjectName("wishlistBtn");
+    heartBtn->setProperty("bookId", b.id);
     heartBtn->setFixedSize(22, 22);
     heartBtn->setCursor(Qt::PointingHandCursor);
     bool isOwned = m_ownedBookIds.contains(b.id);
@@ -999,10 +1010,8 @@ QWidget *UserPanel::makeBookCard(const Book &b)
         "QPushButton:hover{background-color:rgba(0,0,0,210);}");
     heartBtn->setVisible(!isOwned);
     coverGrid->addWidget(heartBtn, 0, 0, Qt::AlignTop | Qt::AlignRight);
-    connect(heartBtn, &QPushButton::clicked, this, [this, id = b.id, heartBtn] {
+    connect(heartBtn, &QPushButton::clicked, this, [this, id = b.id] {
         toggleWishlist(id);
-        bool nowIn = heartBtn->text() == QString("♡");
-        heartBtn->setText(nowIn ? "♥" : "♡");
     });
 
     auto *title = new QLabel(b.title, card);
