@@ -91,7 +91,21 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
 
     connect(m_socket, &QTcpSocket::readyRead, this, &UserPanel::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &UserPanel::onSocketError);
+
+    connect(m_socket, &QTcpSocket::disconnected, this, &UserPanel::onSocketDisconnected);
+    m_reconnectTimer = new QTimer(this);
+    m_reconnectTimer->setInterval(3000);
+    connect(m_reconnectTimer, &QTimer::timeout, this, &UserPanel::attemptReconnect);
+
     connect(m_socket, &QTcpSocket::connected, this, [this]() {
+        if (m_connectionLost) {
+            m_connectionLost = false;
+            m_reconnectTimer->stop();
+            QTimer::singleShot(1500, this, [this]() {
+                hideDisconnectedBanner();
+            });
+        }
+
         QJsonObject subReq;
         subReq["action"] = "user_subscribe";
         subReq["userId"] = m_userId;
@@ -136,7 +150,9 @@ UserPanel::UserPanel(int userId, const QString &fullName, const QString &usernam
 void UserPanel::sendRequest(const QJsonObject &requestObj)
 {
     if (m_socket->state() != QAbstractSocket::ConnectedState) {
-        StyledMessageBox::error(this, "Not connected", "Not connected to the server.");
+        if (!m_connectionLost) {
+            StyledMessageBox::error(this, "Not connected", "Not connected to the server.");
+        }
         return;
     }
     m_socket->write(QJsonDocument(requestObj).toJson(QJsonDocument::Compact) + "\n");
@@ -347,7 +363,19 @@ void UserPanel::setupUi()
         "QPushButton { background-color: transparent; border: 1px solid #7C3E66; border-radius: 8px; padding: 8px; font-weight: bold; color: #D9C2D1; text-align: left; padding-left: 12px; }"
         "QPushButton:hover { background-color: rgba(124, 62, 102, 60); color: white; border: 1px solid #B06B96; }"
         );
-    connect(m_btnLogout, &QPushButton::clicked, this, &UserPanel::logoutRequested);
+    connect(m_btnLogout, &QPushButton::clicked, this, [this](){
+        m_isLoggingOut = true;
+
+        if (m_reconnectTimer->isActive()) {
+            m_reconnectTimer->stop();
+        }
+
+        if (m_socket->state() == QAbstractSocket::ConnectedState) {
+            m_socket->disconnectFromHost();
+        }
+
+        emit logoutRequested();
+    });
     sidebarLayout->addWidget(m_btnLogout);
 
     m_stackedWidget = new QStackedWidget(this);
@@ -1516,6 +1544,53 @@ void UserPanel::onSocketError()
     qWarning() << "UserPanel socket error: " << m_socket->errorString();
 }
 
+void UserPanel::onSocketDisconnected()
+{
+    if (m_isLoggingOut) {
+        return;
+    }
+
+    if (m_connectionLost) return;
+    m_connectionLost = true;
+    showDisconnectedBanner();
+    if (!m_reconnectTimer->isActive())
+        m_reconnectTimer->start();
+}
+
+void UserPanel::attemptReconnect()
+{
+    if (m_socket->state() == QAbstractSocket::UnconnectedState) {
+        m_socket->connectToHost("127.0.0.1", 1234);
+    }
+}
+
+void UserPanel::showDisconnectedBanner()
+{
+    if (m_disconnectedBanner) return;
+
+    m_disconnectedBanner = new QWidget(this);
+    m_disconnectedBanner->setStyleSheet("background-color:#7C3E66;");
+    m_disconnectedBanner->setGeometry(0, 0, this->width(), 32);
+
+    QHBoxLayout *lay = new QHBoxLayout(m_disconnectedBanner);
+    lay->setContentsMargins(12, 0, 12, 0);
+    QLabel *lbl = new QLabel("Connection lost. Reconnecting...", m_disconnectedBanner);
+    lbl->setStyleSheet("color:#FFFFFF;font-weight:bold;background:transparent;");
+    lay->addWidget(lbl);
+
+    m_disconnectedBanner->raise();
+    m_disconnectedBanner->show();
+}
+
+void UserPanel::hideDisconnectedBanner()
+{
+    if (!m_disconnectedBanner) return;
+
+    m_disconnectedBanner->hide();
+    m_disconnectedBanner->deleteLater();
+    m_disconnectedBanner = nullptr;
+}
+
 void UserPanel::showBlockedOverlay()
 {
     if (m_blockOverlay) return;
@@ -1551,6 +1626,8 @@ void UserPanel::resizeEvent(QResizeEvent *event)
     QWidget::resizeEvent(event);
     if (m_blockOverlay)
         m_blockOverlay->setGeometry(this->rect());
+    if (m_disconnectedBanner)
+        m_disconnectedBanner->setGeometry(0, 0, this->width(), 32);
 }
 
 QWidget *UserPanel::makeHorizontalScrollRow(const QString &title, QHBoxLayout *&rowLayoutOut,

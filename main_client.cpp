@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QIcon>
 #include <QWidget>
 #include <QLabel>
 #include <QVBoxLayout>
@@ -44,6 +45,7 @@ int main(int argc, char *argv[])
 {
     qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
     QApplication a(argc, argv);
+    a.setWindowIcon(QIcon(":/BookClubClient.jpg"));
 
     MessageBoxStyleFixer *fixer = new MessageBoxStyleFixer(kGlobalMessageBoxStyle, &a);
     a.installEventFilter(fixer);

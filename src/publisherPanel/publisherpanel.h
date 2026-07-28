@@ -44,6 +44,8 @@ private slots:
     void handleEditProfile();
     void handleEditDiscount(int discountId);
     void handleDeleteDiscount(int discountId);
+    void onSocketDisconnected();
+    void attemptReconnect();
 
 private:
     void setupUi();
@@ -129,6 +131,14 @@ private:
     //Block method
     QWidget *m_blockOverlay = nullptr;
     void showBlockedOverlay();
+
+    //Reconnect
+    QTimer *m_reconnectTimer = nullptr;
+    bool m_connectionLost = false;
+    bool m_isLoggingOut = false;
+    QWidget *m_disconnectedBanner = nullptr;
+    void showDisconnectedBanner();
+    void hideDisconnectedBanner();
 };
 
 #endif

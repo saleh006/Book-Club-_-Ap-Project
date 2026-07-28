@@ -40,7 +40,19 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
     m_socket = new QTcpSocket(this);
     connect(m_socket, &QTcpSocket::readyRead, this, &PublisherPanel::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &PublisherPanel::onSocketError);
+
+    connect(m_socket, &QTcpSocket::disconnected, this, &PublisherPanel::onSocketDisconnected);
+    m_reconnectTimer = new QTimer(this);
+    m_reconnectTimer->setInterval(3000);
+    connect(m_reconnectTimer, &QTimer::timeout, this, &PublisherPanel::attemptReconnect);
+
     connect(m_socket, &QTcpSocket::connected, this, [this]() {
+        if (m_connectionLost) {
+            m_connectionLost = false;
+            m_reconnectTimer->stop();
+            hideDisconnectedBanner();
+        }
+
         QJsonObject subReq;
         subReq["action"] = "user_subscribe";
         subReq["userId"] = m_publisherId;
@@ -65,7 +77,9 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
 void PublisherPanel::sendRequest(const QJsonObject &requestObj)
 {
     if (m_socket->state() != QAbstractSocket::ConnectedState) {
-        StyledMessageBox::error(this, "Not connected", "Not connected to the server.");
+        if (!m_connectionLost) {
+            StyledMessageBox::error(this, "Not connected", "Not connected to the server.");
+        }
         return;
     }
     m_socket->write(QJsonDocument(requestObj).toJson(QJsonDocument::Compact) + "\n");
@@ -242,7 +256,19 @@ void PublisherPanel::setupUi()
     connect(m_btnBooks, &QPushButton::clicked, this, [this]() { switchPage(1); });
     connect(m_btnNotifications, &QPushButton::clicked, this, [this]() { switchPage(2); });
     connect(m_btnDiscounts, &QPushButton::clicked, this, [this]() { switchPage(3); requestDiscounts(); });
-    connect(m_btnLogout, &QPushButton::clicked, this, &PublisherPanel::logoutRequested);
+    connect(m_btnLogout, &QPushButton::clicked, this, [this](){
+        m_isLoggingOut = true;
+
+        if (m_reconnectTimer->isActive()) {
+            m_reconnectTimer->stop();
+        }
+
+        if (m_socket->state() == QAbstractSocket::ConnectedState) {
+            m_socket->disconnectFromHost();
+        }
+
+        emit logoutRequested();
+    });
 }
 
 QWidget* PublisherPanel::createBooksPage()
@@ -1034,6 +1060,52 @@ void PublisherPanel::onSocketError(QAbstractSocket::SocketError error)
     qWarning() << "PublisherPanel socket error:" << m_socket->errorString();
 }
 
+void PublisherPanel::onSocketDisconnected()
+{
+    if (m_isLoggingOut) {
+        return;
+    }
+
+    if (m_connectionLost) return;
+    m_connectionLost = true;
+    showDisconnectedBanner();
+    if (!m_reconnectTimer->isActive())
+        m_reconnectTimer->start();
+}
+
+void PublisherPanel::attemptReconnect()
+{
+    if (m_socket->state() == QAbstractSocket::UnconnectedState) {
+        m_socket->connectToHost("127.0.0.1", 1234);
+    }
+}
+
+void PublisherPanel::showDisconnectedBanner()
+{
+    if (m_disconnectedBanner) return;
+
+    m_disconnectedBanner = new QWidget(this);
+    m_disconnectedBanner->setStyleSheet("background-color:#7C3E66;");
+    m_disconnectedBanner->setGeometry(0, 0, this->width(), 32);
+
+    QHBoxLayout *lay = new QHBoxLayout(m_disconnectedBanner);
+    lay->setContentsMargins(12, 0, 12, 0);
+    QLabel *lbl = new QLabel("Connection lost. Reconnecting...", m_disconnectedBanner);
+    lbl->setStyleSheet("color:#FFFFFF;font-weight:bold;background:transparent;");
+    lay->addWidget(lbl);
+
+    m_disconnectedBanner->raise();
+    m_disconnectedBanner->show();
+}
+
+void PublisherPanel::hideDisconnectedBanner()
+{
+    if (!m_disconnectedBanner) return;
+    m_disconnectedBanner->hide();
+    m_disconnectedBanner->deleteLater();
+    m_disconnectedBanner = nullptr;
+}
+
 void PublisherPanel::switchPage(int index)
 {
     m_stackedWidget->setCurrentIndex(index);
@@ -1600,4 +1672,6 @@ void PublisherPanel::resizeEvent(QResizeEvent *event)
     QWidget::resizeEvent(event);
     if (m_blockOverlay)
         m_blockOverlay->setGeometry(this->rect());
+    if (m_disconnectedBanner)
+        m_disconnectedBanner->setGeometry(0, 0, this->width(), 32);
 }

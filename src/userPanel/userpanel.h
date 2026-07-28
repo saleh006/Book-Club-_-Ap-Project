@@ -56,6 +56,8 @@ private slots:
     void onSocketError();
     void handleEditProfile();
     void updateCartBadge();
+    void onSocketDisconnected();
+    void attemptReconnect();
 
 private:
     void setupUi();
@@ -204,11 +206,18 @@ private:
     void handleEditGenres();
     void updateGenresLabel();
     void saveFavoriteGenres();
+
+    //Reconnect
+    QTimer *m_reconnectTimer = nullptr;
+    bool m_connectionLost = false;
+    bool m_isLoggingOut = false;
+    QWidget *m_disconnectedBanner = nullptr;
+    void showDisconnectedBanner();
+    void hideDisconnectedBanner();
 };
 
 static bool downloadFileFromServer(const QString &serverFilePath, const QString &localSavePath, QString &errorMsg)
 {
-    // If we already downloaded and cached this file, no need to redownload
     if (QFile::exists(localSavePath)) {
         return true;
     }
