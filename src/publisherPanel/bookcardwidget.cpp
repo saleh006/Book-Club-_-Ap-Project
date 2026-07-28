@@ -61,16 +61,36 @@ BookCardWidget::BookCardWidget(const Book &book, QWidget *parent)
     m_overlay->setObjectName("cardOverlay");
     m_overlay->hide();
 
-    m_editBtn = new QPushButton("✎ Edit", m_overlay);
+    m_editBtn = new QPushButton("Edit", m_overlay);
+
+    m_editBtn->setIcon(QIcon(":/icons/pen-to-square-solid.png"));
+    m_editBtn->setIconSize(QSize(14, 14));
     m_editBtn->setObjectName("cardEditBtn");
 
-    m_offerBtn = new QPushButton("🏷 Set Offer", m_overlay);
+    m_offerBtn = new QPushButton("Set Offer", m_overlay);
+
+    m_offerBtn->setIcon(QIcon(":/icons/percent-solid.png"));
+    m_offerBtn->setIconSize(QSize(14, 14));
     m_offerBtn->setObjectName("cardOfferBtn");
 
-    m_toggleActiveBtn = new QPushButton(book.status == 1 ? "⏸ Set Inactive" : "▶ Set Active", m_overlay);
+    m_toggleActiveBtn = new QPushButton(
+        book.status == 1 ? "Set Inactive" : "Set Active",
+        m_overlay
+        );
+
+    if (book.status == 1) {
+        m_toggleActiveBtn->setIcon(QIcon(":/icons/pause-solid.png"));
+    } else {
+        m_toggleActiveBtn->setIcon(QIcon(":/icons/circle-play-solid.png"));
+    }
+
+    m_toggleActiveBtn->setIconSize(QSize(14, 14));
     m_toggleActiveBtn->setObjectName("cardToggleBtn");
 
-    m_deleteBtn = new QPushButton("🗑 Delete", m_overlay);
+    m_deleteBtn = new QPushButton("Delete", m_overlay);
+
+    m_deleteBtn->setIcon(QIcon(":/icons/trash.png"));
+    m_deleteBtn->setIconSize(QSize(14, 14));
     m_deleteBtn->setObjectName("cardDeleteBtn");
 
     QVBoxLayout *overlayLayout = new QVBoxLayout(m_overlay);
@@ -98,63 +118,73 @@ BookCardWidget::BookCardWidget(const Book &book, QWidget *parent)
 
     // 6. Stylesheet
     setStyleSheet(R"(
-        #bookCard {
-            background-color: #9D0026;
-            border-radius: 4px;
-        }
-        #coverFrame {
-            background-color: #1F1724;
-            border: 3px solid #A64D79;
-            border-radius: 8px;
-        }
-        #bookCover {
-            background-color: transparent;
-            border: none;
-            border-radius: 5px;
-        }
-        #bookTitle {
-            color: #EAEAEA;
-            font-size: 13px;
-            font-weight: bold;
-        }
-        #cardOverlay {
-            background-color: rgba(6, 5, 8, 210);
-            border-radius: 5px;
-        }
-        #cardEditBtn, #cardOfferBtn, #cardToggleBtn, #cardDeleteBtn {
-            border: none;
-            border-radius: 6px;
-            padding: 6px;
-            font-size: 10px;
-            font-weight: bold;
-        }
-        #cardEditBtn {
-            background-color: #7C3E66;
-            color: white;
-        }
-        #cardEditBtn:hover { background-color: #5F2E4F; }
+    #bookCard {
+        background-color: #9D0026;
+        border-radius: 4px;
+    }
+    #coverFrame {
+        background-color: #1F1724;
+        border: 3px solid #A64D79;
+        border-radius: 8px;
+    }
+    #bookCover {
+        background-color: transparent;
+        border: none;
+        border-radius: 5px;
+    }
+    #bookTitle {
+        color: #EAEAEA;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    #cardOverlay {
+        background-color: rgba(6, 5, 8, 210);
+        border-radius: 5px;
+    }
+    #cardEditBtn, #cardOfferBtn, #cardToggleBtn, #cardDeleteBtn {
+        border: none;
+        border-radius: 6px;
+        padding: 6px;
+        font-size: 10px;
+        font-weight: bold;
+    }
+    #cardEditBtn {
+        background-color: #7C3E66;
+        color: white;
+    }
+    #cardEditBtn:hover { background-color: #5F2E4F; }
 
-        #cardOfferBtn {
-            background-color: transparent;
-            border: 1px solid #D4A017;
-            color: #F0D48A;
-        }
-        #cardOfferBtn:hover { background-color: rgba(212, 160, 23, 60); color: white; }
+    /* --- Set Offer: now a solid gold gradient button, no longer a faint outline --- */
+    #cardOfferBtn {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                     stop:0 #F0C24B, stop:1 #C9910F);
+        border: none;
+        color: #1a1a1a;
+        font-weight: bold;
+    }
+    #cardOfferBtn:hover {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                     stop:0 #FFD874, stop:1 #D4A017);
+        color: #1a1a1a;
+    }
+    #cardOfferBtn:pressed {
+        background-color: #B8860B;
+    }
 
-        #cardToggleBtn {
-            background-color: transparent;
-            border: 1px solid #5B8DEF;
-            color: #A9C3F5;
-        }
-        #cardToggleBtn:hover { background-color: rgba(91, 141, 239, 60); color: white; }
+    #cardToggleBtn {
+        background-color: transparent;
+        border: 1px solid #5B8DEF;
+        color: #A9C3F5;
+    }
+    #cardToggleBtn:hover { background-color: rgba(91, 141, 239, 60); color: white; }
 
-        #cardDeleteBtn {
-            background-color: transparent;
-            border: 1px solid #C0392B;
-            color: #E6B0AA;
-        }
-        #cardDeleteBtn:hover { background-color: rgba(192, 57, 43, 60); color: white; }
-    )");
+    #cardDeleteBtn {
+        background-color: transparent;
+        border: 1px solid #C0392B;
+        color: #E6B0AA;
+    }
+    #cardDeleteBtn:hover { background-color: rgba(192, 57, 43, 60); color: white; }
+)");
 
     connect(m_editBtn, &QPushButton::clicked, this, [this]() { emit editRequested(m_book.id); });
     connect(m_deleteBtn, &QPushButton::clicked, this, [this]() { emit deleteRequested(m_book.id); });

@@ -2,8 +2,79 @@
     <qresource prefix="/">
         <file>StickerView.qml</file>
         <file>RUBSTAMP.TTF</file>
+        <file>pub.png</file>
         <file>bookclublogo.png</file>
         <file>gif.gif</file>
-	<file>resetpass.png</file>
+        <file>heroback.png</file>
+        <file>bookdhero.png</file>
+        <file>resetpass.png</file>
+        <file>genres/scifi.jpg</file>
+        <file>genres/fantasy.jpg</file>
+        <file>genres/mystery.jpg</file>
+        <file>genres/romance.jpg</file>
+        <file>genres/horror.jpg</file>
+        <file>genres/history.jpg</file>
+        <file>genres/technology.jpg</file>
+        <file>genres/business.jpg</file>
+        <file>genres/psychology.jpg</file>
+        <file>genres/art.jpg</file>
+        <file>genres/cooking.jpg</file>
+        <file>genres/health.jpg</file>
+        <file>genres/children.jpg</file>
+        <file>genres/poetry.jpg</file>
+        <file>genres/travel.jpg</file>
+        <file>genres/biography.jpg</file>
+        <file>heroback1.jpg</file>
+        <file>heroback2.jpg</file>
+        <file>heroback3.jpg</file>
+        <file>icons/home.png</file>
+        <file>icons/bell.png</file>
+        <file>icons/book.png</file>
+        <file>icons/cart.png</file>
+        <file>icons/heart.png</file>
+        <file>icons/logout.png</file>
+        <file>icons/pen.png</file>
+        <file>icons/avater.png</file>
+        <file>icons/credit-card.png</file>
+        <file>icons/trash-solid.png</file>
+        <file>icons/ebook.png</file>
+        <file>icons/write-mail.png</file>
+        <file>icons/chart-area-solid.png</file>
+        <file>icons/circle-play-solid.png</file>
+        <file>icons/pause-solid.png</file>
+        <file>icons/pen-to-square-solid.png</file>
+        <file>icons/percent-solid.png</file>
+        <file>icons/trash.png</file>
+        <file>icons/black-tie-brands-solid.png</file>
+        <file>icons/desktop-solid.png</file>
+        <file>icons/settings.png</file>
+        <file>icons/user-gear-solid.png</file>
+        <file>icons/approve.png</file>
+        <file>icons/block.png</file>
+        <file>icons/users-solid.png</file>
+        <file>icons/view.png</file>
+        <file>icons/reject.png</file>
+        <file>icons/unlocked.png</file>
+        <file>error icon.png</file>
+        <file>information icon.png</file>
+        <file>quastion icon.png</file>
+        <file>success icon.png</file>
+        <file>warning.png</file>
+        <file>icons/magnifying-glass-solid.png</file>
+        <file>icons/computer-solid.png</file>
+        <file>icons/memory-solid.png</file>
+        <file>icons/arrow-trend-down-solid.png</file>
+        <file>icons/arrow-trend-up-solid.png</file>
+        <file>icons/chart-bar-solid.png</file>
+        <file>icons/delicious-brands-solid.png</file>
+        <file>icons/star-solid.png</file>
+        <file>icons/trophy-solid.png</file>
+        <file>icons/chart-pie-solid.png</file>
+        <file>icons/book1.png</file>
+        <file>icons/book-stack.png</file>
+        <file>icons/link.png</file>
+        <file>icons/folder.png</file>
+        <file>icons/tag-solid.png</file>
+        <file>loading.gif</file>
     </qresource>
 </RCC>

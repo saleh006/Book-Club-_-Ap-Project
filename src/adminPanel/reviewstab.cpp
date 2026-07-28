@@ -5,10 +5,14 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QColor>
+#include <QTimer>
+#include "styledmessagebox.h"
 
 ReviewsTab::ReviewsTab(QTcpSocket *socket, QWidget *parent)
     : QWidget(parent), m_socket(socket)
 {
+    m_reviewShowPendingOnly = false;
+
     QVBoxLayout *outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
     outer->addWidget(setupUi());
@@ -25,7 +29,10 @@ QWidget* ReviewsTab::setupUi()
     topBar->setSpacing(10);
 
     m_reviewSearchEdit = new QLineEdit(page);
-    m_reviewSearchEdit->setPlaceholderText("🔍 Search reviews by book title or username...");
+    m_reviewSearchEdit->setPlaceholderText("Search reviews by book title or username...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_reviewSearchEdit);
+    m_reviewSearchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_reviewSearchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"
@@ -64,7 +71,10 @@ QWidget* ReviewsTab::setupUi()
     QHBoxLayout *reviewBtnLayout = new QHBoxLayout();
     reviewBtnLayout->setSpacing(10);
 
-    m_btnApproveReview = new QPushButton("✅ Approve Review", page);
+    QPushButton *m_btnApproveReview = new QPushButton("Approve Review", page);
+
+    m_btnApproveReview->setIcon(QIcon(":/icons/approve.png"));
+    m_btnApproveReview->setIconSize(QSize(16 , 16));
     m_btnApproveReview->setCursor(Qt::PointingHandCursor);
     m_btnApproveReview->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #268730; border-radius: 6px; "
@@ -72,7 +82,10 @@ QWidget* ReviewsTab::setupUi()
         "QPushButton:hover { background-color: rgba(38, 135, 48, 50); color: white; }"
         );
 
-    m_btnDeleteReview = new QPushButton("🗑️ Delete Review", page);
+    m_btnDeleteReview = new QPushButton("Delete Review", page);
+
+    m_btnDeleteReview->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_btnDeleteReview->setIconSize(QSize(16, 16));
     m_btnDeleteReview->setCursor(Qt::PointingHandCursor);
     m_btnDeleteReview->setStyleSheet(
         "QPushButton { background-color: transparent; border: 1px solid #C0392B; border-radius: 6px; padding: 8px; font-weight: bold; color: #E6B0AA; }"
@@ -85,7 +98,7 @@ QWidget* ReviewsTab::setupUi()
     layout->addLayout(reviewBtnLayout);
 
     connect(m_reviewSearchEdit, &QLineEdit::textChanged, this, &ReviewsTab::filterReviews);
-    connect(m_reviewFilterCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ReviewsTab::handleReviewFilterChanged);
+    connect(m_reviewFilterCombo, QOverload<int>::of(&QComboBox::activated), this, &ReviewsTab::handleReviewFilterChanged);
     connect(m_btnApproveReview, &QPushButton::clicked, this, &ReviewsTab::handleApproveReview);
     connect(m_btnDeleteReview, &QPushButton::clicked, this, &ReviewsTab::handleDeleteReview);
 
@@ -108,7 +121,9 @@ void ReviewsTab::clearTableSelection()
 void ReviewsTab::handleReviewFilterChanged(int index)
 {
     m_reviewShowPendingOnly = (index == 1);
-    refreshTable();
+    QTimer::singleShot(50, this, [this]() {
+        refreshTable();
+    });
 }
 
 void ReviewsTab::filterReviews(const QString &text)
@@ -124,10 +139,9 @@ void ReviewsTab::filterReviews(const QString &text)
 
 void ReviewsTab::populateReviewsTable(const QJsonArray &reviews, bool pendingOnly)
 {
-    m_reviewsTable->setRowCount(0);
+    m_reviewsTable->setRowCount(reviews.size());
     for (int i = 0; i < reviews.size(); ++i) {
         QJsonObject r = reviews[i].toObject();
-        m_reviewsTable->insertRow(i);
 
         m_reviewsTable->setItem(i, 0, new QTableWidgetItem(QString::number(r["id"].toInt())));
         m_reviewsTable->setItem(i, 1, new QTableWidgetItem(r["bookTitle"].toString()));
@@ -167,12 +181,8 @@ void ReviewsTab::handleDeleteReview()
     int reviewId = m_reviewsTable->item(currentRow, 0)->text().toInt();
     QString bookTitle = m_reviewsTable->item(currentRow, 1)->text();
 
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "Confirm Delete",
-        "Are you sure you want to remove this review for \"" + bookTitle + "\"?",
-        QMessageBox::Yes | QMessageBox::No);
-
-    if (reply == QMessageBox::Yes) {
+    if (StyledMessageBox::question(this, "Confirm Delete",
+                                   "Are you sure you want to remove this review for \"" + bookTitle + "\"?")) {
         QJsonObject packet;
         packet["action"] = "review_delete";
         packet["reviewId"] = reviewId;
@@ -185,24 +195,26 @@ void ReviewsTab::handleServerResponse(const QJsonObject &response)
     QString action = response["action"].toString();
 
     if (action == "all_reviews_response" && response["status"].toString() == "success") {
+        if (m_reviewShowPendingOnly) return;
         populateReviewsTable(response["data"].toArray(), false);
     }
     else if (action == "pending_reviews_response" && response["status"].toString() == "success") {
+        if (!m_reviewShowPendingOnly) return;
         populateReviewsTable(response["data"].toArray(), true);
     }
     else if (action == "approve_review_response") {
         if (response["status"].toString() == "success") {
             refreshTable();
         } else {
-            QMessageBox::warning(this, "Approve Failed", response["message"].toString());
+            StyledMessageBox::error(this, "Approve Failed", response["message"].toString());
         }
     }
     else if (action == "review_delete_response") {
         if (response["status"].toString() == "success") {
-            QMessageBox::information(this, "Success", "Review removed successfully.");
+            StyledMessageBox::success(this, "Success", "Review removed successfully.");
             refreshTable();
         } else {
-            QMessageBox::warning(this, "Delete Failed", response["message"].toString());
+            StyledMessageBox::error(this, "Delete Failed", response["message"].toString());
         }
     }
 }

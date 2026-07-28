@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include "styledmessagebox.h"
 
 UsersTab::UsersTab(QTcpSocket *socket, QWidget *parent)
     : QWidget(parent), m_socket(socket)
@@ -41,7 +42,10 @@ QWidget* UsersTab::setupUi()
     layout->setSpacing(12);
 
     m_searchEdit = new QLineEdit(page);
-    m_searchEdit->setPlaceholderText("🔍 Search users by username ...");
+    m_searchEdit->setPlaceholderText("Search users by username ...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_searchEdit);
+    m_searchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_searchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"
@@ -69,10 +73,28 @@ QWidget* UsersTab::setupUi()
     QHBoxLayout *btnLayout = new QHBoxLayout();
     btnLayout->setSpacing(10);
 
-    m_btnBlock = new QPushButton("🚫 Block User", page);
-    m_btnUnblock = new QPushButton("✅ Unblock User", page);
-    m_btnUserDetails = new QPushButton("👁 View Details", page);
-    m_btnDeleteUser = new QPushButton("🗑️ Delete User", page);
+    m_btnBlock = new QPushButton("Block User", page);
+
+    m_btnBlock->setIcon(QIcon(":/icons/block.png"));
+    m_btnBlock->setIconSize(QSize(16, 16));
+
+
+    m_btnUnblock = new QPushButton("Unblock User", page);
+
+    m_btnUnblock->setIcon(QIcon(":/icons/unlocked.png"));
+    m_btnUnblock->setIconSize(QSize(16, 16));
+
+
+    m_btnUserDetails = new QPushButton("View Details", page);
+
+    m_btnUserDetails->setIcon(QIcon(":/icons/view.png"));
+    m_btnUserDetails->setIconSize(QSize(16, 16));
+
+
+    m_btnDeleteUser = new QPushButton("Delete User", page);
+
+    m_btnDeleteUser->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_btnDeleteUser->setIconSize(QSize(16, 16));
 
     m_btnBlock->setCursor(Qt::PointingHandCursor);
     m_btnUnblock->setCursor(Qt::PointingHandCursor);
@@ -180,10 +202,9 @@ void UsersTab::handleDeleteUser()
     if (currentRow < 0) return;
 
     QString username = m_usersTable->item(currentRow, 1)->text();
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
-                                                              "Are you sure you want to completely delete user: " + username + "?",
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
+    bool confirmed = StyledMessageBox::question(this, "Confirm Delete",
+                                                "Are you sure you want to completely delete user: " + username + "?");
+    if (confirmed) {
         QJsonObject packet;
         packet["action"] = "delete_account";
         packet["username"] = username;
@@ -236,7 +257,7 @@ void UsersTab::handleServerResponse(const QJsonObject &response)
         showUserDetailsDialog(response["data"].toObject());
     }
     else if (action == "delete_account_response" && response["status"] == "success") {
-        QMessageBox::information(this, "Success", "Account deleted successfully from the database.");
+        StyledMessageBox::success(this, "Success", "Account deleted successfully from the database.");
         refreshTable();
     }
 }

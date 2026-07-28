@@ -90,6 +90,20 @@ bool DatabaseManager::fetchCart(int userId, QVector<CartItem> &outItems, double 
     return true;
 }
 
+bool DatabaseManager::fetchUserIdsWithBookInCart(int bookId, QVector<int> &outUserIds, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("SELECT DISTINCT user_id FROM cart_items WHERE book_id = :bid");
+    query.bindValue(":bid", bookId);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching cart users: " + query.lastError().text();
+        return false;
+    }
+    outUserIds.clear();
+    while (query.next()) outUserIds.push_back(query.value(0).toInt());
+    return true;
+}
+
 bool DatabaseManager::checkoutCart(int userId, QString &errorMsg, int &purchaseId)
 {
     QVector<CartItem> items;
@@ -195,5 +209,19 @@ bool DatabaseManager::fetchPurchaseHistory(int userId, QVector<Purchase> &outPur
         }
         outPurchases.push_back(p);
     }
+    return true;
+}
+
+bool DatabaseManager::fetchPurchaseItemBookIds(int purchaseId, QVector<int> &outBookIds, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("SELECT book_id FROM purchase_items WHERE purchase_id = :pid");
+    query.bindValue(":pid", purchaseId);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching purchase items: " + query.lastError().text();
+        return false;
+    }
+    outBookIds.clear();
+    while (query.next()) outBookIds.push_back(query.value(0).toInt());
     return true;
 }

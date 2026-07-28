@@ -18,6 +18,7 @@ struct Book {
     int status = 1;
     double averageRating = 0.0;
     int totalSales = 0;
+    QString publisherName;
 };
 
 struct Discount {
@@ -36,6 +37,7 @@ struct Review {
     QDateTime date;
     int userId = -1;
     int bookId = -1;
+    QString username;
     bool isApproved = false;
 };
 

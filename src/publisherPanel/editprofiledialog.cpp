@@ -5,7 +5,7 @@
 #include <QPushButton>
 #include <QFrame>
 #include <QMessageBox>
-
+#include "styledmessagebox.h"
 
 EditProfileDialog::EditProfileDialog(const QString &username, const QString &fullName,
                                      const QString &email, QWidget *parent) : QDialog(parent)
@@ -89,11 +89,11 @@ EditProfileDialog::EditProfileDialog(const QString &username, const QString &ful
 void EditProfileDialog::accept()
 {
     if (!username().isEmpty() && username().contains(' ')) {
-        QMessageBox::warning(this, "Invalid input", "Username cannot contain spaces.");
+        StyledMessageBox::error(this, "Invalid input", "Username cannot contain spaces.");
         return;
     }
     if (!email().isEmpty() && !email().contains('@')) {
-        QMessageBox::warning(this, "Invalid input", "Please enter a valid email address.");
+        StyledMessageBox::error(this, "Invalid input", "Please enter a valid email address.");
         return;
     }
 
@@ -102,15 +102,15 @@ void EditProfileDialog::accept()
                                     || !m_confirmPassEdit->text().isEmpty();
     if (anyPassFieldFilled) {
         if (m_oldPassEdit->text().isEmpty()) {
-            QMessageBox::warning(this, "Invalid input", "Enter your current password to change it.");
+            StyledMessageBox::error(this, "Invalid input", "Enter your current password to change it.");
             return;
         }
         if (m_newPassEdit->text().length() < 6) {
-            QMessageBox::warning(this, "Invalid input", "New password must be at least 6 characters.");
+            StyledMessageBox::error(this, "Invalid input", "New password must be at least 6 characters.");
             return;
         }
         if (m_newPassEdit->text() != m_confirmPassEdit->text()) {
-            QMessageBox::warning(this, "Invalid input", "New passwords do not match.");
+            StyledMessageBox::error(this, "Invalid input", "New passwords do not match.");
             return;
         }
     }

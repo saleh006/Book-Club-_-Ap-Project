@@ -127,8 +127,11 @@ bool DatabaseManager::fetchBook(int bookId, Book &outBook, QString &errorMsg)
 bool DatabaseManager::fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, bool activeOnly)
 {
     QSqlQuery query(database());
-    query.prepare(activeOnly ? "SELECT * FROM books WHERE is_active = 1"
-                             : "SELECT * FROM books");
+    query.prepare(activeOnly
+                      ? "SELECT b.*, u.full_name AS publisher_name FROM books b "
+                        "LEFT JOIN users u ON u.id = b.publisher_id WHERE b.is_active = 1"
+                      : "SELECT b.*, u.full_name AS publisher_name FROM books b "
+                        "LEFT JOIN users u ON u.id = b.publisher_id");
 
     if (!query.exec()) {
         errorMsg = "Database error while fetching books: " + query.lastError().text();
@@ -150,6 +153,7 @@ bool DatabaseManager::fetchAllBooks(QVector<Book> &outBooks, QString &errorMsg, 
         b.status = query.value("is_active").toInt();
         b.averageRating = query.value("average_rating").toDouble();
         b.totalSales = query.value("total_sales").toInt();
+        b.publisherName = query.value("publisher_name").toString();
         outBooks.push_back(b);
     }
     return true;

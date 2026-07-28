@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.19)
 project(ap-project LANGUAGES CXX)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick PdfWidgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network QuickWidgets Quick PdfWidgets)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
     Widgets
     Sql
@@ -10,6 +10,7 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
     QuickWidgets
     Quick
     Charts
+    Pdf
 )
 
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS
@@ -43,6 +44,13 @@ qt_add_executable(BookClubServer
     src/server/servermanager.cpp
     src/server/serverui.h
     src/server/serverui.cpp
+    src/server/clienthandler.h src/server/clienthandler.cpp
+    src/server/clienthandler_users.cpp
+    src/server/clienthandler_publisher.cpp
+    src/server/clienthandler_books.cpp
+    src/server/clienthandler_cart_and_purchases.cpp
+    src/server/clienthandler_discounts_wishlist_reviews.cpp
+    src/server/clienthandler_reviews_notifications.cpp
 )
 
 target_include_directories(BookClubServer PRIVATE
@@ -56,6 +64,7 @@ target_link_libraries(BookClubServer PRIVATE
     Qt::Widgets
     Qt::Sql
     Qt::Network
+    Qt::PdfWidgets
 )
 
 install(TARGETS BookClubServer
@@ -74,9 +83,9 @@ install(SCRIPT ${deploy_script_server})
 qt_add_executable(BookClubClient
     WIN32 MACOSX_BUNDLE
     main_client.cpp
-    src/server/serverwindow.h
-    src/server/serverwindow.cpp
-    src/server/serverwindow.ui
+    src/adminPanel/serverwindow.h
+    src/adminPanel/serverwindow.cpp
+    src/adminPanel/serverwindow.ui
     ${RESOURCES}
 )
 
@@ -101,6 +110,22 @@ qt_add_qml_module(BookClubClient
         SOURCES src/adminPanel/usertab.h src/adminPanel/usertab.cpp
         SOURCES src/adminPanel/publisherstab.h src/adminPanel/publisherstab.cpp
         SOURCES src/adminPanel/reviewstab.h src/adminPanel/reviewstab.cpp
+        SOURCES src/userPanel/genreselectiondialog.h src/userPanel/genreselectiondialog.cpp
+        SOURCES src/userPanel/shoppingcarttab.h src/userPanel/shoppingcarttab.cpp
+        SOURCES src/userPanel/userpanel.h src/userPanel/userpanel.cpp
+        SOURCES src/userPanel/bookdetailspage.h src/userPanel/bookdetailspage.cpp
+        SOURCES src/userPanel/wishlistpage.h src/userPanel/wishlistpage.cpp
+        SOURCES src/userPanel/notificationtoast.h src/userPanel/notificationtoast.cpp
+        SOURCES src/userPanel/bookcard.h src/userPanel/bookcard.cpp
+        SOURCES src/userPanel/hovercard.h src/userPanel/hovercard.cpp
+        SOURCES src/userPanel/librarydialogs.h src/userPanel/librarydialogs.cpp
+        SOURCES src/userPanel/shelfcard.h src/userPanel/shelfcard.cpp
+        SOURCES src/userPanel/librarytheme.h
+        SOURCES src/userPanel/shelfdetailpage.h src/userPanel/shelfdetailpage.cpp
+        SOURCES src/userPanel/statisticscard.h src/userPanel/statisticscard.cpp
+        SOURCES src/userPanel/mylibrarypage.h src/userPanel/mylibrarypage.cpp
+        SOURCES src/userPanel/pdfreaderdialog.h src/userPanel/pdfreaderdialog.cpp
+        SOURCES src/shared/styledmessagebox.h src/shared/styledmessagebox.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE
@@ -117,6 +142,7 @@ target_link_libraries(BookClubClient
         Qt::QuickWidgets
         Qt::Quick
         Qt::Charts
+        Qt::PdfWidgets
 )
 
 install(TARGETS BookClubClient

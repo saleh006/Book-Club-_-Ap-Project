@@ -6,6 +6,22 @@
 #include <QPushButton>
 #include <QJsonObject>
 #include <QJsonDocument>
+#include <QRegularExpression>
+
+static QString validatePasswordStrength(const QString &password)
+{
+    if (password.length() < 8)
+        return "Password must be at least 8 characters long.";
+    if (!password.contains(QRegularExpression("[A-Z]")))
+        return "Password must contain at least one uppercase letter.";
+    if (!password.contains(QRegularExpression("[a-z]")))
+        return "Password must contain at least one lowercase letter.";
+    if (!password.contains(QRegularExpression("[0-9]")))
+        return "Password must contain at least one number.";
+    if (!password.contains(QRegularExpression("[^A-Za-z0-9]")))
+        return "Password must contain at least one special character.";
+    return QString();
+}
 
 RecoveryWindow::RecoveryWindow(QWidget *parent)
     : QWidget(parent)
@@ -160,8 +176,9 @@ void RecoveryWindow::handleResetClicked()
         m_statusLabel->setVisible(true);
         return;
     }
-    if (newPassword.length() < 6) {
-        m_statusLabel->setText("New password must be at least 6 characters.");
+    const QString passwordError = validatePasswordStrength(newPassword);
+    if (!passwordError.isEmpty()) {
+        m_statusLabel->setText(passwordError);
         m_statusLabel->setVisible(true);
         return;
     }

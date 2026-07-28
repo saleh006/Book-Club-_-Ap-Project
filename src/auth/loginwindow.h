@@ -6,6 +6,7 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QTcpSocket>
+#include <QQuickWidget>
 
 class QLineEdit;
 class QLabel;
@@ -41,6 +42,7 @@ private :
     int m_loggedInUserId = -1;       // NEW
     QString m_loggedInFullName;
 
+    QQuickWidget *m_qmlStickerWidget;
 };
 
 #endif // LOGINWINDOW_H

@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QJsonArray>
+#include "styledmessagebox.h"
 
 PublishersTab::PublishersTab(QTcpSocket *socket, QWidget *parent)
     : QWidget(parent), m_socket(socket)
@@ -41,7 +42,10 @@ QWidget* PublishersTab::setupUi()
     layout->setSpacing(12);
 
     m_publisherSearchEdit = new QLineEdit(page);
-    m_publisherSearchEdit->setPlaceholderText("🔍 Search publishers by username or name ...");
+    m_publisherSearchEdit->setPlaceholderText("Search publishers by username or name ...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_publisherSearchEdit);
+    m_publisherSearchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_publisherSearchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"
@@ -67,10 +71,22 @@ QWidget* PublishersTab::setupUi()
     QHBoxLayout *btnLayout = new QHBoxLayout();
     btnLayout->setSpacing(10);
 
-    m_btnBlockPublisher = new QPushButton("🚫 Block Publisher", page);
-    m_btnUnblockPublisher = new QPushButton("✅ Unblock Publisher", page);
-    m_btnPublisherDetails = new QPushButton("👁 View Details", page);
-    m_btnDeletePublisher = new QPushButton("🗑️ Delete Publisher", page);
+    m_btnBlockPublisher = new QPushButton("Block Publisher", page);
+
+    m_btnBlockPublisher->setIcon(QIcon(":/icons/block.png"));
+    m_btnBlockPublisher->setIconSize(QSize(16, 16));
+    m_btnUnblockPublisher = new QPushButton("Unblock Publisher", page);
+
+    m_btnUnblockPublisher->setIcon(QIcon(":/icons/unlocked.png"));
+    m_btnUnblockPublisher->setIconSize(QSize(16, 16));
+    m_btnPublisherDetails = new QPushButton("View Details", page);
+
+    m_btnPublisherDetails->setIcon(QIcon(":/icons/view.png"));
+    m_btnPublisherDetails->setIconSize(QSize(16, 16));
+    m_btnDeletePublisher = new QPushButton("Delete Publisher", page);
+
+    m_btnDeletePublisher->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_btnDeletePublisher->setIconSize(QSize(16, 16));
 
     m_btnBlockPublisher->setCursor(Qt::PointingHandCursor);
     m_btnUnblockPublisher->setCursor(Qt::PointingHandCursor);
@@ -180,10 +196,9 @@ void PublishersTab::handleDeletePublisher()
     if (currentRow < 0) return;
 
     QString username = m_publishersTable->item(currentRow, 1)->text();
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
-                                                              "Are you sure you want to completely delete publisher: " + username + "?",
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
+    bool confirmed = StyledMessageBox::question(this, "Confirm Delete",
+                                                "Are you sure you want to completely delete publisher: " + username + "?");
+    if (confirmed) {
         QJsonObject packet;
         packet["action"] = "delete_account";
         packet["username"] = username;

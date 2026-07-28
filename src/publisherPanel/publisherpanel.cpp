@@ -22,6 +22,9 @@
 #include <QHeaderView>
 #include <QScrollArea>
 #include <QGridLayout>
+#include <QTimer>
+#include <QCoreApplication>
+#include "styledmessagebox.h"
 
 static const char *kCardBg     = "#120E14";
 static const char *kCardBorder = "#1F1724";
@@ -38,6 +41,14 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
     connect(m_socket, &QTcpSocket::readyRead, this, &PublisherPanel::onReadyRead);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &PublisherPanel::onSocketError);
     connect(m_socket, &QTcpSocket::connected, this, [this]() {
+        QJsonObject subReq;
+        subReq["action"] = "user_subscribe";
+        subReq["userId"] = m_publisherId;
+        subReq["username"] = m_username;
+        sendRequest(subReq);
+
+        requestNotifications();
+
         requestBooks();
         requestStats();
         requestSalesTrend();
@@ -48,13 +59,13 @@ PublisherPanel::PublisherPanel(int publisherId, const QString &fullName, const Q
     });
     m_socket->connectToHost("127.0.0.1", 1234);
 
-    switchPage(0); // default to "My Books"
+    switchPage(0);
 }
 
 void PublisherPanel::sendRequest(const QJsonObject &requestObj)
 {
     if (m_socket->state() != QAbstractSocket::ConnectedState) {
-        QMessageBox::warning(this, "Not connected", "Not connected to the server.");
+        StyledMessageBox::error(this, "Not connected", "Not connected to the server.");
         return;
     }
     m_socket->write(QJsonDocument(requestObj).toJson(QJsonDocument::Compact) + "\n");
@@ -80,7 +91,7 @@ void PublisherPanel::requestStats()
 void PublisherPanel::setupUi()
 {
     setStyleSheet("background-color: #060508; color: #EAEAEA; font-family: 'Segoe UI', Arial;");
-    this->resize(800, 500);
+    this->showFullScreen();
 
     QHBoxLayout *mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -100,10 +111,25 @@ void PublisherPanel::setupUi()
     avatarRowLayout->setContentsMargins(0, 0, 0, 0);
     avatarRowLayout->setSpacing(8);
 
-    QLabel *avatarLabel = new QLabel("📖", avatarRow);
+    QLabel *avatarLabel = new QLabel(avatarRow);
+
+    avatarLabel->setPixmap(
+        QPixmap(":/pub.png")
+            .scaled(
+                100,
+                100,
+                Qt::KeepAspectRatio,
+                Qt::SmoothTransformation
+                )
+        );
+
+    avatarLabel->setAlignment(Qt::AlignCenter);
     avatarLabel->setStyleSheet("font-size: 40px; border: none; background: transparent;");
 
-    QPushButton *editProfileBtn = new QPushButton("✏️", avatarRow);
+    QPushButton *editProfileBtn = new QPushButton(avatarRow);
+
+    editProfileBtn->setIcon(QIcon(":/icons/pen.png"));
+    editProfileBtn->setIconSize(QSize(18, 18));
     editProfileBtn->setFixedSize(30, 30);
     editProfileBtn->setCursor(Qt::PointingHandCursor);
     editProfileBtn->setToolTip("Edit profile");
@@ -137,9 +163,23 @@ void PublisherPanel::setupUi()
     sidebarLayout->addWidget(roleLabel);
     sidebarLayout->addSpacing(15);
 
-    m_btnStats = new QPushButton("📊 Book Statistics", sidebar);
-    m_btnBooks = new QPushButton("📚 My Books", sidebar);
-    m_btnLogout = new QPushButton("🚪 Logout", sidebar);
+
+    m_btnStats = new QPushButton("Book Statistics", sidebar);
+
+    m_btnStats->setIcon(QIcon(":/icons/chart-area-solid.png"));
+    m_btnStats->setIconSize(QSize(20, 20));
+    m_btnBooks = new QPushButton("My Books", sidebar);
+    m_btnBooks->setIcon(QIcon(":/icons/book.png"));
+    m_btnBooks->setIconSize(QSize(20, 20));
+    m_btnNotifications = new QPushButton("Notifications", sidebar);
+    m_btnNotifications->setIcon(QIcon(":/icons/bell.png"));
+    m_btnNotifications->setIconSize(QSize(20, 20));
+    m_btnDiscounts = new QPushButton("Manage Discounts", sidebar);
+    m_btnDiscounts->setIcon(QIcon(":/icons/tag-solid.png"));
+    m_btnDiscounts->setIconSize(QSize(20, 20));
+    m_btnLogout = new QPushButton("Logout", sidebar);
+    m_btnLogout->setIcon(QIcon(":/icons/logout.png"));
+    m_btnLogout->setIconSize(QSize(20, 20));
 
     QString menuBtnStyle =
         "QPushButton { background-color: transparent; border: none; border-radius: 8px; padding: 10px; font-size: 13px; color: #9A8FA0; text-align: left; padding-left: 12px; }"
@@ -147,8 +187,12 @@ void PublisherPanel::setupUi()
 
     m_btnStats->setStyleSheet(menuBtnStyle);
     m_btnBooks->setStyleSheet(menuBtnStyle);
+    m_btnNotifications->setStyleSheet(menuBtnStyle);
+    m_btnDiscounts->setStyleSheet(menuBtnStyle);
     m_btnStats->setCursor(Qt::PointingHandCursor);
     m_btnBooks->setCursor(Qt::PointingHandCursor);
+    m_btnNotifications->setCursor(Qt::PointingHandCursor);
+    m_btnDiscounts->setCursor(Qt::PointingHandCursor);
 
     m_btnLogout->setCursor(Qt::PointingHandCursor);
     m_btnLogout->setStyleSheet(
@@ -156,8 +200,29 @@ void PublisherPanel::setupUi()
         "QPushButton:hover { background-color: rgba(124, 62, 102, 60); color: white; border: 1px solid #B06B96; }"
         );
 
+
+    m_btnNotifications->setCursor(Qt::PointingHandCursor);
+
+    auto *notifBtnLayout = new QGridLayout(m_btnNotifications);
+    notifBtnLayout->setContentsMargins(0, 3, 6, 0);
+    notifBtnLayout->setColumnStretch(0, 1);
+    notifBtnLayout->setRowStretch(1, 1);
+
+    m_notifBadge = new QLabel(m_btnNotifications);
+    m_notifBadge->setAlignment(Qt::AlignCenter);
+    m_notifBadge->setFixedHeight(18);
+    m_notifBadge->setMinimumWidth(18);
+    m_notifBadge->setStyleSheet(
+        "QLabel { background-color: #e46060; color: white; font-size: 10px; font-weight: 700;"
+        " border-radius: 9px; padding: 0 4px; }");
+    m_notifBadge->hide();
+    notifBtnLayout->addWidget(m_notifBadge, 0, 1, Qt::AlignTop | Qt::AlignRight);
+
+
     sidebarLayout->addWidget(m_btnStats);
     sidebarLayout->addWidget(m_btnBooks);
+    sidebarLayout->addWidget(m_btnNotifications);
+    sidebarLayout->addWidget(m_btnDiscounts);
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(m_btnLogout);
 
@@ -165,46 +230,20 @@ void PublisherPanel::setupUi()
     m_stackedWidget->addWidget(createStatsPage()); // index 0
     m_stackedWidget->addWidget(createBooksPage()); // index 1
 
-    mainLayout->addWidget(m_stackedWidget);
+    m_notifPage = createNotificationsPage();
+    m_stackedWidget->addWidget(m_notifPage); // index 2
+
+    m_stackedWidget->addWidget(createDiscountsPage()); // index 3
+
     mainLayout->addWidget(sidebar);
+    mainLayout->addWidget(m_stackedWidget);
 
     connect(m_btnStats, &QPushButton::clicked, this, [this]() { switchPage(0); requestStats(); });
     connect(m_btnBooks, &QPushButton::clicked, this, [this]() { switchPage(1); });
+    connect(m_btnNotifications, &QPushButton::clicked, this, [this]() { switchPage(2); });
+    connect(m_btnDiscounts, &QPushButton::clicked, this, [this]() { switchPage(3); requestDiscounts(); });
     connect(m_btnLogout, &QPushButton::clicked, this, &PublisherPanel::logoutRequested);
 }
-
-// QWidget* PublisherPanel::createStatsPage()
-// {
-//     QWidget *page = new QWidget(this);
-//     QVBoxLayout *layout = new QVBoxLayout(page);
-//     layout->setContentsMargins(30, 30, 30, 30);
-//     layout->setSpacing(16);
-
-//     auto makeStatCard = [page](const QString &title, QLabel *&valueLabelOut) -> QWidget* {
-//         QWidget *card = new QWidget(page);
-//         card->setStyleSheet("background-color: #120E14; border: 1px solid #1F1724; border-radius: 10px;");
-//         QVBoxLayout *cardLayout = new QVBoxLayout(card);
-//         QLabel *titleLabel = new QLabel(title, card);
-//         titleLabel->setStyleSheet("color: #A594B3; font-size: 12px;");
-//         valueLabelOut = new QLabel("—", card);
-//         valueLabelOut->setStyleSheet("color: #EAEAEA; font-size: 24px; font-weight: bold;");
-//         cardLayout->addWidget(titleLabel);
-//         cardLayout->addWidget(valueLabelOut);
-//         return card;
-//     };
-
-//     QGridLayout *statsGrid = new QGridLayout();
-//     statsGrid->setSpacing(16);
-//     statsGrid->addWidget(makeStatCard("Total Books", m_statBookCount), 0, 0);
-//     statsGrid->addWidget(makeStatCard("Total Sales", m_statTotalSales), 0, 1);
-//     statsGrid->addWidget(makeStatCard("Average Rating", m_statAvgRating), 1, 0);
-//     statsGrid->addWidget(makeStatCard("Total Income", m_statTotalIncome), 1, 1);
-
-//     layout->addLayout(statsGrid);
-//     layout->addStretch();
-
-//     return page;
-// }
 
 QWidget* PublisherPanel::createBooksPage()
 {
@@ -214,7 +253,10 @@ QWidget* PublisherPanel::createBooksPage()
     layout->setSpacing(12);
 
     m_bookSearchEdit = new QLineEdit(page);
-    m_bookSearchEdit->setPlaceholderText("🔍 Search your books by title...");
+    m_bookSearchEdit->setPlaceholderText("Search your books by title...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_bookSearchEdit);
+    m_bookSearchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_bookSearchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"
@@ -330,10 +372,9 @@ void PublisherPanel::handleEditBook(int bookId)
 
 void PublisherPanel::handleDeleteBook(int bookId)
 {
-    auto reply = QMessageBox::question(this, "Delete Book",
-                                       "Are you sure you want to remove this book? It will be hidden from readers.",
-                                       QMessageBox::Yes | QMessageBox::No);
-    if (reply != QMessageBox::Yes) return;
+    bool confirmed = StyledMessageBox::question(this, "Delete Book",
+                                                "Are you sure you want to remove this book? It will be hidden from readers.");
+    if (!confirmed) return;
 
     QJsonObject req;
     req["action"] = "publisher_delete_book";
@@ -358,7 +399,7 @@ void PublisherPanel::handleSetOffer(int bookId)
         Discount d = dialog.resultDiscount();
 
         if (d.startDate >= d.endDate) {
-            QMessageBox::warning(this, "Invalid dates", "Start time must be before end time.");
+            StyledMessageBox::error(this, "Invalid dates", "Start time must be before end time.");
             return;
         }
 
@@ -372,6 +413,423 @@ void PublisherPanel::handleSetOffer(int bookId)
         req["endDate"] = d.endDate.toUTC().toString(Qt::ISODate);
         sendRequest(req);
     }
+}
+
+QWidget *PublisherPanel::createDiscountsPage()
+{
+    m_discountsPage = new QWidget(this);
+    auto *page = m_discountsPage;
+    page->setStyleSheet("background: transparent;");
+
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 25, 30, 25);
+    layout->setSpacing(14);
+
+    auto *titleRow = new QWidget(page);
+    titleRow->setStyleSheet("background:transparent;border:none;");
+
+    auto *titleLayout = new QHBoxLayout(titleRow);
+    titleLayout->setContentsMargins(0,0,0,0);
+    titleLayout->setSpacing(8);
+
+
+    auto *titleIcon = new QLabel(titleRow);
+
+    titleIcon->setPixmap(
+        QPixmap(":/icons/tag-solid.png")
+            .scaled(
+                24,
+                24,
+                Qt::KeepAspectRatio,
+                Qt::SmoothTransformation
+                )
+        );
+
+    titleIcon->setAlignment(Qt::AlignCenter);
+
+
+    auto *title = new QLabel("Manage Discounts", titleRow);
+
+    title->setStyleSheet(
+        "color:#FFEAD2;"
+        "font-size:20px;"
+        "font-weight:bold;"
+        "border:none;"
+        "background:transparent;"
+        );
+
+
+    titleLayout->addWidget(titleIcon);
+    titleLayout->addWidget(title);
+    titleLayout->addStretch();
+
+
+    layout->addWidget(titleRow);
+
+    auto *subtitle = new QLabel("View, edit, or remove discounts on your books", page);
+    subtitle->setStyleSheet(QString("color:%1;font-size:12px;border:none;background:transparent;").arg(kTextDim));
+    layout->addWidget(subtitle);
+
+    m_discountsTable = new QTableWidget(0, 6, page);
+    m_discountsTable->setHorizontalHeaderLabels({"Book", "Type", "Value", "Start", "End", ""});
+    m_discountsTable->verticalHeader()->setVisible(false);
+    m_discountsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_discountsTable->setSelectionMode(QAbstractItemView::NoSelection);
+    m_discountsTable->setFocusPolicy(Qt::NoFocus);
+    m_discountsTable->setShowGrid(false);
+    m_discountsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_discountsTable->setColumnWidth(5, 200);
+    m_discountsTable->verticalHeader()->setDefaultSectionSize(48);
+    m_discountsTable->setStyleSheet(QString(
+                                        "QTableWidget{background-color:%1;border:1px solid %2;border-radius:10px;color:#EAEAEA;font-size:12px;}"
+                                        "QTableWidget::item{border-bottom:1px solid %2;padding:6px;}"
+                                        "QHeaderView::section{background-color:#1A141F;color:%3;border:none;padding:8px;font-size:11px;}")
+                                        .arg(kCardBg, kCardBorder, kTextDim));
+
+    layout->addWidget(m_discountsTable);
+
+    return page;
+}
+
+void PublisherPanel::requestDiscounts()
+{
+    QJsonObject req;
+    req["action"] = "publisher_get_discounts";
+    req["publisherId"] = m_publisherId;
+    sendRequest(req);
+}
+
+void PublisherPanel::populateDiscountsTable(const QJsonArray &discounts)
+{
+    m_discountsTable->setRowCount(0);
+    m_discountRows.clear();
+
+    for (const QJsonValue &v : discounts) {
+        const QJsonObject d = v.toObject();
+        const int discountId = d["discountId"].toInt();
+        m_discountRows[discountId] = d;
+
+        const int row = m_discountsTable->rowCount();
+        m_discountsTable->insertRow(row);
+        m_discountsTable->setRowHeight(row, 48);
+
+        m_discountsTable->setItem(row, 0, new QTableWidgetItem(d["bookTitle"].toString()));
+        m_discountsTable->setItem(row, 1, new QTableWidgetItem(d["type"].toString()));
+        m_discountsTable->setItem(row, 2, new QTableWidgetItem(QString::number(d["value"].toDouble())));
+
+        const QDateTime start = QDateTime::fromString(d["startDate"].toString(), Qt::ISODate);
+        const QDateTime end = QDateTime::fromString(d["endDate"].toString(), Qt::ISODate);
+        m_discountsTable->setItem(row, 3, new QTableWidgetItem(start.isValid() ? start.toString("yyyy-MM-dd") : ""));
+        m_discountsTable->setItem(row, 4, new QTableWidgetItem(end.isValid() ? end.toString("yyyy-MM-dd") : ""));
+
+        auto *actions = new QWidget(m_discountsTable);
+        auto *actionsLayout = new QHBoxLayout(actions);
+        actionsLayout->setContentsMargins(6, 4, 6, 4);
+        actionsLayout->setSpacing(8);
+
+        auto *editBtn = new QPushButton("Edit", actions);
+        auto *deleteBtn = new QPushButton("Delete", actions);
+        editBtn->setCursor(Qt::PointingHandCursor);
+        deleteBtn->setCursor(Qt::PointingHandCursor);
+        editBtn->setMinimumSize(64, 32);
+        deleteBtn->setMinimumSize(64, 32);
+        editBtn->setStyleSheet(
+            "QPushButton{background-color:#3E5C7C;color:white;border:none;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:bold;}"
+            "QPushButton:hover{background-color:#4E70A0;}");
+        deleteBtn->setStyleSheet(
+            "QPushButton{background-color:#7C3E3E;color:white;border:none;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:bold;}"
+            "QPushButton:hover{background-color:#A05050;}");
+
+        connect(editBtn, &QPushButton::clicked, this, [this, discountId]() { handleEditDiscount(discountId); });
+        connect(deleteBtn, &QPushButton::clicked, this, [this, discountId]() { handleDeleteDiscount(discountId); });
+
+        actionsLayout->addWidget(editBtn);
+        actionsLayout->addWidget(deleteBtn);
+        actionsLayout->addStretch();
+
+        m_discountsTable->setCellWidget(row, 5, actions);
+    }
+}
+
+void PublisherPanel::handleEditDiscount(int discountId)
+{
+    if (!m_discountRows.contains(discountId))
+        return;
+
+    const QJsonObject row = m_discountRows.value(discountId);
+
+    Discount existing;
+    existing.id = discountId;
+    existing.bookId = row["bookId"].toInt();
+    existing.type = row["type"].toString();
+    existing.value = row["value"].toDouble();
+    existing.startDate = QDateTime::fromString(row["startDate"].toString(), Qt::ISODate);
+    existing.endDate = QDateTime::fromString(row["endDate"].toString(), Qt::ISODate);
+
+    SetOfferDialog dialog(existing.bookId, existing, this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    Discount d = dialog.resultDiscount();
+
+    if (d.startDate >= d.endDate) {
+        StyledMessageBox::error(this, "Invalid dates", "Start time must be before end time.");
+        return;
+    }
+
+    QJsonObject req;
+    req["action"] = "publisher_update_discount";
+    req["publisherId"] = m_publisherId;
+    req["discountId"] = discountId;
+    req["type"] = d.type;
+    req["value"] = d.value;
+    req["startDate"] = d.startDate.toUTC().toString(Qt::ISODate);
+    req["endDate"] = d.endDate.toUTC().toString(Qt::ISODate);
+    sendRequest(req);
+}
+
+void PublisherPanel::handleDeleteDiscount(int discountId)
+{
+    bool confirmed = StyledMessageBox::question(this, "Delete Discount",
+                                                "Are you sure you want to remove this discount?");
+    if (!confirmed) return;
+
+    QJsonObject req;
+    req["action"] = "publisher_delete_discount";
+    req["publisherId"] = m_publisherId;
+    req["discountId"] = discountId;
+    sendRequest(req);
+}
+
+void PublisherPanel::requestNotifications()
+{
+    QJsonObject req;
+    req["action"] = "notifications_fetch";
+    req["userId"] = m_publisherId;
+    sendRequest(req);
+}
+
+QWidget *PublisherPanel::createNotificationsPage()
+{
+    auto *page = new QWidget(this);
+    page->setStyleSheet(QString("background-color:%1;border:none;").arg(kNotifPanelBg));
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 26, 30, 30);
+    layout->setSpacing(14);
+
+    auto *headerLayout = new QHBoxLayout();
+    auto *titleCol = new QVBoxLayout();
+    titleCol->setSpacing(2);
+    auto *title = new QLabel("Notifications", page);
+    title->setStyleSheet("color:#FFFFFF;font-size:21px;font-weight:700;border:none;background:transparent;");
+    auto *subtitle = new QLabel("What's new with your books and publisher account", page);
+    subtitle->setStyleSheet(QString("color:%1;font-size:12px;border:none;background:transparent;").arg(kNotifTextDim));
+    titleCol->addWidget(title);
+    titleCol->addWidget(subtitle);
+
+    auto *markAllBtn = new QPushButton("✓ Mark all as read", page);
+    markAllBtn->setCursor(Qt::PointingHandCursor);
+    markAllBtn->setStyleSheet(
+        "QPushButton{color:#CFC7D6;font-size:12px;font-weight:600;border:1px solid #34303F;"
+        "border-radius:8px;background-color:#1E1B26;padding:8px 14px;}"
+        "QPushButton:hover{background-color:#2A2635;border-color:#443F52;color:#FFFFFF;}"
+        "QPushButton:pressed{background-color:#242030;}");
+    connect(markAllBtn, &QPushButton::clicked, this, [this]() {
+        QJsonObject req;
+        req["action"] = "notifications_mark_all_read";
+        req["userId"] = m_publisherId;
+        sendRequest(req);
+    });
+
+    auto *clearAllBtn = new QPushButton("🗑 Clear all", page);
+    clearAllBtn->setCursor(Qt::PointingHandCursor);
+    clearAllBtn->setStyleSheet(
+        "QPushButton{color:#E4577A;font-size:12px;font-weight:600;border:1px solid #3A2430;"
+        "border-radius:8px;background-color:#1E1B26;padding:8px 14px;}"
+        "QPushButton:hover{background-color:#2A1A22;border-color:#E4577A;color:#FF7A9C;}"
+        "QPushButton:pressed{background-color:#241018;}");
+    connect(clearAllBtn, &QPushButton::clicked, this, [this]() {
+        QJsonObject req;
+        req["action"] = "notifications_clear_all";
+        req["userId"] = m_publisherId;
+        sendRequest(req);
+    });
+
+    headerLayout->addLayout(titleCol);
+    headerLayout->addStretch();
+    headerLayout->addWidget(markAllBtn,0,Qt::AlignTop);
+    headerLayout->addWidget(clearAllBtn,0,Qt::AlignTop);
+    layout->addLayout(headerLayout);
+
+    m_notifListWidget = new QListWidget(page);
+    m_notifListWidget->setFrameShape(QFrame::NoFrame);
+    m_notifListWidget->setSpacing(8);
+    m_notifListWidget->setUniformItemSizes(false);
+    m_notifListWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_notifListWidget->setStyleSheet(
+        "QListWidget{background-color:transparent;border:none;}"
+        "QListWidget::item{border:none;padding:0;}"
+        "QListWidget::item:selected{background:transparent;}"
+        "QScrollBar:vertical{background:transparent;width:8px;margin:0;}"
+        "QScrollBar::handle:vertical{background:#2E2A38;border-radius:4px;min-height:24px;}"
+        "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}");
+
+    connect(m_notifListWidget, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        int notifId = item->data(Qt::UserRole).toInt();
+        bool alreadyRead = item->data(Qt::UserRole + 1).toBool();
+        if (alreadyRead) return;
+
+        QJsonObject req;
+        req["action"] = "notification_mark_read";
+        req["userId"] = m_publisherId;
+        req["notificationId"] = notifId;
+        sendRequest(req);
+    });
+    layout->addWidget(m_notifListWidget, 1);
+
+    return page;
+}
+
+void PublisherPanel::rebuildNotificationList()
+{
+    if (!m_notifListWidget) return;
+    m_notifListWidget->clear();
+
+    if (m_notifications.isEmpty()) {
+        auto *empty = new QWidget(m_notifListWidget);
+        auto *emptyLayout = new QVBoxLayout(empty);
+        emptyLayout->setContentsMargins(0, 60, 0, 40);
+        emptyLayout->setSpacing(8);
+        auto *icon = new QLabel("📭", empty);
+        icon->setStyleSheet("font-size:34px;border:none;background:transparent;");
+        icon->setAlignment(Qt::AlignCenter);
+        auto *text = new QLabel("You're all caught up", empty);
+        text->setStyleSheet(QString("color:%1;font-size:13px;border:none;background:transparent;").arg(kNotifTextDim));
+        text->setAlignment(Qt::AlignCenter);
+        emptyLayout->addWidget(icon);
+        emptyLayout->addWidget(text);
+
+        auto *item = new QListWidgetItem();
+        item->setFlags(Qt::NoItemFlags);
+        item->setSizeHint(QSize(0, 160));
+        m_notifListWidget->addItem(item);
+        m_notifListWidget->setItemWidget(item, empty);
+        return;
+    }
+
+    for (const Notification &n : m_notifications) {
+        const NotifVisual visual = notificationVisualFor(n.title);
+
+        auto *row = new NotifRowFrame(m_notifListWidget);
+        row->setObjectName("notifCard");
+        row->setAttribute(Qt::WA_Hover, true);
+        row->setCursor(n.isRead ? Qt::ArrowCursor : Qt::PointingHandCursor);
+        row->setStyleSheet(QString(
+                               "QFrame#notifCard{background-color:%1;border:1px solid %2;border-radius:12px;}"
+                               "QFrame#notifCard:hover{background-color:%3;border-color:%4;}")
+                               .arg(n.isRead ? kNotifCardBg : kNotifUnreadBg,
+                                    n.isRead ? kNotifCardBorder : visual.accent + "88",
+                                    n.isRead ? "#211E29" : "#2A2436",
+                                    visual.accent));
+
+        auto *rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(14, 13, 16, 13);
+        rowLayout->setSpacing(12);
+
+        auto *accentBar = new QLabel(row);
+        accentBar->setFixedWidth(3);
+        accentBar->setMinimumHeight(1);
+        accentBar->setStyleSheet(QString("background-color:%1;border-radius:2px;")
+                                     .arg(n.isRead ? "transparent" : visual.accent));
+
+        auto *iconBubble = new QLabel(visual.icon, row);
+        iconBubble->setFixedSize(36, 36);
+        iconBubble->setAlignment(Qt::AlignCenter);
+        iconBubble->setStyleSheet(QString(
+                                      "font-size:16px;border-radius:18px;background-color:%1;border:none;")
+                                      .arg(visual.accent + "26"));
+
+        auto *textCol = new QVBoxLayout();
+        textCol->setSpacing(3);
+
+        auto *topRow = new QHBoxLayout();
+        topRow->setSpacing(8);
+        auto *titleLbl = new QLabel(n.title, row);
+        titleLbl->setStyleSheet(QString("color:%1;font-size:13px;font-weight:%2;border:none;background:transparent;")
+                                    .arg(n.isRead ? "#C9C3D1" : "#FFFFFF", n.isRead ? "500" : "700"));
+        titleLbl->setWordWrap(true);
+        auto *categoryTag = new QLabel(visual.label.toUpper(), row);
+        categoryTag->setStyleSheet(QString(
+                                       "color:%1;font-size:9px;font-weight:700;letter-spacing:0.5px;border:none;background:transparent;")
+                                       .arg(visual.accent));
+        topRow->addWidget(titleLbl, 1);
+        topRow->addWidget(categoryTag, 0, Qt::AlignRight | Qt::AlignTop);
+
+        auto *msgLbl = new QLabel(n.message, row);
+        msgLbl->setStyleSheet(QString("color:%1;font-size:12px;border:none;background:transparent;").arg(kNotifTextDim));
+        msgLbl->setWordWrap(true);
+
+        auto *timeLbl = new QLabel(formatRelativeNotifTime(n.date), row);
+        timeLbl->setStyleSheet("color:#5C5668;font-size:10.5px;border:none;background:transparent;");
+
+        textCol->addLayout(topRow);
+        textCol->addWidget(msgLbl);
+        textCol->addWidget(timeLbl);
+
+        rowLayout->addWidget(accentBar);
+        rowLayout->addWidget(iconBubble, 0, Qt::AlignTop);
+        rowLayout->addLayout(textCol, 1);
+
+        if (!n.isRead) {
+            auto *unreadDot = new QLabel(row);
+            unreadDot->setFixedSize(8, 8);
+            unreadDot->setStyleSheet("background-color:#E4577A;border-radius:4px;");
+            rowLayout->addWidget(unreadDot, 0, Qt::AlignTop);
+        }
+
+        auto *deleteBtn = new QPushButton("✕", row);
+        deleteBtn->setFixedSize(22, 22);
+        deleteBtn->setCursor(Qt::PointingHandCursor);
+        deleteBtn->setToolTip("Delete notification");
+        deleteBtn->setStyleSheet(
+            "QPushButton{color:#6B7280;border:none;background:transparent;font-size:12px;border-radius:11px;}"
+            "QPushButton:hover{color:#FFFFFF;background-color:#3A2430;}");
+        deleteBtn->hide();
+
+        const int notifId = n.id;
+        connect(deleteBtn, &QPushButton::clicked, this, [this, notifId]() {
+            QJsonObject req;
+            req["action"] = "notification_delete";
+            req["userId"] = m_publisherId;
+            req["notificationId"] = notifId;
+            sendRequest(req);
+        });
+
+        rowLayout->addWidget(deleteBtn, 0, Qt::AlignTop);
+        row->hoverButton = deleteBtn;
+
+        auto *item = new QListWidgetItem();
+        item->setSizeHint(row->sizeHint());
+        item->setData(Qt::UserRole, n.id);
+        item->setData(Qt::UserRole + 1, n.isRead);
+        m_notifListWidget->addItem(item);
+        m_notifListWidget->setItemWidget(item, row);
+    }
+}
+
+void PublisherPanel::updateNotificationBadge()
+{
+    int unread = 0;
+    for (const Notification &n : m_notifications) if (!n.isRead) unread++;
+
+    if (unread <= 0) { m_notifBadge->hide(); return; }
+    m_notifBadge->setText(unread > 99 ? QStringLiteral("99+") : QString::number(unread));
+    m_notifBadge->show();
+}
+
+void PublisherPanel::showNotificationToast(const QString &title, const QString &message)
+{
+    NotificationToast::show(this, title, message);
 }
 
 void PublisherPanel::onReadyRead()
@@ -391,91 +849,183 @@ void PublisherPanel::onReadyRead()
         if (!doc.isObject()) {
             continue;
         }
-    const QJsonObject responseObj = doc.object();
-    const QString type = responseObj["type"].toString();
 
-    if (type == "publisher_books_list") {
-        QVector<Book> books;
-        const QJsonArray booksArray = responseObj["books"].toArray();
-        for (const QJsonValue &val : booksArray) {
-            const QJsonObject bo = val.toObject();
-            Book b;
-            b.id = bo["id"].toInt();
-            b.publisherId = m_publisherId;
-            b.title = bo["title"].toString();
-            b.author = bo["author"].toString();
-            b.genre = bo["genre"].toString();
-            b.description = bo["description"].toString();
-            b.price = bo["price"].toDouble();
-            b.coverImagePath = bo["coverImagePath"].toString();
-            b.pdfPath = bo["pdfPath"].toString();
-            b.status = bo["status"].toInt();
-            b.averageRating = bo["averageRating"].toDouble();
-            b.totalSales = bo["totalSales"].toInt();
-            books.push_back(b);
+        const QJsonObject responseObj = doc.object();
+        const QString type = responseObj["type"].toString();
+        const QString action = responseObj["action"].toString();
+
+        if (action == "notify_account_blocked") {
+            showBlockedOverlay();
+            return;
         }
-        m_allBooks = books;
-        filterBooks(m_bookSearchEdit->text());
-        m_allBooks = books;
-        filterBooks(m_bookSearchEdit->text());
-        updateDashboard();
-    }
-    else if (type == "publisher_stats") {
-        m_statBookCount->setText(QString::number(responseObj["bookCount"].toInt()));
-        m_statTotalSales->setText(QString::number(responseObj["totalSales"].toInt()));
-        m_statAvgRating->setText(QString::number(responseObj["averageRating"].toDouble(), 'f', 1));
-        m_statTotalIncome->setText("$" + QString::number(responseObj["totalIncome"].toDouble(), 'f', 2));
-    }
-    else if (type == "action_result") {
-        const bool success = responseObj["success"].toBool();
-        if (success) {
-            requestBooks(); // refresh grid after add/edit/delete/status change
-            requestStats();
-        } else {
-            QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
-        }
-    }
-    else if (type == "publisher_sales_trend") {
-        updateSalesTrend(responseObj["points"].toArray());
-    }
-    else if (type == "user_info") {
-        m_fullName = responseObj["fullName"].toString();
-        m_email    = responseObj["email"].toString();
-        m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
-    }
-    else if (type == "profile_update_result") {
-        if (responseObj["success"].toBool()) {
-            m_fullName = responseObj["fullName"].toString();
-            m_email    = responseObj["email"].toString();
-            const QString newU = responseObj["username"].toString();
-            if (!newU.isEmpty()) {
-                m_username = newU;
-                m_usernameLabel->setText("@" + m_username);
+
+        if (type == "table_refresh_required") {
+            if (responseObj["target_table"].toString() == "book") {
+                requestBooks();
+                requestStats();
             }
-            m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
-            if (m_welcomeLabel) m_welcomeLabel->setText(QString("Welcome back, %1!").arg(m_fullName));
-            QMessageBox::information(this, "Profile", "Profile updated successfully.");
-        } else {
-            QMessageBox::warning(this, "Profile", responseObj["message"].toString());
+            continue;
         }
-    }
-    else if (type == "password_change_result") {
-        if (responseObj["success"].toBool())
-            QMessageBox::information(this, "Password", "Password changed successfully.");
-        else
-            QMessageBox::warning(this, "Password", responseObj["message"].toString());
-    }
-    else {
-        const QString status = responseObj["status"].toString();
-        if (status == "success") {
+
+        if (action == "notify_book_updated" || action == "notify_book_removed") {
             requestBooks();
             requestStats();
+            continue;
+        }
 
-        } else if (status == "error") {
-            QMessageBox::warning(this, "Action failed", responseObj["message"].toString());
+        if (type == "publisher_books_list") {
+            QVector<Book> books;
+            const QJsonArray booksArray = responseObj["books"].toArray();
+            for (const QJsonValue &val : booksArray) {
+                const QJsonObject bo = val.toObject();
+                Book b;
+                b.id = bo["id"].toInt();
+                b.publisherId = m_publisherId;
+                b.title = bo["title"].toString();
+                b.author = bo["author"].toString();
+                b.genre = bo["genre"].toString();
+                b.description = bo["description"].toString();
+                b.price = bo["price"].toDouble();
+                b.coverImagePath = bo["coverImagePath"].toString();
+                b.pdfPath = bo["pdfPath"].toString();
+                b.status = bo["status"].toInt();
+                b.averageRating = bo["averageRating"].toDouble();
+                b.totalSales = bo["totalSales"].toInt();
+                books.push_back(b);
+            }
+            m_allBooks = books;
+            filterBooks(m_bookSearchEdit->text());
+            updateDashboard();
+        }
+        else if (type == "publisher_stats") {
+            m_statBookCount->setText(QString::number(responseObj["bookCount"].toInt()));
+            m_statTotalSales->setText(QString::number(responseObj["totalSales"].toInt()));
+            m_statAvgRating->setText(QString::number(responseObj["averageRating"].toDouble(), 'f', 1));
+            m_statTotalIncome->setText("$" + QString::number(responseObj["totalIncome"].toDouble(), 'f', 2));
+        }
+        else if (type == "action_result") {
+            const bool success = responseObj["success"].toBool();
+            if (success) {
+                requestBooks();
+                requestStats();
+            } else {
+                StyledMessageBox::error(this, "Action failed", responseObj["message"].toString());
+            }
+        }
+        else if (type == "publisher_sales_trend") {
+            updateSalesTrend(responseObj["points"].toArray());
+        }
+        else if (type == "user_info") {
+            m_fullName = responseObj["fullName"].toString();
+            m_email    = responseObj["email"].toString();
+            m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
+        }
+        else if (type == "profile_update_result") {
+            if (responseObj["success"].toBool()) {
+                m_fullName = responseObj["fullName"].toString();
+                m_email    = responseObj["email"].toString();
+                const QString newU = responseObj["username"].toString();
+                if (!newU.isEmpty()) {
+                    m_username = newU;
+                    m_usernameLabel->setText("@" + m_username);
+                }
+                m_nameLabel->setText(m_fullName.isEmpty() ? m_username : m_fullName);
+                if (m_welcomeLabel) m_welcomeLabel->setText(QString("Welcome back, %1!").arg(m_fullName));
+                StyledMessageBox::success(this, "Profile", "Profile updated successfully.");
+            } else {
+                StyledMessageBox::error(this, "Profile", responseObj["message"].toString());
+            }
+        }
+        else if (type == "password_change_result") {
+            if (responseObj["success"].toBool())
+                StyledMessageBox::success(this, "Password", "Password changed successfully.");
+            else
+                StyledMessageBox::error(this, "Password", responseObj["message"].toString());
+        }
+        else if (type == "notifications_list" && responseObj["status"].toString() == "success") {
+            m_notifications.clear();
+            for (const QJsonValue &v : responseObj["notifications"].toArray()) {
+                QJsonObject no = v.toObject();
+                Notification n;
+                n.id = no["id"].toInt();
+                n.userId = m_publisherId;
+                n.title = no["title"].toString();
+                n.message = no["message"].toString();
+                n.date = QDateTime::fromString(no["date"].toString(), Qt::ISODate);
+                n.isRead = no["isRead"].toBool();
+                m_notifications.push_back(n);
+            }
+            rebuildNotificationList();
+            updateNotificationBadge();
+        }
+        else if (type == "notification_new") {
+            QJsonObject no = responseObj["notification"].toObject();
+            Notification n;
+            n.id = no["id"].toInt();
+            n.userId = m_publisherId;
+            n.title = no["title"].toString();
+            n.message = no["message"].toString();
+            n.date = QDateTime::fromString(no["date"].toString(), Qt::ISODate);
+            n.isRead = false;
+            m_notifications.prepend(n);
+            rebuildNotificationList();
+            updateNotificationBadge();
+            showNotificationToast(n.title, n.message);
+        }
+        else if (type == "notification_mark_read_result" && responseObj["status"].toString() == "success") {
+            int notifId = responseObj["notificationId"].toInt();
+            for (auto &n : m_notifications) if (n.id == notifId) { n.isRead = true; break; }
+            rebuildNotificationList();
+            updateNotificationBadge();
+        }
+        else if (type == "notifications_mark_all_read_result" && responseObj["status"].toString() == "success") {
+            for (auto &n : m_notifications) n.isRead = true;
+            rebuildNotificationList();
+            updateNotificationBadge();
+        }
+        else if (type == "notification_delete_result") {
+            if (responseObj["status"].toString() == "success") {
+                int notifId = responseObj["notificationId"].toInt();
+                for (int i = 0; i < m_notifications.size(); ++i) {
+                    if (m_notifications[i].id == notifId) { m_notifications.remove(i); break; }
+                }
+                rebuildNotificationList();
+                updateNotificationBadge();
+            } else {
+                StyledMessageBox::error(this, "Delete Failed", responseObj["message"].toString());
+            }
+        }
+        else if (type == "notifications_clear_all_result") {
+            if (responseObj["status"].toString() == "success") {
+                m_notifications.clear();
+                rebuildNotificationList();
+                updateNotificationBadge();
+            } else {
+                StyledMessageBox::error(this, "Clear Failed", responseObj["message"].toString());
+            }
+        }
+        else if (type == "publisher_discounts_list") {
+            if (responseObj["status"].toString() == "success")
+                populateDiscountsTable(responseObj["discounts"].toArray());
+            else
+                StyledMessageBox::error(this, "Discounts", responseObj["message"].toString());
+        }
+        else if (type == "publisher_discount_action_result") {
+            if (responseObj["status"].toString() == "success")
+                requestDiscounts();
+            else
+                StyledMessageBox::error(this, "Discount", responseObj["message"].toString());
+        }
+        else {
+            const QString status = responseObj["status"].toString();
+            if (status == "success") {
+                requestBooks();
+                requestStats();
+            } else if (status == "error") {
+                StyledMessageBox::error(this, "Action failed", responseObj["message"].toString());
+            }
         }
     }
-}
 }
 
 void PublisherPanel::onSocketError(QAbstractSocket::SocketError error)
@@ -501,6 +1051,8 @@ void PublisherPanel::updateButtonStyles(int currentIndex)
 
     m_btnStats->setStyleSheet(currentIndex == 0 ? activeStyle : normalStyle);
     m_btnBooks->setStyleSheet(currentIndex == 1 ? activeStyle : normalStyle);
+    m_btnNotifications->setStyleSheet(currentIndex == 2 ? activeStyle : normalStyle);
+    m_btnDiscounts->setStyleSheet(currentIndex == 3 ? activeStyle : normalStyle);
 }
 
 void PublisherPanel::filterBooks(const QString &text)
@@ -578,24 +1130,79 @@ QWidget *PublisherPanel::makeStatCard(const QString &icon, const QString &iconBg
     return card;
 }
 
-QWidget *PublisherPanel::makeSectionCard(const QString &icon, const QString &title,
-                                         QWidget *content, QWidget *headerRight)
+QWidget *PublisherPanel::makeSectionCard(const QString &icon,
+                                         const QString &title,
+                                         QWidget *content,
+                                         QWidget *headerRight)
 {
     auto *card = new QWidget(this);
-    card->setStyleSheet(QString("QWidget{background-color:%1;border:1px solid %2;border-radius:10px;}")
-                            .arg(kCardBg, kCardBorder));
+
+    card->setStyleSheet(
+        QString(
+            "QWidget{"
+            "background-color:%1;"
+            "border:1px solid %2;"
+            "border-radius:10px;"
+            "}"
+            ).arg(kCardBg, kCardBorder)
+        );
+
+
     auto *v = new QVBoxLayout(card);
     v->setContentsMargins(16, 14, 16, 14);
     v->setSpacing(10);
 
-    auto *header = new QHBoxLayout;
-    auto *titleLabel = new QLabel(icon + "  " + title, card);
-    titleLabel->setStyleSheet("color:#EAEAEA;font-size:13px;font-weight:bold;border:none;background:transparent;");
+
+    // Header
+    auto *headerWidget = new QWidget(card);
+    headerWidget->setStyleSheet("background:transparent;border:none;");
+
+    auto *header = new QHBoxLayout(headerWidget);
+    header->setContentsMargins(0,0,0,0);
+    header->setSpacing(8);
+
+
+    // Icon
+    auto *iconLabel = new QLabel(headerWidget);
+
+    iconLabel->setPixmap(
+        QPixmap(icon).scaled(
+            18,
+            18,
+            Qt::KeepAspectRatio,
+            Qt::SmoothTransformation
+            )
+        );
+
+    iconLabel->setFixedSize(22,22);
+    iconLabel->setAlignment(Qt::AlignCenter);
+
+
+    // Title
+    auto *titleLabel = new QLabel(title, headerWidget);
+
+    titleLabel->setStyleSheet(
+        "color:#EAEAEA;"
+        "font-size:13px;"
+        "font-weight:bold;"
+        "border:none;"
+        "background:transparent;"
+        );
+
+
+    header->addWidget(iconLabel);
     header->addWidget(titleLabel);
     header->addStretch();
-    if (headerRight) header->addWidget(headerRight);
-    v->addLayout(header);
+
+
+    if (headerRight)
+        header->addWidget(headerRight);
+
+
+    v->addWidget(headerWidget);
     v->addWidget(content);
+
+
     return card;
 }
 
@@ -667,7 +1274,7 @@ QWidget *PublisherPanel::createStatsPage()
     m_bestTable  = makeTopTable();
     m_worstTable = makeTopTable();
 
-     //(daily / weekly / monthly per the spec)
+    //(daily / weekly / monthly per the spec)
     m_trendCombo = new QComboBox(this);
     m_trendCombo->addItems({"Monthly", "Weekly", "Daily"});
     m_trendCombo->setStyleSheet(QString(
@@ -690,17 +1297,66 @@ QWidget *PublisherPanel::createStatsPage()
 
     auto *grid = new QGridLayout;
     grid->setSpacing(18);
-    grid->addWidget(makeSectionCard("🏆", "Top 5 Best Selling Books", m_bestTable),            0, 0);
-    grid->addWidget(makeSectionCard("📈", "Sales Trend", m_trendView, m_trendCombo),           0, 1);
-    grid->addWidget(makeSectionCard("📉", "Top 5 Worst Selling Books", m_worstTable),          1, 0);
-    grid->addWidget(makeSectionCard("📊", "Sales Comparison (Top 5 Books)", m_cmpView),        1, 1);
-    grid->addWidget(makeSectionCard("⭐", "Average Rating per Book", m_ratingView),            2, 0);
-    grid->addWidget(makeSectionCard("🥧", "Revenue Share per Book", pieRow),                   2, 1);
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/trophy-solid.png",
+            "Top 5 Best Selling Books",
+            m_bestTable
+            ),
+        0, 0
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/chart-bar-solid.png",
+            "Sales Trend",
+            m_trendView,
+            m_trendCombo
+            ),
+        0, 1
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/arrow-trend-down-solid.png",
+            "Top 5 Worst Selling Books",
+            m_worstTable
+            ),
+        1, 0
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/arrow-trend-up-solid.png",
+            "Sales Comparison (Top 5 Books)",
+            m_cmpView
+            ),
+        1, 1
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/star-solid.png",
+            "Average Rating per Book",
+            m_ratingView
+            ),
+        2, 0
+        );
+
+    grid->addWidget(
+        makeSectionCard(
+            ":/icons/chart-pie-solid.png",
+            "Revenue Share per Book",
+            pieRow
+            ),
+        2, 1
+        );
+
     grid->setColumnStretch(0, 2);
     grid->setColumnStretch(1, 3);
-    layout->addLayout(grid);
-    layout->addStretch();
 
+    layout->addLayout(grid);
     scroll->setWidget(page);
     return scroll;
 }
@@ -907,4 +1563,41 @@ void PublisherPanel::handleEditProfile()
         req["newPassword"] = dialog.newPassword();
         sendRequest(req);
     }
+}
+
+void PublisherPanel::showBlockedOverlay()
+{
+    if (m_blockOverlay) return;
+
+    this->setEnabled(false);
+
+    m_blockOverlay = new QWidget(this);
+    m_blockOverlay->setGeometry(this->rect());
+    m_blockOverlay->setStyleSheet("background-color: rgba(6, 5, 8, 220);");
+    m_blockOverlay->setEnabled(true);
+
+    QLabel *msgLabel = new QLabel(
+        "Your account has been blocked by an administrator.", m_blockOverlay);
+    msgLabel->setStyleSheet(
+        "color: #EAEAEA; font-size: 18px; font-weight: bold; background: transparent;");
+    msgLabel->setAlignment(Qt::AlignCenter);
+    msgLabel->setWordWrap(true);
+
+    QVBoxLayout *overlayLayout = new QVBoxLayout(m_blockOverlay);
+    overlayLayout->setContentsMargins(60, 0, 60, 0);
+    overlayLayout->addWidget(msgLabel);
+
+    m_blockOverlay->raise();
+    m_blockOverlay->show();
+
+    QTimer::singleShot(10000, this, []() {
+        qApp->quit();
+    });
+}
+
+void PublisherPanel::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    if (m_blockOverlay)
+        m_blockOverlay->setGeometry(this->rect());
 }

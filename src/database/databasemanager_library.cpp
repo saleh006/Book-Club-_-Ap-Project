@@ -191,3 +191,87 @@ bool DatabaseManager::fetchWishlist(int userId, QVector<Book> &outBooks, QString
     }
     return true;
 }
+
+bool DatabaseManager::fetchUserIdsWithBookInWishlist(int bookId, QVector<int> &outUserIds, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("SELECT user_id FROM wishlist WHERE book_id = :bid");
+    query.bindValue(":bid", bookId);
+    if (!query.exec()) {
+        errorMsg = "Database error while fetching wishlist users: " + query.lastError().text();
+        return false;
+    }
+    outUserIds.clear();
+    while (query.next()) outUserIds.push_back(query.value(0).toInt());
+    return true;
+}
+
+bool DatabaseManager::removeBookFromShelf(int shelfId, int bookId, QString &errorMsg)
+{
+    QSqlQuery q(database());
+    q.prepare("DELETE FROM shelf_books WHERE shelf_id = :shelfId AND book_id = :bookId");
+    q.bindValue(":shelfId", shelfId);
+    q.bindValue(":bookId", bookId);
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::updateShelf(int shelfId, const QString &newTitle, QString &errorMsg)
+{
+    if (newTitle.trimmed().isEmpty()) {
+        errorMsg = "Shelf name cannot be empty.";
+        return false;
+    }
+    QSqlQuery q(database());
+    q.prepare("UPDATE shelves SET title = :title WHERE id = :shelfId");
+    q.bindValue(":title", newTitle.trimmed());
+    q.bindValue(":shelfId", shelfId);
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteShelf(int shelfId, QString &errorMsg)
+{
+    QSqlQuery q(database());
+    q.prepare("DELETE FROM shelf_books WHERE shelf_id = :shelfId");
+    q.bindValue(":shelfId", shelfId);
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+
+    QSqlQuery q2(database());
+    q2.prepare("DELETE FROM shelves WHERE id = :shelfId");
+    q2.bindValue(":shelfId", shelfId);
+    if (!q2.exec()) {
+        errorMsg = q2.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::fetchAllReadingProgress(int userId, QVector<ReadingProgress> &outProgress, QString &errorMsg)
+{
+    outProgress.clear();
+    QSqlQuery q(database());
+    q.prepare("SELECT book_id, last_page FROM reading_progress WHERE user_id = :userId");
+    q.bindValue(":userId", userId);
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    while (q.next()) {
+        ReadingProgress p;
+        p.userId = userId;
+        p.bookId = q.value("book_id").toInt();
+        p.lastPage = q.value("last_page").toInt();
+        outProgress.push_back(p);
+    }
+    return true;
+}

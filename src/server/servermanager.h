@@ -3,39 +3,8 @@
 
 #include <QTcpServer>
 #include <QTcpSocket>
-#include <QThread>
-#include <QSqlQuery>
-#include <QSqlError>
-#include <QDebug>
+#include <QList>
 
-class ClientHandler : public QThread
-{
-    Q_OBJECT
-public:
-    explicit ClientHandler(qintptr socketDescriptor, QObject *parent = nullptr);
-    ~ClientHandler();
-
-signals:
-    void logProduced(const QString &message);
-    void clientDisconnectedSignal(qintptr descriptor, const QString &username);
-    void databaseUpdated(const QString &type);
-
-protected:
-    void run() override;
-
-private slots:
-    void onReadyRead();
-    void onDisconnected();
-
-public slots:
-    void sendToClient(const QJsonObject &msg);
-
-private:
-    qintptr m_socketDescriptor;
-    QTcpSocket *m_socket;
-    QByteArray m_buffer;
-    QString m_username = "Anonymous";
-};
 
 class ServerManager : public QTcpServer
 {
@@ -50,12 +19,19 @@ signals:
     void clientCountChanged(int count);
     void databaseUpdated(const QString &type);
     void broadcastToAdmins(const QJsonObject &msg);
+    void sendToAllClientsSignal(const QJsonObject &msg);
+    void pushToUser(int userId, const QJsonObject &payload);
+    void disconnectAllClientsSignal();
+
+public slots:
+    void onBroadcastReceived(const QJsonObject &msg);
 
 protected:
     void incomingConnection(qintptr socketDescriptor) override;
 
 private:
     int m_activeClients = 0;
+    int activeClientsCount() const { return m_activeClients; }
 };
 
 #endif // SERVERMANAGER_H

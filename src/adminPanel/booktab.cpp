@@ -4,6 +4,7 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHeaderView>
+#include <QFrame>
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QDoubleSpinBox>
@@ -14,6 +15,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QMessageBox>
+#include "styledmessagebox.h"
 
 static bool uploadFileToServer(const QString &localFilePath, const QString &fileType,
                                QString &outServerPath, QString &errorMsg)
@@ -187,7 +189,7 @@ void AddEditBookDialog::setupUi(bool isEditMode)
         if (uploadFileToServer(localPath, "cover", serverPath, errorMsg)) {
             m_coverPathEdit->setText(serverPath);
         } else {
-            QMessageBox::warning(this, "Upload failed", errorMsg);
+            StyledMessageBox::error(this, "Upload failed", errorMsg);
         }
     });
 
@@ -200,7 +202,7 @@ void AddEditBookDialog::setupUi(bool isEditMode)
         if (uploadFileToServer(localPath, "pdf", serverPath, errorMsg)) {
             m_pdfPathEdit->setText(serverPath);
         } else {
-            QMessageBox::warning(this, "Upload failed", errorMsg);
+            StyledMessageBox::error(this, "Upload failed", errorMsg);
         }
     });
 
@@ -291,7 +293,10 @@ QWidget* BookTab::setupUi()
     layout->setSpacing(12);
 
     m_bookSearchEdit = new QLineEdit(page);
-    m_bookSearchEdit->setPlaceholderText("🔍 Search books by title or author...");
+    m_bookSearchEdit->setPlaceholderText("Search books by title or author...");
+
+    QAction *searchAction = new QAction(QIcon(":/icons/magnifying-glass-solid.png"), "", m_bookSearchEdit);
+    m_bookSearchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
     m_bookSearchEdit->setStyleSheet(
         "QLineEdit { background-color: #120E14; border: 1px solid #1F1724; border-radius: 6px; "
         "padding: 8px; color: #EAEAEA; font-size: 13px; }"
@@ -318,11 +323,26 @@ QWidget* BookTab::setupUi()
     QHBoxLayout *btnLayout = new QHBoxLayout();
     btnLayout->setSpacing(10);
 
-    m_btnApprove = new QPushButton("✨ Approve Book", page);
-    m_btnReject = new QPushButton("❌ Reject", page);
-    m_btnDeleteBook = new QPushButton("🗑️ Delete Book", page);
-    m_btnBookDetails = new QPushButton("👁 View Details", page);
-    m_btnEditBook = new QPushButton("✏️ Edit Book", page);
+    m_btnApprove = new QPushButton("Approve Book", page);
+
+    m_btnApprove->setIcon(QIcon(":/icons/approve.png"));
+    m_btnApprove->setIconSize(QSize(16, 16));
+    m_btnReject = new QPushButton("Reject", page);
+
+    m_btnReject->setIcon(QIcon(":/icons/reject.png"));
+    m_btnReject->setIconSize(QSize(16, 16));
+    m_btnDeleteBook = new QPushButton("Delete Book", page);
+
+    m_btnDeleteBook->setIcon(QIcon(":/icons/trash-solid.png"));
+    m_btnDeleteBook->setIconSize(QSize(16, 16));
+    m_btnBookDetails = new QPushButton("View Details", page);
+
+    m_btnBookDetails->setIcon(QIcon(":/icons/view.png"));
+    m_btnBookDetails->setIconSize(QSize(16, 16));
+    m_btnEditBook = new QPushButton("Edit Book", page);
+
+    m_btnEditBook->setIcon(QIcon(":/icons/pen-to-square-solid.png"));
+    m_btnEditBook->setIconSize(QSize(16, 16));
 
     m_btnApprove->setCursor(Qt::PointingHandCursor);
     m_btnReject->setCursor(Qt::PointingHandCursor);
@@ -428,10 +448,9 @@ void BookTab::handleDeleteBook()
     if (currentRow < 0) return;
     int bookId = m_booksTable->item(currentRow, 0)->text().toInt();
 
-    QMessageBox::StandardButton reply = QMessageBox::question(this, "Confirm Delete",
-                                                              "Are you sure you want to completely delete this book from the database?",
-                                                              QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
+    bool confirmed = StyledMessageBox::question(this, "Confirm Delete",
+                                                "Are you sure you want to completely delete this book from the database?");
+    if (confirmed) {
         QJsonObject packet;
         packet["action"] = "admin_set_book_status";
         packet["bookId"] = bookId;
@@ -477,6 +496,11 @@ void BookTab::handleServerResponse(const QJsonObject &response)
         return;
     }
 
+    if (action == "notify_book_updated" || action == "notify_book_removed") {
+        refreshTable();
+        return;
+    }
+
     if (action == "books_list_response" && response["status"] == "success") {
         QJsonArray books = response["data"].toArray();
         m_booksTable->setRowCount(0);
@@ -489,12 +513,36 @@ void BookTab::handleServerResponse(const QJsonObject &response)
             m_booksTable->setItem(i, 1, new QTableWidgetItem(b["title"].toString()));
             m_booksTable->setItem(i, 2, new QTableWidgetItem(b["author"].toString()));
 
-            bool isActive = b["isActive"].toBool();
-            m_booksTable->setItem(i, 3, new QTableWidgetItem(isActive ? "Approved" : "Pending/Rejected"));
+            int status = b.contains("status") ? b["status"].toInt() : b["isActive"].toInt();
+            QString statusText = "Pending/Rejected";
+            if (status == 1) {
+                statusText = "Approved";
+            } else if (status == -1) {
+                statusText = "Deleted";
+            }
 
-            if (!isActive) setRowDimmed(m_booksTable, i, true);
+            m_booksTable->setItem(i, 3, new QTableWidgetItem(statusText));
+
+            if (status == 1) {
+                setRowDimmed(m_booksTable, i, false);
+            } else if (status == -1) {
+                for (int col = 0; col < m_booksTable->columnCount(); ++col) {
+                    QTableWidgetItem *item = m_booksTable->item(i, col);
+                    if (item) {
+                        item->setForeground(QColor("#E74C3C"));
+                        item->setBackground(QColor("#1A0F14"));
+
+                        QFont f = item->font();
+                        f.setStrikeOut(true);
+                        item->setFont(f);
+                    }
+                }
+            } else {
+                setRowDimmed(m_booksTable, i, true);
+            }
         }
     }
+
     else if (action == "admin_set_book_status_response") {
         if (response["status"].toString() == "success") {
             int bookId = response["bookId"].toInt();
@@ -502,18 +550,42 @@ void BookTab::handleServerResponse(const QJsonObject &response)
 
             for (int i = 0; i < m_booksTable->rowCount(); ++i) {
                 if (m_booksTable->item(i, 0)->text().toInt() == bookId) {
-                    if (status == -1) {
-                        m_booksTable->removeRow(i);
-                        QMessageBox::information(this, "Success", "Book deleted successfully.");
+                    QString statusText = "Pending/Rejected";
+                    if (status == 1) {
+                        statusText = "Approved";
+                    } else if (status == -1) {
+                        statusText = "Deleted";
+                    }
+
+                    if (status == 1) {
+                        statusText = "Approved";
+                        setRowDimmed(m_booksTable, i, false);
+                    } else if (status == -1) {
+                        statusText = "Deleted";
+                        for (int col = 0; col < m_booksTable->columnCount(); ++col) {
+                            QTableWidgetItem *cell = m_booksTable->item(i, col);
+                            if (cell) {
+                                cell->setForeground(QColor("#E74C3C"));
+                                cell->setBackground(QColor("#1A0F14"));
+                                QFont f = cell->font();
+                                f.setStrikeOut(true);
+                                cell->setFont(f);
+                            }
+                        }
                     } else {
-                        m_booksTable->item(i, 3)->setText(status == 1 ? "Approved" : "Pending/Rejected");
-                        setRowDimmed(m_booksTable, i, status != 1);
+                        statusText = "Pending/Rejected";
+                        setRowDimmed(m_booksTable, i, true);
+                    }
+                    m_booksTable->item(i, 3)->setText(statusText);
+
+                    if (status == -1) {
+                        StyledMessageBox::success(this, "Success", "Book marked as deleted.");
                     }
                     break;
                 }
             }
         } else {
-            QMessageBox::warning(this, "Action Failed", response["message"].toString());
+            StyledMessageBox::error(this, "Action Failed", response["message"].toString());
         }
     }
     else if (action == "book_details_response" && response["status"].toString() == "success") {
@@ -529,7 +601,7 @@ void BookTab::handleServerResponse(const QJsonObject &response)
             b.coverImagePath = data["coverImagePath"].toString();
             b.pdfPath = data["pdfPath"].toString();
             b.averageRating = data["averageRating"].toDouble();
-            b.status = data["isActive"].toBool();
+            b.status = data["isActive"].toInt();
 
             AddEditBookDialog dialog(b, this);
             if (dialog.exec() == QDialog::Accepted) {
@@ -552,10 +624,10 @@ void BookTab::handleServerResponse(const QJsonObject &response)
     }
     else if (action == "book_update_response") {
         if (response["status"].toString() == "success") {
-            QMessageBox::information(this, "Success", "Book information updated successfully.");
+            StyledMessageBox::success(this, "Success", "Book information updated successfully.");
             refreshTable();
         } else {
-            QMessageBox::warning(this, "Update Failed", response["message"].toString());
+            StyledMessageBox::error(this, "Update Failed", response["message"].toString());
         }
     }
 }
@@ -564,26 +636,59 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
 {
     QDialog *dialog = new QDialog(this);
     dialog->setWindowTitle("Book Details");
-    dialog->resize(550, 520);
+    dialog->resize(560, 480);
+    dialog->setMinimumWidth(500);
     dialog->setStyleSheet(R"(
         QDialog {
             background-color: #120E14;
             color: #EAEAEA;
         }
 
-        QLabel#fieldLabel {
-            color: #A594B3;
-            background-color: #120E14;
-            padding: 6px 10px;
-            min-width: 90px;
-            qproperty-alignment: 'Qt::AlignCenter';
+        QLabel#titleValue {
+            background-color: transparent;
+            color: #EAEAEA;
+            font-size: 20px;
+            font-weight: bold;
         }
 
-        QLabel#valueLabel {
+        QLabel#subtitleValue {
+            background-color: transparent;
+            color: #A594B3;
+            font-size: 13px;
+        }
+
+        QFrame#statChip {
+            background-color: transparent;
+            border: 1px solid #5F2E4F;
+            border-radius: 12px;
+        }
+
+        QLabel#statLabel {
+            background-color: transparent;
+            color: #A594B3;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        QLabel#statValue {
+            background-color: transparent;
+            color: #EAEAEA;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        QLabel#sectionLabel {
+            background-color: transparent;
+            color: #A594B3;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        QTextEdit#descriptionView {
             background-color: #1F1724;
             border: 1px solid #5F2E4F;
             border-radius: 12px;
-            padding: 6px 12px;
+            padding: 10px;
             color: #EAEAEA;
         }
 
@@ -591,7 +696,7 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
             background-color: #7C3E66;
             border: none;
             border-radius: 12px;
-            padding: 8px 20px;
+            padding: 8px 22px;
             color: white;
             font-weight: bold;
         }
@@ -601,45 +706,70 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
         }
     )");
 
-    auto makeFieldLabel = [](const QString &text) {
-        QLabel *lbl = new QLabel(text);
-        lbl->setObjectName("fieldLabel");
-        return lbl;
+    const bool isActive = data["isActive"].toInt();
+
+    QLabel *titleLabel = new QLabel(data["title"].toString(), dialog);
+    titleLabel->setObjectName("titleValue");
+    titleLabel->setWordWrap(true);
+
+    QLabel *statusBadge = new QLabel(isActive ? "✅ Approved" : "🚫 Pending/Rejected", dialog);
+    statusBadge->setAlignment(Qt::AlignCenter);
+    statusBadge->setStyleSheet(isActive
+                            ? "background-color: rgba(46, 204, 113, 45); color: #ABEBC6; border: 1px solid #2ECC71;"
+                            " border-radius: 10px; padding: 4px 12px; font-weight: bold; font-size: 12px;"
+                            : "background-color: rgba(231, 76, 60, 45); color: #F5B7B1; border: 1px solid #E74C3C;"
+                            " border-radius: 10px; padding: 4px 12px; font-weight: bold; font-size: 12px;");
+
+    QHBoxLayout *headerRow = new QHBoxLayout();
+    headerRow->setSpacing(12);
+    headerRow->addWidget(titleLabel, 1);
+    headerRow->addWidget(statusBadge, 0, Qt::AlignTop);
+
+    QString authorText = data["author"].toString();
+    QString genreText = data["genre"].toString();
+    QLabel *subtitleLabel = new QLabel(
+        genreText.isEmpty() ? QString("by %1").arg(authorText)
+                            : QString("by %1  •  %2").arg(authorText, genreText),
+        dialog);
+    subtitleLabel->setObjectName("subtitleValue");
+    subtitleLabel->setWordWrap(true);
+
+    auto makeStatChip = [dialog](const QString &label, const QString &value) {
+        QFrame *chip = new QFrame(dialog);
+        chip->setObjectName("statChip");
+        QVBoxLayout *chipLayout = new QVBoxLayout(chip);
+        chipLayout->setContentsMargins(14, 10, 14, 10);
+        chipLayout->setSpacing(3);
+
+        QLabel *lbl = new QLabel(label.toUpper(), chip);
+        lbl->setObjectName("statLabel");
+        QLabel *val = new QLabel(value, chip);
+        val->setObjectName("statValue");
+
+        chipLayout->addWidget(lbl);
+        chipLayout->addWidget(val);
+        return chip;
     };
-    auto makeValueLabel = [](const QString &text) {
-        QLabel *val = new QLabel(text.isEmpty() ? "—" : text);
-        val->setObjectName("valueLabel");
-        val->setWordWrap(true);
-        return val;
-    };
 
-    QFormLayout *formLayout = new QFormLayout;
-    formLayout->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
-    formLayout->setFormAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    formLayout->setLabelAlignment(Qt::AlignCenter);
-    formLayout->setHorizontalSpacing(15);
-    formLayout->setVerticalSpacing(14);
+    const double rating = data["averageRating"].toDouble();
+    QFrame *priceChip = makeStatChip("Price", "$" + QString::number(data["price"].toDouble(), 'f', 2));
+    QFrame *ratingChip = makeStatChip("Avg Rating", rating > 0.0 ? QString::number(rating, 'f', 1) + " ⭐" : "N/A");
 
-    formLayout->addRow(makeFieldLabel("Title"), makeValueLabel(data["title"].toString()));
-    formLayout->addRow(makeFieldLabel("Price"), makeValueLabel("$" + QString::number(data["price"].toDouble(), 'f', 2)));
-    formLayout->addRow(makeFieldLabel("Author"), makeValueLabel(data["author"].toString()));
-    formLayout->addRow(makeFieldLabel("Genre"), makeValueLabel(data["genre"].toString()));
+    QHBoxLayout *statsRow = new QHBoxLayout();
+    statsRow->setSpacing(14);
+    statsRow->addWidget(priceChip, 1);
+    statsRow->addWidget(ratingChip, 1);
 
-    QLabel *descLabel = makeValueLabel(data["description"].toString());
-    descLabel->setMinimumHeight(100);
-    descLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    formLayout->addRow(makeFieldLabel("Description"), descLabel);
+    QLabel *descSectionLabel = new QLabel("DESCRIPTION", dialog);
+    descSectionLabel->setObjectName("sectionLabel");
 
-    formLayout->addRow(makeFieldLabel("Cover Path"), makeValueLabel(data["coverImagePath"].toString()));
-    formLayout->addRow(makeFieldLabel("PDF Path"), makeValueLabel(data["pdfPath"].toString()));
-
-    double rating = data["averageRating"].toDouble();
-    formLayout->addRow(makeFieldLabel("Avg Rating"),
-                       makeValueLabel(rating > 0.0 ? QString::number(rating, 'f', 1) + " ⭐" : "N/A"));
-
-    bool isActive = data["isActive"].toBool();
-    formLayout->addRow(makeFieldLabel("Status"),
-                       makeValueLabel(isActive ? "✅ Approved" : "🚫 Pending/Rejected"));
+    QTextEdit *descView = new QTextEdit(dialog);
+    descView->setObjectName("descriptionView");
+    descView->setReadOnly(true);
+    descView->setFrameShape(QFrame::NoFrame);
+    QString descText = data["description"].toString();
+    descView->setText(descText.isEmpty() ? "No description provided." : descText);
+    descView->setMinimumHeight(140);
 
     QPushButton *closeDetailsBtn = new QPushButton("Close", dialog);
     closeDetailsBtn->setCursor(Qt::PointingHandCursor);
@@ -650,9 +780,15 @@ void BookTab::showBookDetailsDialog(const QJsonObject &data)
     footerLayout->addWidget(closeDetailsBtn);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(dialog);
-    mainLayout->setContentsMargins(20, 20, 20, 20);
-    mainLayout->setSpacing(15);
-    mainLayout->addLayout(formLayout);
+    mainLayout->setContentsMargins(24, 22, 24, 20);
+    mainLayout->setSpacing(14);
+    mainLayout->addLayout(headerRow);
+    mainLayout->addWidget(subtitleLabel);
+    mainLayout->addSpacing(2);
+    mainLayout->addLayout(statsRow);
+    mainLayout->addSpacing(4);
+    mainLayout->addWidget(descSectionLabel);
+    mainLayout->addWidget(descView, 1);
     mainLayout->addLayout(footerLayout);
 
     dialog->exec();

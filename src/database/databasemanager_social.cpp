@@ -90,7 +90,13 @@ bool DatabaseManager::addReview(const Review &review, QString &errorMsg)
 bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReviews, QString &errorMsg)
 {
     QSqlQuery query(database());
-    query.prepare("SELECT id, user_id, comment, rating, date, is_approved FROM reviews WHERE book_id = :bid AND is_approved = 1 ORDER BY date DESC");
+    query.prepare(R"(
+        SELECT r.id, r.user_id, r.comment, r.rating, r.date, r.is_approved, u.username
+        FROM reviews r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.book_id = :bid AND r.is_approved = 1
+        ORDER BY r.date DESC
+    )");
     query.bindValue(":bid", bookId);
     if (!query.exec()) {
         errorMsg = "Database error while fetching reviews: " + query.lastError().text();
@@ -102,6 +108,7 @@ bool DatabaseManager::fetchReviewsForBook(int bookId, QVector<Review> &outReview
         r.id = query.value("id").toInt();
         r.userId = query.value("user_id").toInt();
         r.bookId = bookId;
+        r.username = query.value("username").toString();
         r.comment = query.value("comment").toString();
         r.rating = query.value("rating").toInt();
         r.date = query.value("date").toDateTime();
@@ -164,11 +171,24 @@ bool DatabaseManager::fetchReviewsForAdmin(bool pendingOnly, QVector<ReviewAdmin
 bool DatabaseManager::approveReview(int reviewId, QString &errorMsg)
 {
     QSqlQuery query(database());
+    query.prepare("SELECT book_id FROM reviews WHERE id = :id");
+    query.bindValue(":id", reviewId);
+
+    if (!query.exec() || !query.next()) {
+        errorMsg = "Failed to find review or book ID: " + query.lastError().text();
+        return false;
+    }
+    int bookId = query.value(0).toInt();
+
     query.prepare("UPDATE reviews SET is_approved = 1 WHERE id = :id");
     query.bindValue(":id", reviewId);
-    
+
     if (!query.exec()) {
         errorMsg = "Failed to approve review: " + query.lastError().text();
+        return false;
+    }
+
+    if (!recalculateAverageRating(bookId, errorMsg)) {
         return false;
     }
 
@@ -178,18 +198,29 @@ bool DatabaseManager::approveReview(int reviewId, QString &errorMsg)
 bool DatabaseManager::deleteReview(int reviewId, QString &errorMsg)
 {
     QSqlQuery query(database());
+    query.prepare("SELECT book_id FROM reviews WHERE id = :id");
+    query.bindValue(":id", reviewId);
+    int bookId = -1;
+    if (query.exec() && query.next()) {
+        bookId = query.value(0).toInt();
+    }
+
     query.prepare("DELETE FROM reviews WHERE id = :id");
     query.bindValue(":id", reviewId);
-    
+
     if (!query.exec()) {
         errorMsg = "Failed to delete review: " + query.lastError().text();
         return false;
+    }
+
+    if (bookId != -1) {
+        recalculateAverageRating(bookId, errorMsg);
     }
     
     return true;
 }
 
-bool DatabaseManager::addNotification(int userId, const QString &title, const QString &message, QString &errorMsg)
+bool DatabaseManager::addNotification(int userId, const QString &title, const QString &message, QString &errorMsg, int *newNotificationId)
 {
     QSqlQuery query(database());
     query.prepare("INSERT INTO notifications (user_id, title, message) VALUES (:uid, :title, :msg)");
@@ -199,6 +230,9 @@ bool DatabaseManager::addNotification(int userId, const QString &title, const QS
     if (!query.exec()) {
         errorMsg = "Failed to create notification: " + query.lastError().text();
         return false;
+    }
+    if (newNotificationId) {
+        *newNotificationId = query.lastInsertId().toInt();
     }
     return true;
 }
@@ -233,6 +267,147 @@ bool DatabaseManager::markNotificationRead(int notificationId, QString &errorMsg
     query.bindValue(":id", notificationId);
     if (!query.exec()) {
         errorMsg = "Failed to mark notification read: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::markAllNotificationsRead(int userId, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("UPDATE notifications SET is_read = 1 WHERE user_id = :uid");
+    query.bindValue(":uid", userId);
+    if (!query.exec()) {
+        errorMsg = "Failed to mark notifications read: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteNotification(int notificationId, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("DELETE FROM notifications WHERE id = :id");
+    query.bindValue(":id", notificationId);
+    if (!query.exec()) {
+        errorMsg = "Failed to delete notification: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteAllNotifications(int userId, QString &errorMsg)
+{
+    QSqlQuery query(database());
+    query.prepare("DELETE FROM notifications WHERE user_id = :uid");
+    query.bindValue(":uid", userId);
+    if (!query.exec()) {
+        errorMsg = "Failed to clear notifications: " + query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::fetchDiscount(int discountId, Discount &outDiscount, QString &errorMsg)
+{
+    QSqlQuery q(database());
+    q.prepare("SELECT id, book_id, type, value, start_date, end_date "
+              "FROM discounts WHERE id = :id");
+    q.bindValue(":id", discountId);
+
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    if (!q.next()) {
+        errorMsg = "Discount not found.";
+        return false;
+    }
+
+    outDiscount.id = q.value("id").toInt();
+    outDiscount.bookId = q.value("book_id").toInt();
+    outDiscount.type = q.value("type").toString();
+    outDiscount.value = q.value("value").toDouble();
+    outDiscount.startDate = q.value("start_date").toDateTime();
+    outDiscount.endDate = q.value("end_date").toDateTime();
+    return true;
+}
+
+bool DatabaseManager::fetchDiscountsForPublisher(int publisherId, QVector<DiscountPublisherSummary> &outDiscounts, QString &errorMsg)
+{
+    outDiscounts.clear();
+
+    QSqlQuery q(database());
+    q.prepare(
+        "SELECT d.id, d.book_id, d.type, d.value, d.start_date, d.end_date, b.title "
+        "FROM discounts d "
+        "JOIN books b ON b.id = d.book_id "
+        "WHERE b.publisher_id = :pid "
+        "ORDER BY d.id DESC"
+        );
+    q.bindValue(":pid", publisherId);
+
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+
+    while (q.next()) {
+        DiscountPublisherSummary s;
+        s.discount.id = q.value("id").toInt();
+        s.discount.bookId = q.value("book_id").toInt();
+        s.discount.type = q.value("type").toString();
+        s.discount.value = q.value("value").toDouble();
+        s.discount.startDate = q.value("start_date").toDateTime();
+        s.discount.endDate = q.value("end_date").toDateTime();
+        s.bookTitle = q.value("title").toString();
+        outDiscounts.append(s);
+    }
+    return true;
+}
+
+bool DatabaseManager::updateDiscount(const Discount &discount, QString &errorMsg)
+{
+    if (discount.id <= 0) {
+        errorMsg = "Invalid discount id.";
+        return false;
+    }
+
+    QSqlQuery q(database());
+    q.prepare(
+        "UPDATE discounts SET type = :type, value = :value, "
+        "start_date = :start_date, end_date = :end_date "
+        "WHERE id = :id"
+        );
+    q.bindValue(":type", discount.type);
+    q.bindValue(":value", discount.value);
+    q.bindValue(":start_date", discount.startDate.isValid() ? QVariant(discount.startDate) : QVariant(QVariant::DateTime));
+    q.bindValue(":end_date", discount.endDate.isValid() ? QVariant(discount.endDate) : QVariant(QVariant::DateTime));
+    q.bindValue(":id", discount.id);
+
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    if (q.numRowsAffected() <= 0) {
+        errorMsg = "Discount not found.";
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteDiscount(int discountId, QString &errorMsg)
+{
+    QSqlQuery q(database());
+    q.prepare("DELETE FROM discounts WHERE id = :id");
+    q.bindValue(":id", discountId);
+
+    if (!q.exec()) {
+        errorMsg = q.lastError().text();
+        return false;
+    }
+    if (q.numRowsAffected() <= 0) {
+        errorMsg = "Discount not found.";
         return false;
     }
     return true;

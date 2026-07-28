@@ -1,0 +1,152 @@
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include "clienthandler.h"
+#include "databasemanager.h"
+#include <QDateTime>
+
+ClientHandler::ClientHandler(qintptr socketDescriptor, QObject *parent)
+    : QThread(parent), m_socketDescriptor(socketDescriptor), m_socket(nullptr)
+{}
+
+ClientHandler::~ClientHandler()
+{
+    if (this->isRunning()) {
+        this->quit();
+        this->wait();
+    }
+}
+
+void ClientHandler::run()
+{
+    qDebug() << "New thread created for client. Thread ID:" << QThread::currentThreadId();
+
+    m_socket = new QTcpSocket();
+
+    if (!m_socket->setSocketDescriptor(m_socketDescriptor)) {
+        qWarning() << "Error setting client socket descriptor!";
+        delete m_socket;
+        m_socket = nullptr;
+        return;
+    }
+    connect(m_socket, &QTcpSocket::readyRead, this, &ClientHandler::onReadyRead, Qt::DirectConnection);
+    connect(m_socket, &QTcpSocket::disconnected, this, &ClientHandler::onDisconnected, Qt::DirectConnection);
+
+    exec();
+}
+
+void ClientHandler::onReadyRead()
+{
+    m_buffer.append(m_socket->readAll());
+    int newlineIndex;
+    while ((newlineIndex = m_buffer.indexOf('\n')) != -1) {
+        QByteArray rawData = m_buffer.left(newlineIndex).trimmed();
+        m_buffer.remove(0, newlineIndex + 1);
+        if (rawData.isEmpty()) continue;
+        QJsonParseError parseError;
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(rawData, &parseError);
+        if (parseError.error != QJsonParseError::NoError) {
+            m_socket->write("{\"status\":\"error\",\"message\":\"Invalid JSON format\"}\n");
+            m_socket->flush();
+            continue;
+        }
+        QJsonObject requestObj = jsonDoc.object();
+        QString action = requestObj["action"].toString();
+        QJsonObject responseObj;
+        QString clientIp = m_socket ? m_socket->peerAddress().toString() : "Unknown IP";
+        QString displayName = m_username;
+        QString reqLog = QString("<font color='#3498db'><b>[REQ]</b></font> "
+                                 "User: <b>%1</b> | IP: %2 | Action: <font color='#f1c40f'><b>%3</b></font>")
+                             .arg(displayName)
+                             .arg(clientIp)
+                             .arg(action);
+
+        bool handled = handleUserActions(action, requestObj, responseObj)
+                       || handleBookActions(action, requestObj, responseObj)
+                       || handleDiscount_Wishlist_ReviewsActions(action, requestObj, responseObj)
+                       || handleReviewAndNotificationActions(action, requestObj, responseObj)
+                       || handleCart_PurchaseActions(action, requestObj, responseObj)
+                       || handlePublisherActions(action, requestObj, responseObj);
+
+        if (!handled) {
+            responseObj["status"] = "error";
+            responseObj["message"] = "Invalid action.";
+        }
+
+        QJsonDocument responseDoc(responseObj);
+        m_socket->write(responseDoc.toJson(QJsonDocument::Compact) + "\n");
+        m_socket->flush();
+
+        QString status = responseObj["status"].toString();
+        QString msg = responseObj["message"].toString();
+        QString resLog;
+        if (status == "success") {
+            resLog = QString("<font color='#2ecc71'><b>[RES]</b></font> Action: <b>%1</b> | Status: SUCCESS")
+            .arg(action);
+            if (!msg.isEmpty()) resLog += QString(" (%1)").arg(msg);
+        }
+        else {
+            resLog = QString("<font color='#e74c3c'><b>[ERR]</b></font> Action: <b>%1</b> | Status: ERROR | Reason: <i>%2</i>")
+            .arg(action)
+                .arg(msg.isEmpty() ? "Unknown Error" : msg);
+        }
+        QString finalLog = reqLog + "<br>" + resLog + "<hr style='border: 0; border-top: 1px solid #3a3a4c; margin: 4px 0 0 0;'>";
+        emit logProduced(finalLog);
+    }
+}
+
+void ClientHandler::onDisconnected(){
+    qDebug() << "Client disconnected. Cleaning up memory...";
+    QString displayName = m_isAuthenticated ? m_username : "Anonymous";
+    emit clientDisconnectedSignal(m_socketDescriptor,displayName, m_isAuthenticated, m_userId);
+    if(m_socket){
+        m_socket->close();
+        m_socket->deleteLater();
+        m_socket = nullptr;
+    }
+    quit();
+}
+
+void ClientHandler::sendToClient(const QJsonObject &msg)
+{
+    if (!m_socket) return;
+    QMetaObject::invokeMethod(m_socket, [this, msg]() {
+        if (m_socket && m_socket->isOpen()) {
+            m_socket->write(QJsonDocument(msg).toJson(QJsonDocument::Compact) + "\n");
+            m_socket->flush();
+        }
+    }, Qt::QueuedConnection);
+}
+
+void ClientHandler::notifyUser(int userId, const QString &title, const QString &message)
+{
+    QString errorMsg;
+    int newId = -1;
+    if (!DatabaseManager::instance().addNotification(userId, title, message, errorMsg, &newId)) {
+        qWarning() << "Failed to create notification:" << errorMsg;
+        return;
+    }
+
+    QJsonObject notif;
+    notif["id"] = newId;
+    notif["title"] = title;
+    notif["message"] = message;
+    notif["date"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+    notif["isRead"] = false;
+
+    QJsonObject payload;
+    payload["type"] = "notification_new";
+    payload["notification"] = notif;
+
+    emit notificationReady(userId, payload);
+}
+
+void ClientHandler::disconnectClient()
+{
+    if (!m_socket) return;
+    QMetaObject::invokeMethod(m_socket,[this]{
+        if (m_socket) {
+            m_socket->disconnectFromHost();
+        }
+    }, Qt::QueuedConnection);
+}
