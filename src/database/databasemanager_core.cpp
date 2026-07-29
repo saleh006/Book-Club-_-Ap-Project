@@ -308,7 +308,8 @@ bool DatabaseManager::createAllTables()
         && createTableForReviews()
         && createTableForDiscounts()
         && createTableForNotifications()
-        && createTableForUserGenres();
+        && createTableForUserGenres()
+        && createTableStudyRoom();
 }
 
 // QSqlDatabase DatabaseManager::database() const
@@ -366,4 +367,49 @@ bool DatabaseManager::seedAdminAccount()
         qDebug() << "Default admin account created (username: admin / password: admin123)";
     }
     return ok;
+}
+
+bool DatabaseManager::createTableStudyRoom()
+{
+    QSqlQuery query(m_db);
+
+    const QString sql1 = R"(
+        CREATE TABLE IF NOT EXISTS study_rooms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            book_id INTEGER NOT NULL,
+            creator_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            is_active INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY (book_id) REFERENCES books(id),
+            FOREIGN KEY (creator_id) REFERENCES users(id)
+        )
+    )";
+
+    if (!query.exec(sql1)) {
+        qWarning() << "Failed to create study_rooms table:"
+                   << query.lastError().text();
+        return false;
+    }
+
+    const QString sql2 = R"(
+        CREATE TABLE IF NOT EXISTS study_room_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            room_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            joined_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(room_id,user_id),
+            FOREIGN KEY (room_id) REFERENCES study_rooms(id),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    )";
+
+    if (!query.exec(sql2)) {
+        qWarning() << "Failed to create study_room_members table:"
+                   << query.lastError().text();
+        return false;
+    }
+
+
+    return true;
 }

@@ -2,6 +2,7 @@
 #define PDFREADERDIALOG_H
 
 #include <QDialog>
+#include <QTcpSocket>
 
 QT_BEGIN_NAMESPACE
 class QPdfDocument;
@@ -16,11 +17,15 @@ class PdfReaderDialog : public QDialog
     Q_OBJECT
 public:
 
-    explicit PdfReaderDialog(const QString &pdfPath,const QString &bookTitle,int bookId,
-                             int startPage,QWidget *parent = nullptr);
-
     ~PdfReaderDialog() override;
     bool isDocumentValid() const;
+
+    PdfReaderDialog(const QString &pdfPath, const QString &bookTitle,
+                    int bookId, int startPage, QWidget *parent = nullptr,
+                    QTcpSocket *syncSocket = nullptr, int syncRoomId = -1,
+                    int syncUserId = -1, bool isRoomCreator = false);
+
+    void handleServerResponse(const QJsonObject &responseObj);
 
 signals:
     void readingProgressChanged(int id, int lastPage, int pageCount);
@@ -53,6 +58,15 @@ private:
     bool m_documentValid = false;
     int m_bookId = -1;
     int m_pendingStartPage = 0;
+
+    void sendPageSync(int zeroBasedPage);
+
+    QTcpSocket *m_socket = nullptr;
+    int m_roomId = -1;
+    int m_syncUserId = -1;
+    bool m_isRoomCreator = false;
+    bool m_applyingRemotePage = false;
+    bool m_roomLeftOrClosed = false;
 };
 
 #endif // PDFREADERDIALOG_H

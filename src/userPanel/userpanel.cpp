@@ -318,6 +318,13 @@ void UserPanel::setupUi()
     m_btnWishlist->setStyleSheet(menuBtnStyle);
     m_btnWishlist->setCursor(Qt::PointingHandCursor);
 
+
+    m_btnStudyRooms = new QPushButton("Study Rooms", sidebar);
+    m_btnStudyRooms->setIcon(QIcon(":/icons/people-group-solid.png"));
+    m_btnStudyRooms->setIconSize(QSize(20,20));
+    m_btnStudyRooms->setStyleSheet(menuBtnStyle);
+    m_btnStudyRooms->setCursor(Qt::PointingHandCursor);
+
     connect(m_btnHome, &QPushButton::clicked, this, [this]() { switchPage(0); });
     sidebarLayout->addWidget(m_btnHome);
     connect(m_btnLibrary, &QPushButton::clicked, this, [this]() { switchPage(5); });
@@ -326,6 +333,8 @@ void UserPanel::setupUi()
     sidebarLayout->addWidget(m_btnCart);
     connect(m_btnWishlist, &QPushButton::clicked, this, [this]() { switchPage(3); });
     sidebarLayout->addWidget(m_btnWishlist);
+    connect(m_btnStudyRooms, &QPushButton::clicked, this, [this]() { switchPage(6); });
+    sidebarLayout->addWidget(m_btnStudyRooms);
 
     m_btnNotifications = new QPushButton("Notifications", sidebar);
     m_btnNotifications->setIcon(QIcon(":/icons/bell.png"));
@@ -451,6 +460,10 @@ void UserPanel::setupUi()
 
     setupMyLibraryPage();
     m_stackedWidget->addWidget(m_libraryPage);
+
+    m_studyRoomsPage = new StudyRoomsPage(m_socket, m_userId, this);
+    m_stackedWidget->addWidget(m_studyRoomsPage);
+    connect(m_studyRoomsPage, &StudyRoomsPage::studyRoomReaderRequested, this, &UserPanel::openSyncedRoomReader);
 
     mainLayout->addWidget(sidebar);
     mainLayout->addWidget(m_stackedWidget);
@@ -603,6 +616,8 @@ void UserPanel::switchPage(int index)
     m_btnCart->setStyleSheet(index == 1 ? activeStyle : normalStyle);
     m_btnWishlist->setStyleSheet(index == 3 ? activeStyle : normalStyle);
     m_btnLibrary->setStyleSheet(index == 5 ? activeStyle : normalStyle);
+    m_btnStudyRooms->setStyleSheet(index == 6 ? activeStyle : normalStyle);
+    m_btnNotifications->setStyleSheet(index == 4 ? activeStyle : normalStyle);
 
     if (index == 1) {
         m_cartPage->refreshCart();
@@ -1132,6 +1147,14 @@ void UserPanel::onReadyRead()
             m_wishlistPage->handleServerResponse(responseObj);
         }
 
+        if (m_studyRoomsPage) m_studyRoomsPage->handleServerResponse(responseObj);
+
+        if (m_activeRoomReader) {
+            QString type = responseObj["type"].toString();
+            if (type == "studyroom_page_sync" || type == "studyroom_closed")
+                m_activeRoomReader->handleServerResponse(responseObj);
+        }
+
         if (action == "books_fetch_all_response" && responseObj["status"].toString() == "success") {
             m_storeBooks.clear();
             for (const QJsonValue &val : responseObj["books"].toArray()) {
@@ -1362,6 +1385,8 @@ void UserPanel::onReadyRead()
                 }
 
                 rebuildHomeSections();
+
+                if (m_studyRoomsPage) m_studyRoomsPage->setOwnedBooks(m_ownedBooksFull);
 
                 if (m_detailsPage && m_stackedWidget->currentWidget() == m_detailsPage) {
                     m_detailsPage->setOwned(m_ownedBookIds.contains(m_detailsPage->currentBookId()));
@@ -2296,6 +2321,62 @@ void UserPanel::launchPdfReader(int bookId, const QString &localPdfPath, const Q
         rebuildContinueReadingItems();
     });
     reader->showFullScreen();
+}
+
+void UserPanel::openSyncedRoomReader(int bookId, int roomId, bool isCreator, const QString &roomName)
+{
+    if (!m_ownedBookIds.contains(bookId)) {
+        StyledMessageBox::error(this, "Not Purchased", "You need to purchase this book before you can read it.");
+        return;
+    }
+
+    const QString remotePdfPath = m_ownedBookPdfPaths.value(bookId);
+    if (remotePdfPath.isEmpty()) {
+        StyledMessageBox::error(this, "Book Unavailable", "This book has no associated PDF file.");
+        return;
+    }
+
+    QString title;
+    for (const Book &b : std::as_const(m_storeBooks)) {
+        if (b.id == bookId) { title = b.title; break; }
+    }
+    if (title.isEmpty()) title = roomName;
+
+    QFileInfo info(remotePdfPath);
+    QDir().mkpath(QCoreApplication::applicationDirPath() + "/cache/books");
+    const QString localPath = QCoreApplication::applicationDirPath() + "/cache/books/" + info.fileName();
+
+    QString errorMsg;
+    if (!downloadFileFromServer(remotePdfPath, localPath, errorMsg)) {
+        StyledMessageBox::error(this, "Unable to Open Book",
+                                errorMsg.isEmpty() ? "Failed to download this book's PDF file." : errorMsg);
+        return;
+    }
+
+    if (m_activeRoomReader) {
+        m_activeRoomReader->close();
+        m_activeRoomReader = nullptr;
+    }
+
+    int startPage = m_readingProgressByBookId.value(bookId, 0);
+
+    m_activeRoomReader = new PdfReaderDialog(localPath, title, bookId, startPage, this,
+                                             m_socket, roomId, m_userId, isCreator);
+    connect(m_activeRoomReader, &QObject::destroyed, this, [this]() { m_activeRoomReader = nullptr; });
+    connect(m_activeRoomReader, &PdfReaderDialog::readingProgressChanged, this, [this](int id, int lastPage, int pageCount) {
+        m_readingProgressByBookId[id] = lastPage;
+        m_totalPagesByBookId[id] = pageCount;
+
+        QJsonObject req;
+        req["action"] = "progress_update";
+        req["userId"] = m_userId;
+        req["bookId"] = id;
+        req["lastPage"] = lastPage;
+        sendRequest(req);
+
+        rebuildContinueReadingItems();
+    });
+    m_activeRoomReader->showFullScreen();
 }
 
 void UserPanel::rebuildContinueReadingItems()

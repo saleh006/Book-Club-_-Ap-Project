@@ -75,6 +75,8 @@ void ServerManager::incomingConnection(qintptr socketDescriptor)
     connect(handler,&ClientHandler::logProduced,this,&ServerManager::serverLogEvent);
     connect(handler, &ClientHandler::databaseUpdated,this,&ServerManager::databaseUpdated);
     connect(handler, &ClientHandler::notificationReady, this, &ServerManager::pushToUser);
+    connect(handler, &ClientHandler::notificationReady, this, &ServerManager::pushToUser);
+    connect(handler, &ClientHandler::studyRoomEventReady, this, &ServerManager::pushToUser);
     connect(handler, &ClientHandler::broadcastTargetedUpdate, this, &ServerManager::onBroadcastReceived);
     connect(this, &ServerManager::sendToAllClientsSignal, handler, &ClientHandler::sendToClient);
     connect(this, &ServerManager::disconnectAllClientsSignal, handler, &ClientHandler::disconnectClient);

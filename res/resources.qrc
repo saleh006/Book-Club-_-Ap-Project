@@ -77,6 +77,6 @@
         <file>icons/tag-solid.png</file>
         <file>loading.gif</file>
         <file>BoocClubServer.jpg</file>
-        <file>BookClubClient.jpg</file>
+        <file>icons/people-group-solid.png</file>
     </qresource>
 </RCC>

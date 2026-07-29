@@ -12,6 +12,9 @@ class ClientHandler : public QThread
 public:
     explicit ClientHandler(qintptr socketDescriptor, QObject *parent = nullptr);
     ~ClientHandler();
+    // Study Rooms
+    bool handleStudyRoomActions(const QString &action, const QJsonObject &requestObj, QJsonObject &responseObj);
+    void broadcastToStudyRoomMembers(int roomId, const QJsonObject &payload, int excludeUserId = -1);
 
 signals:
     void logProduced(const QString &message);
@@ -20,6 +23,7 @@ signals:
     void broadcastTargetedUpdate(const QJsonObject &msg);
     void notificationReady(int userId, const QJsonObject &payload);
     void userLoggedIn(int userId);
+    void studyRoomEventReady(int userId, const QJsonObject &payload);
 
 protected:
     void run() override;
@@ -47,6 +51,7 @@ private:
     QTcpSocket *m_socket;
     QByteArray m_buffer;
     QString m_username = "Admin";
+    QVector<QPair<int,int>> m_studyRoomMemberships; // (roomId, userId) pairs this connection has joined
     int m_userId = -1;
     bool m_isAuthenticated = false;
     bool m_adminSubscribed = false;

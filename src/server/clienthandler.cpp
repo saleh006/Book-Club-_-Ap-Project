@@ -66,7 +66,8 @@ void ClientHandler::onReadyRead()
                        || handleDiscount_Wishlist_ReviewsActions(action, requestObj, responseObj)
                        || handleReviewAndNotificationActions(action, requestObj, responseObj)
                        || handleCart_PurchaseActions(action, requestObj, responseObj)
-                       || handlePublisherActions(action, requestObj, responseObj);
+                       || handlePublisherActions(action, requestObj, responseObj)
+                       || handleStudyRoomActions(action, requestObj, responseObj);
 
         if (!handled) {
             responseObj["status"] = "error";
@@ -98,6 +99,22 @@ void ClientHandler::onReadyRead()
 void ClientHandler::onDisconnected(){
     qDebug() << "Client disconnected. Cleaning up memory...";
     QString displayName = m_isAuthenticated ? m_username : "Anonymous";
+
+    for (const auto &membership : m_studyRoomMemberships) {
+        int roomId = membership.first;
+        int userId = membership.second;
+        QString errMsg;
+        DatabaseManager::instance().leaveStudyRoom(roomId, userId, errMsg);
+
+        QJsonObject notice;
+        notice["type"] = "studyroom_member_left";
+        notice["roomId"] = roomId;
+        notice["userId"] = userId;
+        notice["username"] = m_username;
+        broadcastToStudyRoomMembers(roomId, notice, userId);
+    }
+    m_studyRoomMemberships.clear();
+
     emit clientDisconnectedSignal(m_socketDescriptor,displayName, m_isAuthenticated, m_userId);
     if(m_socket){
         m_socket->close();

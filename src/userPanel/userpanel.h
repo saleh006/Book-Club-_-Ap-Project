@@ -34,6 +34,7 @@
 #include "bookdetailspage.h"
 #include "wishlistpage.h"
 #include "notificationtoast.h"
+#include "studyroomspage.h"
 
 class MyLibraryPage;
 class PdfReaderDialog;
@@ -214,6 +215,12 @@ private:
     QWidget *m_disconnectedBanner = nullptr;
     void showDisconnectedBanner();
     void hideDisconnectedBanner();
+
+    StudyRoomsPage *m_studyRoomsPage = nullptr;
+    QPushButton *m_btnStudyRooms = nullptr;
+
+    void openSyncedRoomReader(int bookId, int roomId, bool isCreator, const QString &roomName);
+    PdfReaderDialog *m_activeRoomReader = nullptr;
 };
 
 static bool downloadFileFromServer(const QString &serverFilePath, const QString &localSavePath, QString &errorMsg)

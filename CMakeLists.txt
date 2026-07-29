@@ -52,6 +52,8 @@ qt_add_executable(BookClubServer
     src/server/clienthandler_cart_and_purchases.cpp
     src/server/clienthandler_discounts_wishlist_reviews.cpp
     src/server/clienthandler_reviews_notifications.cpp
+    src/database/databasemanager_studyroom.cpp
+    src/server/clienthandler_studyroom.cpp
 )
 
 target_include_directories(BookClubServer PRIVATE
@@ -128,6 +130,7 @@ qt_add_qml_module(BookClubClient
         SOURCES src/userPanel/mylibrarypage.h src/userPanel/mylibrarypage.cpp
         SOURCES src/userPanel/pdfreaderdialog.h src/userPanel/pdfreaderdialog.cpp
         SOURCES src/shared/styledmessagebox.h src/shared/styledmessagebox.cpp
+        SOURCES src/userPanel/studyroomspage.h src/userPanel/studyroomspage.cpp
 )
 
 target_include_directories(BookClubClient PRIVATE

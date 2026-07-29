@@ -76,4 +76,21 @@ struct CartItem {
     double price = 0.0;
 };
 
+struct StudyRoom {
+    int id = -1;
+    int bookId = -1;
+    int creatorId = -1;
+    QString creatorUsername;
+    QString name;
+    QDateTime createdAt;
+    int memberCount = 0;
+};
+
+struct StudyRoomMember {
+    int userId = -1;
+    QString username;
+    QDateTime joinedAt;
+};
+
+
 #endif // MODELS_H

@@ -165,6 +165,16 @@ public:
     bool fetchPublisherSalesTrend(int publisherId, const QString &granularity,
                                   QVector<QPair<QString, int>> &outPoints, QString &errorMsg);
 
+    // Study Rooms
+    bool createStudyRoom(int bookId, int creatorId, const QString &name, int &newRoomId, QString &errorMsg);
+    bool fetchStudyRoomsForBook(int bookId, QVector<StudyRoom> &outRooms, QString &errorMsg);
+    bool fetchStudyRoom(int roomId, StudyRoom &outRoom, QString &errorMsg);
+    bool joinStudyRoom(int roomId, int userId, QString &errorMsg);
+    bool leaveStudyRoom(int roomId, int userId, QString &errorMsg);
+    bool fetchStudyRoomMembers(int roomId, QVector<StudyRoomMember> &outMembers, QString &errorMsg);
+    bool isStudyRoomMember(int roomId, int userId, bool &outIsMember, QString &errorMsg);
+    bool closeStudyRoom(int roomId, int requesterId, QString &errorMsg);
+
 
 private:
     DatabaseManager() = default;
@@ -179,6 +189,7 @@ private:
     bool createTableForCart();
     bool createTableForPurchases();
     bool createTableForUserGenres();
+    bool createTableStudyRoom();
     bool createAllTables();
     QString generateSalt() const;
     QString hashPassword(const QString &password, const QString &salt) const;

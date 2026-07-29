@@ -13,6 +13,8 @@
 #include <QPdfDocument>
 #include <QPdfView>
 #include <QPdfPageNavigator>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include "styledmessagebox.h"
 
 static QString friendlyDocError(QPdfDocument::Error error)
@@ -31,9 +33,28 @@ static QString friendlyDocError(QPdfDocument::Error error)
     }
 }
 
+// PdfReaderDialog::PdfReaderDialog(const QString &pdfPath, const QString &bookTitle,
+//                                  int bookId, int startPage, QWidget *parent)
+//     : QDialog(parent), m_bookId(bookId), m_pendingStartPage(qMax(0, startPage))
+// {
+//     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+//     setWindowTitle(bookTitle.isEmpty() ? tr("Book Reader") : bookTitle);
+//     setAttribute(Qt::WA_DeleteOnClose);
+
+//     buildUi(bookTitle);
+
+//     if (!QFileInfo::exists(pdfPath)) {
+//         showLoadError(tr("The book's PDF file could not be found."));
+//         return;
+//     }
+//     beginLoad(pdfPath);
+// }
+
 PdfReaderDialog::PdfReaderDialog(const QString &pdfPath, const QString &bookTitle,
-                                 int bookId, int startPage, QWidget *parent)
-    : QDialog(parent), m_bookId(bookId), m_pendingStartPage(qMax(0, startPage))
+                                 int bookId, int startPage, QWidget *parent,
+                                 QTcpSocket *syncSocket, int syncRoomId, int syncUserId, bool isRoomCreator)
+    : QDialog(parent), m_bookId(bookId), m_pendingStartPage(qMax(0, startPage)),
+    m_socket(syncSocket), m_roomId(syncRoomId), m_syncUserId(syncUserId), m_isRoomCreator(isRoomCreator)
 {
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     setWindowTitle(bookTitle.isEmpty() ? tr("Book Reader") : bookTitle);
@@ -194,10 +215,16 @@ void PdfReaderDialog::buildUi(const QString &bookTitle)
     connect(prevShortcut, &QShortcut::activated, this, [this] {
         if (m_documentValid) goToPage(m_view->pageNavigator()->currentPage() - 1);
     });
+    connect(prevShortcut, &QShortcut::activated, this, [this] {
+        if (m_documentValid && (m_roomId < 0 || m_isRoomCreator)) goToPage(m_view->pageNavigator()->currentPage() - 1);
+    });
     auto *nextShortcut = new QShortcut(QKeySequence(Qt::Key_Right), this);
     nextShortcut->setContext(Qt::WidgetWithChildrenShortcut);
     connect(nextShortcut, &QShortcut::activated, this, [this] {
         if (m_documentValid) goToPage(m_view->pageNavigator()->currentPage() + 1);
+    });
+    connect(nextShortcut, &QShortcut::activated, this, [this] {
+        if (m_documentValid && (m_roomId < 0 || m_isRoomCreator)) goToPage(m_view->pageNavigator()->currentPage() + 1);
     });
 
     for (auto *b : {m_prevBtn, m_nextBtn, m_zoomInBtn, m_zoomOutBtn, m_fitWidthBtn})
@@ -245,6 +272,13 @@ void PdfReaderDialog::onStatusChanged()
         b->setEnabled(true);
     m_pageSpin->setEnabled(true);
 
+    if (m_roomId >= 0 && !m_isRoomCreator) {
+        // The room creator drives navigation for everyone; followers just watch.
+        m_prevBtn->setEnabled(false);
+        m_nextBtn->setEnabled(false);
+        m_pageSpin->setEnabled(false);
+    }
+
     int startPage = m_pendingStartPage;
     if (startPage < 0 || startPage >= pageCount)
         startPage = 0;
@@ -256,13 +290,24 @@ void PdfReaderDialog::goToPage(int zeroBasedPage)
 {
     if (!m_documentValid || !m_document || m_document->pageCount() <= 0)
         return;
+    if (m_roomId >= 0 && !m_isRoomCreator && !m_applyingRemotePage)
+        return; // followers only move when a page sync arrives from the creator
+
     zeroBasedPage = qBound(0, zeroBasedPage, m_document->pageCount() - 1);
     m_view->pageNavigator()->jump(zeroBasedPage, QPointF());
+
+    if (m_roomId >= 0 && m_isRoomCreator && !m_applyingRemotePage)
+        sendPageSync(zeroBasedPage);
 }
 
 void PdfReaderDialog::updateNavControls()
 {
     if (!m_documentValid) return;
+    if (m_roomId >= 0 && !m_isRoomCreator) {
+        m_prevBtn->setEnabled(false);
+        m_nextBtn->setEnabled(false);
+        return;
+    }
     const int page = m_view->pageNavigator()->currentPage();
     const int count = m_document->pageCount();
     m_prevBtn->setEnabled(page > 0);
@@ -294,5 +339,45 @@ void PdfReaderDialog::closeEvent(QCloseEvent *event)
             );
     }
 
+    if (m_roomId >= 0 && !m_roomLeftOrClosed) {
+        m_roomLeftOrClosed = true;
+        if (m_socket && m_socket->state() == QAbstractSocket::ConnectedState) {
+            QJsonObject req;
+            req["userId"] = m_syncUserId;
+            req["roomId"] = m_roomId;
+            req["action"] = m_isRoomCreator ? "studyroom_close" : "studyroom_leave";
+            m_socket->write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
+        }
+    }
+
     QDialog::closeEvent(event);
+}
+
+void PdfReaderDialog::sendPageSync(int zeroBasedPage)
+{
+    if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState) return;
+    QJsonObject req;
+    req["action"] = "studyroom_page_sync";
+    req["userId"] = m_syncUserId;
+    req["roomId"] = m_roomId;
+    req["page"] = zeroBasedPage;
+    m_socket->write(QJsonDocument(req).toJson(QJsonDocument::Compact) + "\n");
+}
+
+void PdfReaderDialog::handleServerResponse(const QJsonObject &responseObj)
+{
+    if (m_roomId < 0 || responseObj["roomId"].toInt() != m_roomId) return;
+    QString type = responseObj["type"].toString();
+
+    if (type == "studyroom_page_sync") {
+        if (m_isRoomCreator) return; // we're the source of truth, ignore the echo
+        m_applyingRemotePage = true;
+        goToPage(responseObj["page"].toInt());
+        m_applyingRemotePage = false;
+    }
+    else if (type == "studyroom_closed") {
+        m_roomLeftOrClosed = true;
+        StyledMessageBox::error(this, tr("Study Room Closed"), tr("The room creator has closed this study room."));
+        close();
+    }
 }
