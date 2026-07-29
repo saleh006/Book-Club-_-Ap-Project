@@ -92,3 +92,18 @@ Start the server first, then launch the client:
 ## License
 
 No license has been specified yet for this project. Consider adding one (e.g., MIT) if you plan to share or accept contributions.
+
+## Installation
+
+### Windows (installer)
+
+Prebuilt installers are available in the [`installer/`](installer/) folder — no need to build from source:
+
+1. Download and run both installers from the `installer/` folder:
+   - `BookClubServer` installer
+   - `BookClubClient` installer
+2. Once installed, **start the server first**, then launch the client:
+   - Run **BookClubServer** (from Start Menu / desktop shortcut)
+   - Then run **BookClubClient**
+
+> On first run, the server initializes the SQLite database used for users, books, carts, libraries, and reviews.
